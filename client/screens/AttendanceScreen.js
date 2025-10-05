@@ -10,6 +10,8 @@ import {
   Dimensions,
 } from 'react-native';
 import { FontAwesome5, MaterialIcons, Ionicons } from '@expo/vector-icons';
+import CommonHeader from '../components/CommonHeader';
+import { Colors, CommonStyles } from '../theme/Colors';
 
 const { width } = Dimensions.get('window');
 
@@ -148,12 +150,14 @@ export default function AttendanceScreen({ navigation }) {
   };
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Mark Attendance</Text>
-        <Text style={styles.headerSubtitle}>Choose your method to check-in</Text>
-      </View>
+    <View style={styles.container}>
+      <CommonHeader
+        title="Mark Attendance"
+        subtitle="Choose your method to check-in"
+        showBack={true}
+        onBackPress={() => navigation.goBack()}
+      />
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
 
       {/* Location Status */}
       <View style={styles.card}>
@@ -303,47 +307,32 @@ export default function AttendanceScreen({ navigation }) {
           <Text style={styles.settingValue}>High (GPS + Network)</Text>
         </View>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: Colors.background,
   },
-  header: {
-    backgroundColor: '#2196F3',
-    padding: 20,
-    paddingTop: 50,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    color: 'white',
-    opacity: 0.9,
-    marginTop: 5,
+  content: {
+    flex: 1,
+    paddingHorizontal: 20,
   },
   card: {
-    backgroundColor: 'white',
+    backgroundColor: Colors.surface,
     margin: 15,
     marginBottom: 0,
     borderRadius: 15,
     padding: 20,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    ...CommonStyles.shadow,
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: Colors.textPrimary,
     marginBottom: 15,
   },
   locationStatus: {
@@ -363,23 +352,23 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   locationDetails: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: Colors.background,
     padding: 15,
     borderRadius: 10,
   },
   locationText: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#333',
+    color: Colors.textPrimary,
   },
   locationAddress: {
     fontSize: 16,
-    color: '#2196F3',
+    color: Colors.primary,
     marginTop: 5,
   },
   coordinates: {
     fontSize: 12,
-    color: '#666',
+    color: Colors.textSecondary,
     marginTop: 5,
   },
   methodButton: {
@@ -390,10 +379,10 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   geoButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: Colors.success,
   },
   qrButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: Colors.primary,
   },
 
   methodContent: {
@@ -412,7 +401,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   classCard: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: Colors.background,
     borderRadius: 10,
     padding: 15,
     marginBottom: 15,
@@ -429,16 +418,16 @@ const styles = StyleSheet.create({
   className: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    color: Colors.textPrimary,
   },
   classTeacher: {
     fontSize: 14,
-    color: '#666',
+    color: Colors.textSecondary,
     marginTop: 2,
   },
   classDetails: {
     fontSize: 12,
-    color: '#999',
+    color: Colors.textSecondary,
     marginTop: 2,
   },
   classDistance: {
@@ -447,7 +436,7 @@ const styles = StyleSheet.create({
   distanceText: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#2196F3',
+    color: Colors.primary,
   },
   statusDot: {
     width: 8,
@@ -469,7 +458,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 5,
   },
   qrActionButton: {
-    backgroundColor: '#FF9800',
+    backgroundColor: Colors.warning,
   },
 
   actionText: {
@@ -488,11 +477,11 @@ const styles = StyleSheet.create({
   summaryNumber: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#2196F3',
+    color: Colors.primary,
   },
   summaryLabel: {
     fontSize: 14,
-    color: '#666',
+    color: Colors.textSecondary,
     marginTop: 5,
   },
   settingItem: {
@@ -501,15 +490,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: Colors.border,
   },
   settingLabel: {
     fontSize: 16,
-    color: '#333',
+    color: Colors.textPrimary,
   },
   settingValue: {
     fontSize: 14,
-    color: '#2196F3',
+    color: Colors.primary,
     fontWeight: 'bold',
   },
 });

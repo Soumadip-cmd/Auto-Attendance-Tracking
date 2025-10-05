@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,11 +7,15 @@ import {
   TouchableOpacity,
   FlatList,
   Dimensions,
+  Alert,
 } from 'react-native';
+import { FontAwesome5, MaterialIcons } from '@expo/vector-icons';
+import CommonHeader from '../components/CommonHeader';
+import { Colors, CommonStyles } from '../theme/Colors';
 
 const { width } = Dimensions.get('window');
 
-export default function AttendanceHistoryScreen() {
+export default function AttendanceHistoryScreen({ navigation }) {
   const [selectedFilter, setSelectedFilter] = useState('week');
   const [attendanceData, setAttendanceData] = useState([]);
   const [stats, setStats] = useState({});
@@ -107,37 +111,37 @@ export default function AttendanceHistoryScreen() {
   const getStatusColor = (status) => {
     switch (status) {
       case 'present':
-        return '#4CAF50';
+        return Colors.success;
       case 'absent':
-        return '#F44336';
+        return Colors.error;
       case 'pending':
-        return '#FF9800';
+        return Colors.warning;
       default:
-        return '#9E9E9E';
+        return Colors.textSecondary;
     }
   };
 
   const getStatusIcon = (status) => {
     switch (status) {
       case 'present':
-        return '✅';
+        return 'check-circle';
       case 'absent':
-        return '❌';
+        return 'times-circle';
       case 'pending':
-        return '⏳';
+        return 'clock';
       default:
-        return '❓';
+        return 'question-circle';
     }
   };
 
   const getMethodIcon = (method) => {
     switch (method) {
       case 'geo':
-        return '🛰️';
+        return 'map-marker-alt';
       case 'qr':
-        return '📱';
+        return 'qrcode';
       default:
-        return '';
+        return null;
     }
   };
 
@@ -153,16 +157,26 @@ export default function AttendanceHistoryScreen() {
           <View style={styles.classInfo}>
             <Text style={styles.className}>{classItem.subject}</Text>
             {classItem.time && (
-              <Text style={styles.classTime}>
-                {getMethodIcon(classItem.method)} {classItem.time}
-              </Text>
+              <View style={styles.classTimeContainer}>
+                {getMethodIcon(classItem.method) && (
+                  <FontAwesome5 
+                    name={getMethodIcon(classItem.method)} 
+                    size={12} 
+                    color={Colors.textSecondary} 
+                  />
+                )}
+                <Text style={styles.classTime}>{classItem.time}</Text>
+              </View>
             )}
           </View>
           
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor(classItem.status) }]}>
-            <Text style={styles.statusText}>
-              {getStatusIcon(classItem.status)} {classItem.status.toUpperCase()}
-            </Text>
+            <FontAwesome5 
+              name={getStatusIcon(classItem.status)} 
+              size={12} 
+              color={Colors.surface} 
+            />
+            <Text style={styles.statusText}>{classItem.status.toUpperCase()}</Text>
           </View>
         </View>
       ))}
@@ -171,100 +185,135 @@ export default function AttendanceHistoryScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Attendance History</Text>
-        <Text style={styles.headerSubtitle}>Track your class attendance</Text>
-      </View>
-
-      {/* Filter Tabs */}
-      <View style={styles.filterContainer}>
-        {filters.map((filter) => (
-          <TouchableOpacity
-            key={filter.key}
-            style={[
-              styles.filterTab,
-              selectedFilter === filter.key && styles.activeFilterTab
-            ]}
-            onPress={() => setSelectedFilter(filter.key)}
-          >
-            <Text
-              style={[
-                styles.filterTabText,
-                selectedFilter === filter.key && styles.activeFilterTabText
-              ]}
-            >
-              {filter.label}
-            </Text>
+      <CommonHeader
+        title="Attendance History"
+        subtitle="Track your class attendance"
+        showBack={true}
+        onBackPress={() => navigation.goBack()}
+        rightComponent={
+          <TouchableOpacity onPress={() => Alert.alert('Export', 'Export functionality coming soon!')}>
+            <FontAwesome5 name="download" size={20} color={Colors.surface} />
           </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Statistics Cards */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statsContainer}>
-        <View style={[styles.statCard, styles.totalCard]}>
-          <Text style={styles.statNumber}>{stats.total}</Text>
-          <Text style={styles.statLabel}>Total Classes</Text>
-        </View>
-        
-        <View style={[styles.statCard, styles.presentCard]}>
-          <Text style={styles.statNumber}>{stats.present}</Text>
-          <Text style={styles.statLabel}>Present</Text>
-        </View>
-        
-        <View style={[styles.statCard, styles.absentCard]}>
-          <Text style={styles.statNumber}>{stats.absent}</Text>
-          <Text style={styles.statLabel}>Absent</Text>
-        </View>
-        
-        <View style={[styles.statCard, styles.pendingCard]}>
-          <Text style={styles.statNumber}>{stats.pending}</Text>
-          <Text style={styles.statLabel}>Pending</Text>
-        </View>
-        
-        <View style={[styles.statCard, styles.percentageCard]}>
-          <Text style={styles.statNumber}>{stats.percentage}%</Text>
-          <Text style={styles.statLabel}>Attendance Rate</Text>
-        </View>
-      </ScrollView>
-
-      {/* Attendance Progress */}
-      <View style={styles.progressContainer}>
-        <View style={styles.progressHeader}>
-          <Text style={styles.progressTitle}>Overall Progress</Text>
-          <Text style={styles.progressPercentage}>{stats.percentage}%</Text>
-        </View>
-        <View style={styles.progressBar}>
-          <View 
-            style={[
-              styles.progressFill, 
-              { 
-                width: `${stats.percentage}%`,
-                backgroundColor: stats.percentage >= 75 ? '#4CAF50' : stats.percentage >= 50 ? '#FF9800' : '#F44336'
-              }
-            ]} 
-          />
-        </View>
-        <Text style={styles.progressText}>
-          {stats.percentage >= 75 ? '🎉 Excellent attendance!' : 
-           stats.percentage >= 50 ? '⚠️ Good, but can improve' : 
-           '🚨 Attendance below minimum requirement'}
-        </Text>
-      </View>
-
-      {/* Attendance List */}
-      <FlatList
-        data={attendanceData}
-        renderItem={renderAttendanceDay}
-        keyExtractor={(item) => item.id.toString()}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.listContainer}
+        }
       />
 
-      {/* Export Button */}
-      <View style={styles.exportContainer}>
-        <TouchableOpacity style={styles.exportButton}>
-          <Text style={styles.exportButtonText}>📊 Export Report</Text>
+      <View style={styles.content}>
+        {/* Filter Tabs */}
+        <View style={styles.filterContainer}>
+          {filters.map((filter) => (
+            <TouchableOpacity
+              key={filter.key}
+              style={[
+                styles.filterTab,
+                selectedFilter === filter.key && styles.activeFilterTab
+              ]}
+              onPress={() => setSelectedFilter(filter.key)}
+            >
+              <Text
+                style={[
+                  styles.filterTabText,
+                  selectedFilter === filter.key && styles.activeFilterTabText
+                ]}
+              >
+                {filter.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Statistics Cards */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statsContainer}>
+          <View style={styles.statCard}>
+            <FontAwesome5 name="book-open" size={24} color={Colors.primary} />
+            <Text style={styles.statNumber}>{stats.total}</Text>
+            <Text style={styles.statLabel}>Total Classes</Text>
+          </View>
+          
+          <View style={styles.statCard}>
+            <FontAwesome5 name="check-circle" size={24} color={Colors.success} />
+            <Text style={styles.statNumber}>{stats.present}</Text>
+            <Text style={styles.statLabel}>Present</Text>
+          </View>
+          
+          <View style={styles.statCard}>
+            <FontAwesome5 name="times-circle" size={24} color={Colors.error} />
+            <Text style={styles.statNumber}>{stats.absent}</Text>
+            <Text style={styles.statLabel}>Absent</Text>
+          </View>
+          
+          <View style={styles.statCard}>
+            <FontAwesome5 name="clock" size={24} color={Colors.warning} />
+            <Text style={styles.statNumber}>{stats.pending}</Text>
+            <Text style={styles.statLabel}>Pending</Text>
+          </View>
+          
+          <View style={styles.statCard}>
+            <FontAwesome5 name="percentage" size={24} color={Colors.info} />
+            <Text style={styles.statNumber}>{stats.percentage}%</Text>
+            <Text style={styles.statLabel}>Attendance Rate</Text>
+          </View>
+        </ScrollView>
+
+        {/* Attendance Progress */}
+        <View style={styles.progressContainer}>
+          <View style={styles.progressHeader}>
+            <Text style={styles.progressTitle}>Overall Progress</Text>
+            <Text style={styles.progressPercentage}>{stats.percentage}%</Text>
+          </View>
+          <View style={styles.progressBar}>
+            <View 
+              style={[
+                styles.progressFill, 
+                { 
+                  width: stats.percentage + '%',
+                  backgroundColor: stats.percentage >= 75 ? Colors.success : 
+                                   stats.percentage >= 50 ? Colors.warning : Colors.error
+                }
+              ]} 
+            />
+          </View>
+          <View style={styles.progressTextContainer}>
+            {stats.percentage >= 75 ? (
+              <>
+                <FontAwesome5 name="trophy" size={16} color={Colors.success} />
+                <Text style={[styles.progressText, { color: Colors.success }]}>
+                  Excellent attendance!
+                </Text>
+              </>
+            ) : stats.percentage >= 50 ? (
+              <>
+                <FontAwesome5 name="exclamation-triangle" size={16} color={Colors.warning} />
+                <Text style={[styles.progressText, { color: Colors.warning }]}>
+                  Good, but can improve
+                </Text>
+              </>
+            ) : (
+              <>
+                <FontAwesome5 name="exclamation-circle" size={16} color={Colors.error} />
+                <Text style={[styles.progressText, { color: Colors.error }]}>
+                  Attendance below minimum requirement
+                </Text>
+              </>
+            )}
+          </View>
+        </View>
+
+        {/* Attendance List */}
+        <FlatList
+          data={attendanceData}
+          renderItem={renderAttendanceDay}
+          keyExtractor={(item) => item.id.toString()}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.listContainer}
+        />
+
+        {/* Export Button */}
+        <TouchableOpacity 
+          style={styles.exportButton}
+          onPress={() => Alert.alert('Export Report', 'Export functionality coming soon!')}
+        >
+          <FontAwesome5 name="file-export" size={20} color={Colors.surface} />
+          <Text style={styles.exportButtonText}>Export Report</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -274,32 +323,19 @@ export default function AttendanceHistoryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: Colors.background,
   },
-  header: {
-    backgroundColor: '#2196F3',
-    padding: 20,
-    paddingTop: 50,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    color: 'white',
-    opacity: 0.9,
-    marginTop: 5,
+  content: {
+    flex: 1,
+    paddingHorizontal: 20,
   },
   filterContainer: {
     flexDirection: 'row',
-    backgroundColor: 'white',
-    marginHorizontal: 15,
-    marginTop: 15,
-    borderRadius: 10,
-    padding: 5,
-    elevation: 2,
+    backgroundColor: Colors.surface,
+    marginTop: 20,
+    borderRadius: 12,
+    padding: 4,
+    ...CommonStyles.shadow,
   },
   filterTab: {
     flex: 1,
@@ -309,171 +345,163 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   activeFilterTab: {
-    backgroundColor: '#2196F3',
+    backgroundColor: Colors.primary,
   },
   filterTabText: {
     fontSize: 14,
-    color: '#666',
+    color: Colors.textSecondary,
     fontWeight: '500',
   },
   activeFilterTabText: {
-    color: 'white',
+    color: Colors.surface,
     fontWeight: 'bold',
   },
   statsContainer: {
-    marginTop: 15,
-    paddingLeft: 15,
+    marginTop: 20,
   },
   statCard: {
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 15,
+    backgroundColor: Colors.surface,
+    borderRadius: 15,
+    padding: 20,
     marginRight: 15,
-    minWidth: 100,
+    minWidth: 120,
     alignItems: 'center',
-    elevation: 2,
-  },
-  totalCard: {
-    borderTopWidth: 3,
-    borderTopColor: '#2196F3',
-  },
-  presentCard: {
-    borderTopWidth: 3,
-    borderTopColor: '#4CAF50',
-  },
-  absentCard: {
-    borderTopWidth: 3,
-    borderTopColor: '#F44336',
-  },
-  pendingCard: {
-    borderTopWidth: 3,
-    borderTopColor: '#FF9800',
-  },
-  percentageCard: {
-    borderTopWidth: 3,
-    borderTopColor: '#9C27B0',
+    ...CommonStyles.shadow,
   },
   statNumber: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: Colors.textPrimary,
+    marginTop: 8,
   },
   statLabel: {
     fontSize: 12,
-    color: '#666',
+    color: Colors.textSecondary,
     textAlign: 'center',
     marginTop: 5,
   },
   progressContainer: {
-    backgroundColor: 'white',
-    margin: 15,
-    borderRadius: 10,
+    backgroundColor: Colors.surface,
+    marginTop: 20,
+    borderRadius: 15,
     padding: 20,
-    elevation: 2,
+    ...CommonStyles.shadow,
   },
   progressHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 15,
   },
   progressTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    color: Colors.textPrimary,
   },
   progressPercentage: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#2196F3',
+    color: Colors.primary,
   },
   progressBar: {
     height: 8,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: Colors.background,
     borderRadius: 4,
-    marginBottom: 10,
+    marginBottom: 15,
   },
   progressFill: {
     height: '100%',
     borderRadius: 4,
   },
+  progressTextContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   progressText: {
     fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
+    fontWeight: '600',
+    marginLeft: 8,
   },
   listContainer: {
-    paddingHorizontal: 15,
+    paddingBottom: 20,
   },
   dayCard: {
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 15,
-    elevation: 2,
+    backgroundColor: Colors.surface,
+    borderRadius: 15,
+    padding: 20,
+    marginTop: 15,
+    ...CommonStyles.shadow,
   },
   dayHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 15,
-    paddingBottom: 10,
+    paddingBottom: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: Colors.border,
   },
   dayName: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: Colors.textPrimary,
   },
   dayDate: {
     fontSize: 14,
-    color: '#666',
+    color: Colors.textSecondary,
   },
   classRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f8f9fa',
+    borderBottomColor: Colors.background,
   },
   classInfo: {
     flex: 1,
   },
   className: {
     fontSize: 16,
-    fontWeight: '500',
-    color: '#333',
+    fontWeight: '600',
+    color: Colors.textPrimary,
+  },
+  classTimeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
   },
   classTime: {
     fontSize: 14,
-    color: '#666',
-    marginTop: 2,
+    color: Colors.textSecondary,
+    marginLeft: 6,
   },
   statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 15,
   },
   statusText: {
-    color: 'white',
+    color: Colors.surface,
     fontSize: 12,
     fontWeight: 'bold',
-  },
-  exportContainer: {
-    padding: 15,
-    backgroundColor: 'white',
+    marginLeft: 6,
   },
   exportButton: {
-    backgroundColor: '#4CAF50',
-    padding: 15,
-    borderRadius: 10,
+    ...CommonStyles.primaryButton,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+    marginBottom: 20,
   },
   exportButtonText: {
-    color: 'white',
+    color: Colors.surface,
     fontSize: 16,
     fontWeight: 'bold',
+    marginLeft: 10,
   },
 });

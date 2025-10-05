@@ -1,23 +1,27 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Image,
   Alert,
   KeyboardAvoidingView,
   Platform,
+  StatusBar,
+  Dimensions,
+  ScrollView,
 } from 'react-native';
-import { FontAwesome5, MaterialIcons } from '@expo/vector-icons';
+import { FontAwesome5 } from '@expo/vector-icons';
+import { Colors, CommonStyles } from '../theme/Colors';
 
-export default function LoginScreen({ setIsLoggedIn, setUserRole }) {
+const { width, height } = Dimensions.get('window');
+
+export default function LoginScreen({ navigation, route, setIsLoggedIn, setUserRole }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [selectedRole, setSelectedRole] = useState('student');
+  const selectedRole = route?.params?.userRole || 'student';
 
-  // Dummy user data
   const dummyUsers = {
     'student@edu.com': { password: '123456', role: 'student', name: 'John Doe' },
     'teacher@edu.com': { password: '123456', role: 'teacher', name: 'Prof. Smith' },
@@ -31,12 +35,12 @@ export default function LoginScreen({ setIsLoggedIn, setUserRole }) {
     }
 
     const user = dummyUsers[email];
-    if (user && user.password === password) {
+    if (user && user.password === password && user.role === selectedRole) {
       setUserRole(user.role);
       setIsLoggedIn(true);
       Alert.alert('Success', `Welcome ${user.name}!`);
     } else {
-      Alert.alert('Error', 'Invalid credentials');
+      Alert.alert('Error', 'Invalid credentials or wrong role selected');
     }
   };
 
@@ -49,150 +53,198 @@ export default function LoginScreen({ setIsLoggedIn, setUserRole }) {
     
     setEmail(userCredentials[role]);
     setPassword('123456');
-    setSelectedRole(role);
+    
+    // Auto login after setting credentials
+    setTimeout(() => {
+      setUserRole(role);
+      setIsLoggedIn(true);
+      Alert.alert('Success', `Quick login as ${role.charAt(0).toUpperCase() + role.slice(1)}!`);
+    }, 100);
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <View style={styles.header}>
-        <View style={styles.logoContainer}>
-          <FontAwesome5 name="graduation-cap" size={48} color="white" />
-          <Text style={styles.logo}>EduTrack</Text>
-        </View>
-        <Text style={styles.tagline}>Smart Geo-based Attendance System</Text>
-      </View>
-
-      <View style={styles.form}>
-        <Text style={styles.title}>Welcome Back!</Text>
-        
-        <TextInput
-          style={styles.input}
-          placeholder="Email Address"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-        
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
-
-        <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-          <Text style={styles.loginButtonText}>Login</Text>
-        </TouchableOpacity>
-
-        <View style={styles.divider}>
-          <Text style={styles.dividerText}>Quick Login (Demo)</Text>
+    <>
+      <StatusBar barStyle="light-content" backgroundColor={Colors.primary} />
+      <KeyboardAvoidingView 
+        style={styles.container} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <View style={styles.header}>
+          <View style={styles.logoContainer}>
+            <View style={styles.logoCircle}>
+              <FontAwesome5 name="graduation-cap" size={30} color={Colors.primary} />
+            </View>
+            <Text style={styles.logo}>EduTrack</Text>
+          </View>
+          <Text style={styles.tagline}>Smart Geo-based Attendance System</Text>
         </View>
 
-        <View style={styles.quickLoginContainer}>
-          <TouchableOpacity 
-            style={[styles.roleButton, styles.studentButton]} 
-            onPress={() => handleQuickLogin('student')}
-          >
-            <FontAwesome5 name="user-graduate" size={16} color="white" />
-            <Text style={styles.roleButtonText}>Student</Text>
-          </TouchableOpacity>
+        <ScrollView 
+          style={styles.form} 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.formContent}
+        >
+          <View style={styles.roleIndicator}>
+            <FontAwesome5 
+              name={selectedRole === 'student' ? 'user-graduate' : 
+                   selectedRole === 'teacher' ? 'chalkboard-teacher' : 'user-cog'} 
+              size={20} 
+              color={Colors.primary} 
+            />
+            <Text style={styles.roleText}>
+              {selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)} Login
+            </Text>
+          </View>
+          <Text style={styles.title}>Welcome Back!</Text>
           
-          <TouchableOpacity 
-            style={[styles.roleButton, styles.teacherButton]} 
-            onPress={() => handleQuickLogin('teacher')}
-          >
-            <FontAwesome5 name="chalkboard-teacher" size={16} color="white" />
-            <Text style={styles.roleButtonText}>Teacher</Text>
-          </TouchableOpacity>
+          <TextInput
+            style={styles.input}
+            placeholder="Email Address"
+            placeholderTextColor={Colors.textSecondary}
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
           
-          <TouchableOpacity 
-            style={[styles.roleButton, styles.adminButton]} 
-            onPress={() => handleQuickLogin('admin')}
-          >
-            <FontAwesome5 name="user-cog" size={16} color="white" />
-            <Text style={styles.roleButtonText}>Admin</Text>
-          </TouchableOpacity>
-        </View>
+          <TextInput
+            style={styles.input}
+            placeholder="Password"
+            placeholderTextColor={Colors.textSecondary}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Don't have an account? </Text>
-          <TouchableOpacity>
-            <Text style={styles.signupLink}>Sign Up</Text>
+          <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+            <Text style={styles.loginButtonText}>Login Now</Text>
           </TouchableOpacity>
-        </View>
-      </View>
-    </KeyboardAvoidingView>
+
+          <View style={styles.divider}>
+            <Text style={styles.dividerText}>Quick Login (Demo)</Text>
+          </View>
+
+          <View style={styles.quickLoginContainer}>
+            <TouchableOpacity 
+              style={[styles.roleButton, styles.studentButton]} 
+              onPress={() => handleQuickLogin('student')}
+            >
+              <FontAwesome5 name="user-graduate" size={16} color="white" />
+              <Text style={styles.roleButtonText}>Student</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.roleButton, styles.teacherButton]} 
+              onPress={() => handleQuickLogin('teacher')}
+            >
+              <FontAwesome5 name="chalkboard-teacher" size={16} color="white" />
+              <Text style={styles.roleButtonText}>Teacher</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.roleButton, styles.adminButton]} 
+              onPress={() => handleQuickLogin('admin')}
+            >
+              <FontAwesome5 name="user-cog" size={16} color="white" />
+              <Text style={styles.roleButtonText}>Admin</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Don't have an account? </Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Signup', { userRole: selectedRole })}>
+              <Text style={styles.signupLink}>Sign Up</Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => navigation.navigate('RoleSelection')}
+          >
+            <FontAwesome5 name="arrow-left" size={16} color={Colors.primary} />
+            <Text style={styles.backButtonText}>Change Role</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: Colors.background,
   },
   header: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#2196F3',
-    paddingTop: 50,
+    backgroundColor: Colors.primary,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 20 : 50,
+    paddingBottom: 30,
+    minHeight: 180,
   },
   logoContainer: {
     alignItems: 'center',
     marginBottom: 10,
   },
+  logoCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: Colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...CommonStyles.shadow,
+  },
   logo: {
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: 'white',
-    marginTop: 15,
+    color: Colors.surface,
+    marginTop: 10,
   },
   tagline: {
-    fontSize: 16,
-    color: 'white',
+    fontSize: 14,
+    color: Colors.surface,
     opacity: 0.9,
     textAlign: 'center',
     paddingHorizontal: 20,
+    marginTop: 5,
   },
   form: {
-    flex: 2,
-    backgroundColor: 'white',
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    padding: 30,
-    marginTop: -30,
+    flex: 1,
+    backgroundColor: Colors.surface,
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
+    marginTop: -20,
+  },
+  formContent: {
+    padding: 25,
+    paddingBottom: 30,
   },
   title: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: 'bold',
-    color: '#333',
+    color: Colors.textPrimary,
     textAlign: 'center',
-    marginBottom: 30,
+    marginBottom: 20,
   },
   input: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 10,
+    backgroundColor: Colors.background,
+    borderRadius: 12,
     padding: 15,
     marginBottom: 15,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: '#e9ecef',
+    borderColor: Colors.border,
+    color: Colors.textPrimary,
   },
   loginButton: {
-    backgroundColor: '#2196F3',
-    borderRadius: 10,
-    padding: 15,
-    alignItems: 'center',
+    ...CommonStyles.primaryButton,
     marginTop: 10,
     marginBottom: 20,
   },
   loginButtonText: {
-    color: 'white',
+    color: Colors.surface,
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -201,7 +253,7 @@ const styles = StyleSheet.create({
     marginVertical: 20,
   },
   dividerText: {
-    color: '#666',
+    color: Colors.textSecondary,
     fontSize: 14,
   },
   quickLoginContainer: {
@@ -217,18 +269,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
+    ...CommonStyles.shadow,
   },
   studentButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: Colors.success,
   },
   teacherButton: {
-    backgroundColor: '#FF9800',
+    backgroundColor: Colors.warning,
   },
   adminButton: {
-    backgroundColor: '#9C27B0',
+    backgroundColor: Colors.secondary,
   },
   roleButtonText: {
-    color: 'white',
+    color: Colors.surface,
     fontSize: 12,
     fontWeight: 'bold',
     marginLeft: 8,
@@ -239,12 +292,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   footerText: {
-    color: '#666',
+    color: Colors.textSecondary,
     fontSize: 16,
   },
   signupLink: {
-    color: '#2196F3',
+    color: Colors.primary,
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  roleIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.background,
+    borderRadius: 20,
+    padding: 10,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  roleText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: Colors.primary,
+    marginLeft: 10,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+    padding: 10,
+  },
+  backButtonText: {
+    fontSize: 14,
+    color: Colors.primary,
+    marginLeft: 8,
   },
 });

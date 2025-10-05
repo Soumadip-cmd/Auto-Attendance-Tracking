@@ -7,7 +7,9 @@ import { StyleSheet, View, Text } from 'react-native';
 import { FontAwesome5, MaterialIcons } from '@expo/vector-icons';
 
 // Import screens
+import RoleSelectionScreen from './screens/RoleSelectionScreen';
 import LoginScreen from './screens/LoginScreen';
+import SignupScreen from './screens/SignupScreen';
 import HomeScreen from './screens/HomeScreen';
 import AttendanceScreen from './screens/AttendanceScreen';
 import QRScannerScreen from './screens/QRScannerScreen';
@@ -24,9 +26,26 @@ function MainTabNavigator({ userRole }) {
   return (
     <Tab.Navigator
       screenOptions={{
-        tabBarActiveTintColor: '#2196F3',
-        tabBarInactiveTintColor: 'gray',
-        tabBarStyle: { height: 60, paddingBottom: 10 },
+        tabBarActiveTintColor: '#6C63FF',
+        tabBarInactiveTintColor: '#8E8E93',
+        tabBarStyle: { 
+          height: 85, 
+          paddingBottom: 25,
+          paddingTop: 10,
+          backgroundColor: '#FFFFFF',
+          borderTopWidth: 1,
+          borderTopColor: '#E5E5E7',
+          elevation: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '600',
+        },
+        headerShown: false,
       }}
     >
       <Tab.Screen 
@@ -93,7 +112,7 @@ export default function App() {
   useEffect(() => {
     // In real app, check AsyncStorage or Firebase Auth
     setTimeout(() => {
-      setIsLoggedIn(false); // Start with login screen
+      setIsLoggedIn(false); // Start with role selection screen
     }, 1000);
   }, []);
 
@@ -102,9 +121,13 @@ export default function App() {
       <StatusBar style="auto" />
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!isLoggedIn ? (
-          <Stack.Screen name="Login">
-            {props => <LoginScreen {...props} setIsLoggedIn={setIsLoggedIn} setUserRole={setUserRole} />}
-          </Stack.Screen>
+          <>
+            <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
+            <Stack.Screen name="Login">
+              {props => <LoginScreen {...props} setIsLoggedIn={setIsLoggedIn} setUserRole={setUserRole} />}
+            </Stack.Screen>
+            <Stack.Screen name="Signup" component={SignupScreen} />
+          </>
         ) : (
           <>
             <Stack.Screen name="MainTabs">

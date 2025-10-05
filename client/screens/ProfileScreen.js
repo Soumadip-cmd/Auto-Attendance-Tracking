@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import {
   Dimensions,
 } from 'react-native';
 import { FontAwesome5, MaterialIcons, Ionicons } from '@expo/vector-icons';
+import CommonHeader from '../components/CommonHeader';
+import { Colors, CommonStyles } from '../theme/Colors';
 
 const { width } = Dimensions.get('window');
 
@@ -26,18 +28,64 @@ export default function ProfileScreen({ navigation }) {
     department: 'Computer Science',
     semester: '6th Semester',
     batch: '2022-2026',
-    profileImage: null, // In real app, this would be an image URI
+    profileImage: null,
     phone: '+1 (555) 123-4567',
     address: '123 University Ave, City, State 12345',
+    attendanceRate: 88,
+    totalClasses: 156,
+    attendedClasses: 137,
   };
 
-  const attendanceStats = {
-    totalClasses: 125,
-    attended: 112,
-    percentage: 89.6,
-    streak: 12,
-    lastAttended: '2024-10-05',
-  };
+  const menuItems = [
+    {
+      id: 1,
+      title: 'Personal Information',
+      subtitle: 'Update your details',
+      icon: 'user',
+      iconFamily: 'FontAwesome5',
+      onPress: () => Alert.alert('Personal Info', 'Edit personal information'),
+    },
+    {
+      id: 2,
+      title: 'Attendance History',
+      subtitle: 'View detailed records',
+      icon: 'history',
+      iconFamily: 'FontAwesome5',
+      onPress: () => navigation.navigate('AttendanceHistory'),
+    },
+    {
+      id: 3,
+      title: 'Academic Information',
+      subtitle: 'Department and semester',
+      icon: 'graduation-cap',
+      iconFamily: 'FontAwesome5',
+      onPress: () => Alert.alert('Academic Info', 'View academic details'),
+    },
+    {
+      id: 4,
+      title: 'Security & Privacy',
+      subtitle: 'Manage account security',
+      icon: 'shield-alt',
+      iconFamily: 'FontAwesome5',
+      onPress: () => Alert.alert('Security', 'Security settings'),
+    },
+    {
+      id: 5,
+      title: 'Help & Support',
+      subtitle: 'Get assistance',
+      icon: 'help-circle',
+      iconFamily: 'Ionicons',
+      onPress: () => Alert.alert('Help', 'Contact support team'),
+    },
+    {
+      id: 6,
+      title: 'About App',
+      subtitle: 'App version and info',
+      icon: 'info-circle',
+      iconFamily: 'FontAwesome5',
+      onPress: () => Alert.alert('About', 'EduTrack v1.0.0\nSmart Geo-based Attendance System'),
+    },
+  ];
 
   const handleLogout = () => {
     Alert.alert(
@@ -49,501 +97,346 @@ export default function ProfileScreen({ navigation }) {
           text: 'Logout', 
           style: 'destructive',
           onPress: () => {
-            // In real app, clear auth tokens and navigate to login
-            Alert.alert('Success', 'You have been logged out successfully');
+            // Handle logout logic here
+            Alert.alert('Logged Out', 'You have been logged out successfully');
           }
         },
       ]
     );
   };
 
-  const handleEditProfile = () => {
-    Alert.alert('Edit Profile', 'Profile editing feature coming soon!');
-  };
-
-  const handleChangePassword = () => {
-    Alert.alert('Change Password', 'Password change feature coming soon!');
-  };
-
-  const handleSupport = () => {
-    Alert.alert('Support', 'Contact support at support@edutrack.com');
-  };
-
-  const menuItems = [
-    {
-      id: 1,
-      title: 'Edit Profile',
-      subtitle: 'Update your personal information',
-      iconFamily: 'FontAwesome5',
-      icon: 'edit',
-      action: handleEditProfile,
-    },
-    {
-      id: 2,
-      title: 'Change Password',
-      subtitle: 'Update your account password',
-      iconFamily: 'MaterialIcons',
-      icon: 'lock',
-      action: handleChangePassword,
-    },
-    {
-      id: 3,
-      title: 'Attendance Report',
-      subtitle: 'Download detailed attendance report',
-      iconFamily: 'FontAwesome5',
-      icon: 'chart-bar',
-      action: () => navigation.navigate('History'),
-    },
-    {
-      id: 4,
-      title: 'Help & Support',
-      subtitle: 'Get help or contact support',
-      iconFamily: 'MaterialIcons',
-      icon: 'help',
-      action: handleSupport,
-    },
-    {
-      id: 5,
-      title: 'Privacy Policy',
-      subtitle: 'Read our privacy policy',
-      iconFamily: 'MaterialIcons',
-      icon: 'privacy-tip',
-      action: () => Alert.alert('Privacy Policy', 'Privacy policy details...'),
-    },
-  ];
-
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Profile</Text>
-      </View>
-
-      {/* Profile Card */}
-      <View style={styles.profileCard}>
-        <View style={styles.profileImageContainer}>
-          {userProfile.profileImage ? (
-            <Image source={{ uri: userProfile.profileImage }} style={styles.profileImage} />
-          ) : (
-            <View style={styles.profileImagePlaceholder}>
-              <Text style={styles.profileImagePlaceholderText}>
-                {userProfile.name.split(' ').map(n => n[0]).join('')}
-              </Text>
-            </View>
-          )}
-          <TouchableOpacity style={styles.editImageButton}>
-            <MaterialIcons name="camera-alt" size={16} color="#666" />
+    <View style={styles.container}>
+      <CommonHeader
+        title="Profile"
+        subtitle="Manage your account settings"
+        showBack={true}
+        onBackPress={() => navigation.goBack()}
+        rightComponent={
+          <TouchableOpacity 
+            style={styles.editButton}
+            onPress={() => Alert.alert('Edit Profile', 'Edit profile functionality coming soon!')}
+          >
+            <FontAwesome5 name="edit" size={20} color={Colors.surface} />
           </TouchableOpacity>
-        </View>
-        
-        <View style={styles.profileInfo}>
-          <Text style={styles.profileName}>{userProfile.name}</Text>
-          <Text style={styles.profileEmail}>{userProfile.email}</Text>
-          <Text style={styles.profileId}>ID: {userProfile.studentId}</Text>
-          
-          <View style={styles.profileDetails}>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Department:</Text>
-              <Text style={styles.detailValue}>{userProfile.department}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Semester:</Text>
-              <Text style={styles.detailValue}>{userProfile.semester}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Batch:</Text>
-              <Text style={styles.detailValue}>{userProfile.batch}</Text>
-            </View>
-          </View>
-        </View>
-      </View>
-
-      {/* Attendance Summary */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Attendance Summary</Text>
-        <View style={styles.summaryGrid}>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryNumber}>{attendanceStats.totalClasses}</Text>
-            <Text style={styles.summaryLabel}>Total Classes</Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryNumber}>{attendanceStats.attended}</Text>
-            <Text style={styles.summaryLabel}>Attended</Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryNumber}>{attendanceStats.percentage}%</Text>
-            <Text style={styles.summaryLabel}>Percentage</Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryNumber}>{attendanceStats.streak}</Text>
-            <Text style={styles.summaryLabel}>Day Streak</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Settings */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Settings</Text>
-        
-        <View style={styles.settingItem}>
-          <View style={styles.settingInfo}>
-            <Text style={styles.settingTitle}>Push Notifications</Text>
-            <Text style={styles.settingSubtitle}>Receive attendance reminders</Text>
-          </View>
-          <Switch
-            value={notificationsEnabled}
-            onValueChange={setNotificationsEnabled}
-            trackColor={{ false: '#e0e0e0', true: '#2196F3' }}
-            thumbColor={notificationsEnabled ? '#ffffff' : '#ffffff'}
-          />
-        </View>
-        
-        <View style={styles.settingItem}>
-          <View style={styles.settingInfo}>
-            <Text style={styles.settingTitle}>Location Services</Text>
-            <Text style={styles.settingSubtitle}>Enable geo-based attendance</Text>
-          </View>
-          <Switch
-            value={locationServicesEnabled}
-            onValueChange={setLocationServicesEnabled}
-            trackColor={{ false: '#e0e0e0', true: '#2196F3' }}
-            thumbColor={locationServicesEnabled ? '#ffffff' : '#ffffff'}
-          />
-        </View>
-        
-        <View style={styles.settingItem}>
-          <View style={styles.settingInfo}>
-            <Text style={styles.settingTitle}>Auto Check-in</Text>
-            <Text style={styles.settingSubtitle}>Automatically mark attendance when in range</Text>
-          </View>
-          <Switch
-            value={autoCheckInEnabled}
-            onValueChange={setAutoCheckInEnabled}
-            trackColor={{ false: '#e0e0e0', true: '#2196F3' }}
-            thumbColor={autoCheckInEnabled ? '#ffffff' : '#ffffff'}
-          />
-        </View>
-      </View>
-
-      {/* Menu Items */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Account</Text>
-        
-        {menuItems.map((item) => (
-          <TouchableOpacity key={item.id} style={styles.menuItem} onPress={item.action}>
-            <View style={styles.menuIconContainer}>
-              {item.iconFamily === 'FontAwesome5' ? (
-                <FontAwesome5 name={item.icon} size={20} color="#2196F3" />
+        }
+      />
+      
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Profile Card */}
+        <View style={styles.profileCard}>
+          <View style={styles.profileHeader}>
+            <View style={styles.profileImageContainer}>
+              {userProfile.profileImage ? (
+                <Image source={{ uri: userProfile.profileImage }} style={styles.profileImage} />
               ) : (
-                <MaterialIcons name={item.icon} size={20} color="#2196F3" />
+                <View style={styles.profileImagePlaceholder}>
+                  <FontAwesome5 name="user" size={40} color={Colors.primary} />
+                </View>
               )}
             </View>
-            <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>{item.title}</Text>
-              <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
+            <View style={styles.profileInfo}>
+              <Text style={styles.profileName}>{userProfile.name}</Text>
+              <Text style={styles.profileEmail}>{userProfile.email}</Text>
+              <Text style={styles.profileId}>ID: {userProfile.studentId}</Text>
             </View>
-            <MaterialIcons name="chevron-right" size={24} color="#ccc" />
+          </View>
+
+          <View style={styles.statsContainer}>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{userProfile.attendanceRate}%</Text>
+              <Text style={styles.statLabel}>Attendance</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{userProfile.attendedClasses}</Text>
+              <Text style={styles.statLabel}>Present</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{userProfile.totalClasses}</Text>
+              <Text style={styles.statLabel}>Total Classes</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Quick Settings */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Quick Settings</Text>
+          
+          <View style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <FontAwesome5 name="bell" size={20} color={Colors.primary} />
+              <View style={styles.settingText}>
+                <Text style={styles.settingTitle}>Notifications</Text>
+                <Text style={styles.settingSubtitle}>Get attendance reminders</Text>
+              </View>
+            </View>
+            <Switch
+              value={notificationsEnabled}
+              onValueChange={setNotificationsEnabled}
+              trackColor={{ false: Colors.border, true: Colors.primary }}
+              thumbColor={Colors.surface}
+            />
+          </View>
+
+          <View style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <FontAwesome5 name="map-marker-alt" size={20} color={Colors.primary} />
+              <View style={styles.settingText}>
+                <Text style={styles.settingTitle}>Location Services</Text>
+                <Text style={styles.settingSubtitle}>Enable geo-based attendance</Text>
+              </View>
+            </View>
+            <Switch
+              value={locationServicesEnabled}
+              onValueChange={setLocationServicesEnabled}
+              trackColor={{ false: Colors.border, true: Colors.primary }}
+              thumbColor={Colors.surface}
+            />
+          </View>
+
+          <View style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <FontAwesome5 name="check-circle" size={20} color={Colors.primary} />
+              <View style={styles.settingText}>
+                <Text style={styles.settingTitle}>Auto Check-in</Text>
+                <Text style={styles.settingSubtitle}>Automatic attendance marking</Text>
+              </View>
+            </View>
+            <Switch
+              value={autoCheckInEnabled}
+              onValueChange={setAutoCheckInEnabled}
+              trackColor={{ false: Colors.border, true: Colors.primary }}
+              thumbColor={Colors.surface}
+            />
+          </View>
+        </View>
+
+        {/* Menu Items */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Account</Text>
+          
+          {menuItems.map((item) => (
+            <TouchableOpacity key={item.id} style={styles.menuItem} onPress={item.onPress}>
+              <View style={styles.menuLeft}>
+                <View style={styles.menuIcon}>
+                  {item.iconFamily === 'FontAwesome5' ? (
+                    <FontAwesome5 name={item.icon} size={18} color={Colors.primary} />
+                  ) : (
+                    <Ionicons name={item.icon} size={18} color={Colors.primary} />
+                  )}
+                </View>
+                <View style={styles.menuText}>
+                  <Text style={styles.menuTitle}>{item.title}</Text>
+                  <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
+                </View>
+              </View>
+              <FontAwesome5 name="chevron-right" size={16} color={Colors.textSecondary} />
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Logout Button */}
+        <View style={styles.card}>
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <FontAwesome5 name="sign-out-alt" size={20} color={Colors.error} />
+            <Text style={styles.logoutText}>Logout</Text>
           </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Contact Information */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Contact Information</Text>
-        
-        <View style={styles.contactItem}>
-          <View style={styles.contactIconContainer}>
-            <MaterialIcons name="phone" size={18} color="#2196F3" />
-          </View>
-          <View style={styles.contactInfo}>
-            <Text style={styles.contactLabel}>Phone</Text>
-            <Text style={styles.contactValue}>{userProfile.phone}</Text>
-          </View>
         </View>
-        
-        <View style={styles.contactItem}>
-          <View style={styles.contactIconContainer}>
-            <MaterialIcons name="email" size={18} color="#2196F3" />
-          </View>
-          <View style={styles.contactInfo}>
-            <Text style={styles.contactLabel}>Email</Text>
-            <Text style={styles.contactValue}>{userProfile.email}</Text>
-          </View>
-        </View>
-        
-        <View style={styles.contactItem}>
-          <View style={styles.contactIconContainer}>
-            <MaterialIcons name="location-on" size={18} color="#2196F3" />
-          </View>
-          <View style={styles.contactInfo}>
-            <Text style={styles.contactLabel}>Address</Text>
-            <Text style={styles.contactValue}>{userProfile.address}</Text>
-          </View>
-        </View>
-      </View>
 
-      {/* Logout Button */}
-      <View style={styles.logoutContainer}>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <View style={styles.logoutButtonContent}>
-            <MaterialIcons name="logout" size={20} color="white" />
-            <Text style={styles.logoutButtonText}>Logout</Text>
-          </View>
-        </TouchableOpacity>
-      </View>
+        {/* App Version */}
+        <View style={styles.versionContainer}>
+          <Text style={styles.versionText}>EduTrack v1.0.0</Text>
+          <Text style={styles.versionSubtext}>Smart Geo-based Attendance System</Text>
+        </View>
 
-      {/* App Version */}
-      <View style={styles.versionContainer}>
-        <Text style={styles.versionText}>EduTrack v1.0.0</Text>
-        <Text style={styles.versionSubtext}>Smart Geo-based Attendance System</Text>
-      </View>
-    </ScrollView>
+        {/* Bottom padding */}
+        <View style={{ height: 20 }} />
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: Colors.background,
   },
-  header: {
-    backgroundColor: '#2196F3',
-    padding: 20,
-    paddingTop: 50,
+  content: {
+    flex: 1,
+    paddingHorizontal: 20,
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: 'white',
+  editButton: {
+    padding: 5,
   },
   profileCard: {
-    backgroundColor: 'white',
-    margin: 15,
+    backgroundColor: Colors.surface,
     borderRadius: 15,
     padding: 20,
+    marginTop: 15,
+    ...CommonStyles.shadow,
+  },
+  profileHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    marginBottom: 20,
   },
   profileImageContainer: {
     position: 'relative',
-    marginBottom: 15,
+    marginRight: 15,
   },
   profileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
   },
   profileImagePlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#2196F3',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.background,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  profileImagePlaceholderText: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  editImageButton: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: 'white',
-    borderRadius: 15,
-    width: 30,
-    height: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 2,
-  },
-  editImageIcon: {
-    fontSize: 14,
+    borderWidth: 2,
+    borderColor: Colors.primary,
   },
   profileInfo: {
-    alignItems: 'center',
-    width: '100%',
+    flex: 1,
   },
   profileName: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 5,
+    color: Colors.textPrimary,
   },
   profileEmail: {
     fontSize: 16,
-    color: '#666',
-    marginBottom: 3,
+    color: Colors.textSecondary,
+    marginTop: 4,
   },
   profileId: {
     fontSize: 14,
-    color: '#999',
-    marginBottom: 15,
+    color: Colors.primary,
+    marginTop: 4,
+    fontWeight: '600',
   },
-  profileDetails: {
-    width: '100%',
-    backgroundColor: '#f8f9fa',
-    borderRadius: 10,
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: Colors.background,
+    borderRadius: 12,
     padding: 15,
   },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
+  statItem: {
+    alignItems: 'center',
   },
-  detailLabel: {
-    fontSize: 14,
-    color: '#666',
+  statNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: Colors.primary,
   },
-  detailValue: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#333',
+  statLabel: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginTop: 4,
   },
   card: {
-    backgroundColor: 'white',
-    margin: 15,
-    marginBottom: 0,
+    backgroundColor: Colors.surface,
     borderRadius: 15,
     padding: 20,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    marginTop: 15,
+    ...CommonStyles.shadow,
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: Colors.textPrimary,
     marginBottom: 15,
-  },
-  summaryGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  summaryItem: {
-    alignItems: 'center',
-  },
-  summaryNumber: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#2196F3',
-  },
-  summaryLabel: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
-    marginTop: 5,
   },
   settingItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 15,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: Colors.border,
   },
-  settingInfo: {
+  settingLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  settingText: {
+    marginLeft: 15,
     flex: 1,
   },
   settingTitle: {
     fontSize: 16,
-    fontWeight: '500',
-    color: '#333',
+    fontWeight: '600',
+    color: Colors.textPrimary,
   },
   settingSubtitle: {
     fontSize: 14,
-    color: '#666',
+    color: Colors.textSecondary,
     marginTop: 2,
   },
   menuItem: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: Colors.border,
   },
-  menuIconContainer: {
-    marginRight: 15,
-    width: 25,
+  menuLeft: {
+    flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
-  menuContent: {
+  menuIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  menuText: {
     flex: 1,
   },
   menuTitle: {
     fontSize: 16,
-    fontWeight: '500',
-    color: '#333',
+    fontWeight: '600',
+    color: Colors.textPrimary,
   },
   menuSubtitle: {
     fontSize: 14,
-    color: '#666',
+    color: Colors.textSecondary,
     marginTop: 2,
-  },
-
-  contactItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  contactIconContainer: {
-    marginRight: 15,
-    width: 25,
-    marginTop: 2,
-    alignItems: 'center',
-  },
-  contactInfo: {
-    flex: 1,
-  },
-  contactLabel: {
-    fontSize: 14,
-    color: '#666',
-  },
-  contactValue: {
-    fontSize: 16,
-    color: '#333',
-    marginTop: 2,
-  },
-  logoutContainer: {
-    margin: 15,
   },
   logoutButton: {
-    backgroundColor: '#F44336',
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  logoutButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 15,
   },
-  logoutButtonText: {
-    color: 'white',
+  logoutText: {
     fontSize: 16,
     fontWeight: 'bold',
-    marginLeft: 8,
+    color: Colors.error,
+    marginLeft: 10,
   },
   versionContainer: {
     alignItems: 'center',
-    padding: 20,
+    paddingVertical: 20,
   },
   versionText: {
     fontSize: 14,
-    color: '#999',
-    fontWeight: '500',
+    fontWeight: 'bold',
+    color: Colors.textPrimary,
   },
   versionSubtext: {
     fontSize: 12,
-    color: '#ccc',
-    marginTop: 2,
+    color: Colors.textSecondary,
+    marginTop: 4,
   },
 });
