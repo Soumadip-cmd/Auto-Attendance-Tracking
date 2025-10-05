@@ -9,6 +9,7 @@ import {
   ScrollView,
   Dimensions,
 } from 'react-native';
+import { FontAwesome5, MaterialIcons, Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
 
@@ -114,11 +115,22 @@ export default function AttendanceScreen({ navigation }) {
   const getLocationStatusText = () => {
     switch (locationStatus) {
       case 'in_range':
-        return '📍 You are within campus bounds';
+        return 'You are within campus bounds';
       case 'out_of_range':
-        return '📍 You are outside campus bounds';
+        return 'You are outside campus bounds';
       default:
-        return '📍 Checking your location...';
+        return 'Checking your location...';
+    }
+  };
+
+  const getLocationStatusIcon = () => {
+    switch (locationStatus) {
+      case 'in_range':
+        return <MaterialIcons name="location-on" size={20} color="white" />;
+      case 'out_of_range':
+        return <MaterialIcons name="location-off" size={20} color="white" />;
+      default:
+        return <MaterialIcons name="my-location" size={20} color="white" />;
     }
   };
 
@@ -147,9 +159,12 @@ export default function AttendanceScreen({ navigation }) {
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Location Status</Text>
         <View style={[styles.locationStatus, { backgroundColor: getLocationStatusColor() }]}>
-          <Text style={styles.locationStatusText}>
-            {getLocationStatusText()}
-          </Text>
+          <View style={styles.locationStatusRow}>
+            {getLocationStatusIcon()}
+            <Text style={styles.locationStatusText}>
+              {getLocationStatusText()}
+            </Text>
+          </View>
         </View>
         
         {currentLocation && (
@@ -172,7 +187,7 @@ export default function AttendanceScreen({ navigation }) {
           style={[styles.methodButton, styles.geoButton]}
           onPress={() => Alert.alert('Info', 'Select a class below to mark geo-based attendance')}
         >
-          <Text style={styles.methodIcon}>🛰️</Text>
+          <MaterialIcons name="my-location" size={24} color="white" />
           <View style={styles.methodContent}>
             <Text style={styles.methodTitle}>Geo-based Attendance</Text>
             <Text style={styles.methodSubtitle}>Automatic location detection</Text>
@@ -183,7 +198,7 @@ export default function AttendanceScreen({ navigation }) {
           style={[styles.methodButton, styles.qrButton]}
           onPress={scanQRCode}
         >
-          <Text style={styles.methodIcon}>📱</Text>
+          <MaterialIcons name="qr-code-scanner" size={24} color="white" />
           <View style={styles.methodContent}>
             <Text style={styles.methodTitle}>QR Code Scanner</Text>
             <Text style={styles.methodSubtitle}>Scan class QR code</Text>
@@ -229,7 +244,7 @@ export default function AttendanceScreen({ navigation }) {
                   <ActivityIndicator color="white" size="small" />
                 ) : (
                   <>
-                    <Text style={styles.actionIcon}>📍</Text>
+                    <MaterialIcons name="location-on" size={16} color="white" />
                     <Text style={styles.actionText}>
                       {classItem.status === 'active' ? 'Mark Present' : 'Not Available'}
                     </Text>
@@ -241,7 +256,7 @@ export default function AttendanceScreen({ navigation }) {
                 style={[styles.actionButton, styles.qrActionButton]}
                 onPress={() => Alert.alert('QR Code', `QR Code: ${classItem.qrCode}\nScan this code to mark attendance`)}
               >
-                <Text style={styles.actionIcon}>📱</Text>
+                <MaterialIcons name="qr-code" size={16} color="white" />
                 <Text style={styles.actionText}>Show QR</Text>
               </TouchableOpacity>
             </View>
@@ -337,10 +352,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 15,
   },
+  locationStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   locationStatusText: {
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+    marginLeft: 8,
   },
   locationDetails: {
     backgroundColor: '#f8f9fa',
@@ -375,12 +395,10 @@ const styles = StyleSheet.create({
   qrButton: {
     backgroundColor: '#2196F3',
   },
-  methodIcon: {
-    fontSize: 24,
-    marginRight: 15,
-  },
+
   methodContent: {
     flex: 1,
+    marginLeft: 15,
   },
   methodTitle: {
     fontSize: 16,
@@ -453,14 +471,12 @@ const styles = StyleSheet.create({
   qrActionButton: {
     backgroundColor: '#FF9800',
   },
-  actionIcon: {
-    fontSize: 16,
-    marginRight: 5,
-  },
+
   actionText: {
     color: 'white',
     fontSize: 14,
     fontWeight: 'bold',
+    marginLeft: 5,
   },
   summaryGrid: {
     flexDirection: 'row',

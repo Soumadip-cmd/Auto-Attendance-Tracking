@@ -4,6 +4,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, View, Text } from 'react-native';
+import { FontAwesome5, MaterialIcons } from '@expo/vector-icons';
 
 // Import screens
 import LoginScreen from './screens/LoginScreen';
@@ -34,7 +35,7 @@ function MainTabNavigator({ userRole }) {
         options={{
           tabBarLabel: 'Home',
           tabBarIcon: ({ color, size }) => (
-            <Text style={{ fontSize: 20, color }}>🏠</Text>
+            <FontAwesome5 name="home" size={size} color={color} />
           ),
         }}
       />
@@ -42,9 +43,9 @@ function MainTabNavigator({ userRole }) {
         name="Attendance" 
         component={AttendanceScreen}
         options={{
-          tabBarLabel: 'Mark Attendance',
+          tabBarLabel: 'Attendance',
           tabBarIcon: ({ color, size }) => (
-            <Text style={{ fontSize: 20, color }}>📝</Text>
+            <MaterialIcons name="how-to-reg" size={size} color={color} />
           ),
         }}
       />
@@ -54,7 +55,7 @@ function MainTabNavigator({ userRole }) {
         options={{
           tabBarLabel: 'History',
           tabBarIcon: ({ color, size }) => (
-            <Text style={{ fontSize: 20, color }}>📊</Text>
+            <FontAwesome5 name="chart-bar" size={size} color={color} />
           ),
         }}
       />
@@ -65,7 +66,7 @@ function MainTabNavigator({ userRole }) {
           options={{
             tabBarLabel: 'Admin',
             tabBarIcon: ({ color, size }) => (
-              <Text style={{ fontSize: 20, color }}>⚙️</Text>
+              <FontAwesome5 name="cog" size={size} color={color} />
             ),
           }}
         />
@@ -76,7 +77,7 @@ function MainTabNavigator({ userRole }) {
         options={{
           tabBarLabel: 'Profile',
           tabBarIcon: ({ color, size }) => (
-            <Text style={{ fontSize: 20, color }}>👤</Text>
+            <FontAwesome5 name="user-alt" size={size} color={color} />
           ),
         }}
       />

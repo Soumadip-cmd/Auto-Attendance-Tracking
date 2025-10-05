@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { FontAwesome5, MaterialIcons } from '@expo/vector-icons';
 
 export default function LoginScreen({ setIsLoggedIn, setUserRole }) {
   const [email, setEmail] = useState('');
@@ -57,7 +58,10 @@ export default function LoginScreen({ setIsLoggedIn, setUserRole }) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.header}>
-        <Text style={styles.logo}>📚 EduTrack</Text>
+        <View style={styles.logoContainer}>
+          <FontAwesome5 name="graduation-cap" size={48} color="white" />
+          <Text style={styles.logo}>EduTrack</Text>
+        </View>
         <Text style={styles.tagline}>Smart Geo-based Attendance System</Text>
       </View>
 
@@ -94,21 +98,24 @@ export default function LoginScreen({ setIsLoggedIn, setUserRole }) {
             style={[styles.roleButton, styles.studentButton]} 
             onPress={() => handleQuickLogin('student')}
           >
-            <Text style={styles.roleButtonText}>👨‍🎓 Student</Text>
+            <FontAwesome5 name="user-graduate" size={16} color="white" />
+            <Text style={styles.roleButtonText}>Student</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
             style={[styles.roleButton, styles.teacherButton]} 
             onPress={() => handleQuickLogin('teacher')}
           >
-            <Text style={styles.roleButtonText}>👨‍🏫 Teacher</Text>
+            <FontAwesome5 name="chalkboard-teacher" size={16} color="white" />
+            <Text style={styles.roleButtonText}>Teacher</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
             style={[styles.roleButton, styles.adminButton]} 
             onPress={() => handleQuickLogin('admin')}
           >
-            <Text style={styles.roleButtonText}>⚙️ Admin</Text>
+            <FontAwesome5 name="user-cog" size={16} color="white" />
+            <Text style={styles.roleButtonText}>Admin</Text>
           </TouchableOpacity>
         </View>
 
@@ -135,11 +142,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#2196F3',
     paddingTop: 50,
   },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 10,
+  },
   logo: {
-    fontSize: 48,
+    fontSize: 32,
     fontWeight: 'bold',
     color: 'white',
-    marginBottom: 10,
+    marginTop: 15,
   },
   tagline: {
     fontSize: 16,
@@ -204,6 +215,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginHorizontal: 5,
     alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
   studentButton: {
     backgroundColor: '#4CAF50',
@@ -218,6 +231,7 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 12,
     fontWeight: 'bold',
+    marginLeft: 8,
   },
   footer: {
     flexDirection: 'row',

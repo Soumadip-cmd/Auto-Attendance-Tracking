@@ -10,6 +10,7 @@ import {
   Alert,
   Dimensions,
 } from 'react-native';
+import { FontAwesome5, MaterialIcons, Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
 
@@ -73,35 +74,40 @@ export default function ProfileScreen({ navigation }) {
       id: 1,
       title: 'Edit Profile',
       subtitle: 'Update your personal information',
-      icon: '✏️',
+      iconFamily: 'FontAwesome5',
+      icon: 'edit',
       action: handleEditProfile,
     },
     {
       id: 2,
       title: 'Change Password',
       subtitle: 'Update your account password',
-      icon: '🔒',
+      iconFamily: 'MaterialIcons',
+      icon: 'lock',
       action: handleChangePassword,
     },
     {
       id: 3,
       title: 'Attendance Report',
       subtitle: 'Download detailed attendance report',
-      icon: '📊',
+      iconFamily: 'FontAwesome5',
+      icon: 'chart-bar',
       action: () => navigation.navigate('History'),
     },
     {
       id: 4,
       title: 'Help & Support',
       subtitle: 'Get help or contact support',
-      icon: '❓',
+      iconFamily: 'MaterialIcons',
+      icon: 'help',
       action: handleSupport,
     },
     {
       id: 5,
       title: 'Privacy Policy',
       subtitle: 'Read our privacy policy',
-      icon: '📋',
+      iconFamily: 'MaterialIcons',
+      icon: 'privacy-tip',
       action: () => Alert.alert('Privacy Policy', 'Privacy policy details...'),
     },
   ];
@@ -126,7 +132,7 @@ export default function ProfileScreen({ navigation }) {
             </View>
           )}
           <TouchableOpacity style={styles.editImageButton}>
-            <Text style={styles.editImageIcon}>📷</Text>
+            <MaterialIcons name="camera-alt" size={16} color="#666" />
           </TouchableOpacity>
         </View>
         
@@ -225,12 +231,18 @@ export default function ProfileScreen({ navigation }) {
         
         {menuItems.map((item) => (
           <TouchableOpacity key={item.id} style={styles.menuItem} onPress={item.action}>
-            <Text style={styles.menuIcon}>{item.icon}</Text>
+            <View style={styles.menuIconContainer}>
+              {item.iconFamily === 'FontAwesome5' ? (
+                <FontAwesome5 name={item.icon} size={20} color="#2196F3" />
+              ) : (
+                <MaterialIcons name={item.icon} size={20} color="#2196F3" />
+              )}
+            </View>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>{item.title}</Text>
               <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
             </View>
-            <Text style={styles.menuChevron}>›</Text>
+            <MaterialIcons name="chevron-right" size={24} color="#ccc" />
           </TouchableOpacity>
         ))}
       </View>
@@ -240,7 +252,9 @@ export default function ProfileScreen({ navigation }) {
         <Text style={styles.cardTitle}>Contact Information</Text>
         
         <View style={styles.contactItem}>
-          <Text style={styles.contactIcon}>📞</Text>
+          <View style={styles.contactIconContainer}>
+            <MaterialIcons name="phone" size={18} color="#2196F3" />
+          </View>
           <View style={styles.contactInfo}>
             <Text style={styles.contactLabel}>Phone</Text>
             <Text style={styles.contactValue}>{userProfile.phone}</Text>
@@ -248,7 +262,9 @@ export default function ProfileScreen({ navigation }) {
         </View>
         
         <View style={styles.contactItem}>
-          <Text style={styles.contactIcon}>📧</Text>
+          <View style={styles.contactIconContainer}>
+            <MaterialIcons name="email" size={18} color="#2196F3" />
+          </View>
           <View style={styles.contactInfo}>
             <Text style={styles.contactLabel}>Email</Text>
             <Text style={styles.contactValue}>{userProfile.email}</Text>
@@ -256,7 +272,9 @@ export default function ProfileScreen({ navigation }) {
         </View>
         
         <View style={styles.contactItem}>
-          <Text style={styles.contactIcon}>📍</Text>
+          <View style={styles.contactIconContainer}>
+            <MaterialIcons name="location-on" size={18} color="#2196F3" />
+          </View>
           <View style={styles.contactInfo}>
             <Text style={styles.contactLabel}>Address</Text>
             <Text style={styles.contactValue}>{userProfile.address}</Text>
@@ -267,7 +285,10 @@ export default function ProfileScreen({ navigation }) {
       {/* Logout Button */}
       <View style={styles.logoutContainer}>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutButtonText}>🚪 Logout</Text>
+          <View style={styles.logoutButtonContent}>
+            <MaterialIcons name="logout" size={20} color="white" />
+            <Text style={styles.logoutButtonText}>Logout</Text>
+          </View>
         </TouchableOpacity>
       </View>
 
@@ -448,10 +469,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
-  menuIcon: {
-    fontSize: 20,
+  menuIconContainer: {
     marginRight: 15,
     width: 25,
+    alignItems: 'center',
   },
   menuContent: {
     flex: 1,
@@ -466,10 +487,7 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 2,
   },
-  menuChevron: {
-    fontSize: 20,
-    color: '#ccc',
-  },
+
   contactItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -477,11 +495,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
-  contactIcon: {
-    fontSize: 18,
+  contactIconContainer: {
     marginRight: 15,
     width: 25,
     marginTop: 2,
+    alignItems: 'center',
   },
   contactInfo: {
     flex: 1,
@@ -504,10 +522,15 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
   },
+  logoutButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   logoutButtonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+    marginLeft: 8,
   },
   versionContainer: {
     alignItems: 'center',

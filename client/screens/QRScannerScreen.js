@@ -8,6 +8,7 @@ import {
   Dimensions,
   ActivityIndicator,
 } from 'react-native';
+import { FontAwesome5, MaterialIcons, Ionicons } from '@expo/vector-icons';
 
 const { width, height } = Dimensions.get('window');
 
@@ -172,7 +173,10 @@ export default function QRScannerScreen({ navigation }) {
             onPress={() => simulateQRScan('MATH101_20241005')}
             disabled={simulateScanning}
           >
-            <Text style={styles.demoButtonText}>📐 Math Class</Text>
+            <View style={styles.demoButtonContent}>
+              <FontAwesome5 name="calculator" size={12} color="white" />
+              <Text style={styles.demoButtonText}>Math Class</Text>
+            </View>
           </TouchableOpacity>
           
           <TouchableOpacity 
@@ -426,11 +430,17 @@ const styles = StyleSheet.create({
   invalidButton: {
     backgroundColor: '#F44336',
   },
+  demoButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   demoButtonText: {
     color: 'white',
     fontSize: 12,
     fontWeight: 'bold',
     textAlign: 'center',
+    marginLeft: 5,
   },
   actionContainer: {
     flexDirection: 'row',

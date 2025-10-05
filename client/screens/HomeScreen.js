@@ -8,6 +8,7 @@ import {
   Dimensions,
   Alert,
 } from 'react-native';
+import { FontAwesome5, MaterialIcons, Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
 
@@ -49,7 +50,8 @@ export default function HomeScreen({ navigation }) {
       id: 1,
       title: 'Mark Attendance',
       subtitle: 'Geo or QR Code',
-      icon: '📝',
+      iconFamily: 'MaterialIcons',
+      icon: 'how-to-reg',
       color: '#4CAF50',
       action: () => navigation.navigate('Attendance'),
     },
@@ -57,7 +59,8 @@ export default function HomeScreen({ navigation }) {
       id: 2,
       title: 'Scan QR Code',
       subtitle: 'Quick Check-in',
-      icon: '📱',
+      iconFamily: 'MaterialIcons',
+      icon: 'qr-code-scanner',
       color: '#2196F3',
       action: () => navigation.navigate('QRScanner'),
     },
@@ -65,7 +68,8 @@ export default function HomeScreen({ navigation }) {
       id: 3,
       title: 'View History',
       subtitle: 'Past Records',
-      icon: '📊',
+      iconFamily: 'FontAwesome5',
+      icon: 'chart-bar',
       color: '#FF9800',
       action: () => navigation.navigate('History'),
     },
@@ -73,7 +77,8 @@ export default function HomeScreen({ navigation }) {
       id: 4,
       title: 'Profile',
       subtitle: 'My Account',
-      icon: '👤',
+      iconFamily: 'FontAwesome5',
+      icon: 'user-alt',
       color: '#9C27B0',
       action: () => navigation.navigate('Profile'),
     },
@@ -106,12 +111,16 @@ export default function HomeScreen({ navigation }) {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Header */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>Good Morning! 👋</Text>
+        <View style={styles.headerLeft}>
+          <View style={styles.greetingContainer}>
+            <FontAwesome5 name="sun" size={20} color="#FFF176" />
+            <Text style={styles.greeting}>Good Morning!</Text>
+          </View>
           <Text style={styles.userName}>John Doe</Text>
           <Text style={styles.date}>{formatDate(currentTime)}</Text>
         </View>
         <View style={styles.timeContainer}>
+          <MaterialIcons name="access-time" size={16} color="white" />
           <Text style={styles.time}>{formatTime(currentTime)}</Text>
         </View>
       </View>
@@ -122,9 +131,16 @@ export default function HomeScreen({ navigation }) {
         {todayAttendance ? (
           <View style={styles.attendanceStatus}>
             <View style={[styles.statusBadge, { backgroundColor: todayAttendance.present ? '#4CAF50' : '#F44336' }]}>
-              <Text style={styles.statusText}>
-                {todayAttendance.present ? '✅ Present' : '❌ Absent'}
-              </Text>
+              <View style={styles.statusRow}>
+                {todayAttendance.present ? (
+                  <MaterialIcons name="check-circle" size={16} color="white" />
+                ) : (
+                  <MaterialIcons name="cancel" size={16} color="white" />
+                )}
+                <Text style={styles.statusText}>
+                  {todayAttendance.present ? 'Present' : 'Absent'}
+                </Text>
+              </View>
             </View>
             <View style={styles.attendanceDetails}>
               <Text style={styles.detailText}>Check-in: {todayAttendance.checkInTime}</Text>
@@ -136,7 +152,10 @@ export default function HomeScreen({ navigation }) {
             style={styles.markAttendanceButton}
             onPress={() => navigation.navigate('Attendance')}
           >
-            <Text style={styles.markAttendanceText}>📍 Mark Today's Attendance</Text>
+            <View style={styles.markAttendanceRow}>
+              <MaterialIcons name="location-on" size={16} color="white" />
+              <Text style={styles.markAttendanceText}>Mark Today's Attendance</Text>
+            </View>
           </TouchableOpacity>
         )}
       </View>
@@ -170,7 +189,11 @@ export default function HomeScreen({ navigation }) {
               style={[styles.actionButton, { backgroundColor: action.color }]}
               onPress={action.action}
             >
-              <Text style={styles.actionIcon}>{action.icon}</Text>
+              {action.iconFamily === 'FontAwesome5' ? (
+                <FontAwesome5 name={action.icon} size={24} color="white" />
+              ) : (
+                <MaterialIcons name={action.icon} size={24} color="white" />
+              )}
               <Text style={styles.actionTitle}>{action.title}</Text>
               <Text style={styles.actionSubtitle}>{action.subtitle}</Text>
             </TouchableOpacity>
@@ -191,7 +214,7 @@ export default function HomeScreen({ navigation }) {
               <Text style={styles.classInfo}>{classItem.room} • {classItem.teacher}</Text>
             </View>
             <TouchableOpacity style={styles.classAction}>
-              <Text style={styles.classActionText}>📍</Text>
+              <MaterialIcons name="location-on" size={18} color="#2196F3" />
             </TouchableOpacity>
           </View>
         ))}
@@ -201,7 +224,9 @@ export default function HomeScreen({ navigation }) {
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Recent Notifications</Text>
         <View style={styles.notification}>
-          <Text style={styles.notificationIcon}>🔔</Text>
+          <View style={styles.notificationIconContainer}>
+            <Ionicons name="notifications" size={20} color="#2196F3" />
+          </View>
           <View style={styles.notificationContent}>
             <Text style={styles.notificationTitle}>Attendance Reminder</Text>
             <Text style={styles.notificationText}>Don't forget to mark your attendance for today's classes</Text>
@@ -209,7 +234,9 @@ export default function HomeScreen({ navigation }) {
           </View>
         </View>
         <View style={styles.notification}>
-          <Text style={styles.notificationIcon}>⚠️</Text>
+          <View style={styles.notificationIconContainer}>
+            <MaterialIcons name="warning" size={20} color="#FF9800" />
+          </View>
           <View style={styles.notificationContent}>
             <Text style={styles.notificationTitle}>Low Attendance Warning</Text>
             <Text style={styles.notificationText}>Your attendance is below 85%. Please attend regularly.</Text>
@@ -234,10 +261,19 @@ const styles = StyleSheet.create({
     paddingTop: 50,
     backgroundColor: '#2196F3',
   },
+  headerLeft: {
+    flex: 1,
+  },
+  greetingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
   greeting: {
     fontSize: 18,
     color: 'white',
     opacity: 0.9,
+    marginLeft: 8,
   },
   userName: {
     fontSize: 24,
@@ -255,11 +291,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 10,
     padding: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   time: {
     fontSize: 16,
     fontWeight: 'bold',
     color: 'white',
+    marginLeft: 5,
   },
   card: {
     backgroundColor: 'white',
@@ -288,10 +327,15 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     marginBottom: 15,
   },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   statusText: {
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+    marginLeft: 8,
   },
   attendanceDetails: {
     alignItems: 'center',
@@ -307,10 +351,15 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
   },
+  markAttendanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   markAttendanceText: {
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+    marginLeft: 8,
   },
   statsContainer: {
     flexDirection: 'row',
@@ -342,10 +391,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 15,
   },
-  actionIcon: {
-    fontSize: 24,
-    marginBottom: 8,
-  },
+
   actionTitle: {
     color: 'white',
     fontSize: 14,
@@ -405,10 +451,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
-  notificationIcon: {
-    fontSize: 20,
+  notificationIconContainer: {
     marginRight: 15,
     marginTop: 2,
+    width: 24,
+    alignItems: 'center',
   },
   notificationContent: {
     flex: 1,
