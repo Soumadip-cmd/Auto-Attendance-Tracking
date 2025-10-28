@@ -16,12 +16,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
 
-const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.31.103:8000';
+
+console.log('🔧 Backend URL:', EXPO_PUBLIC_BACKEND_URL);
 
 // Create axios instance with XHR adapter for React Native
 const api = axios.create({
   baseURL: EXPO_PUBLIC_BACKEND_URL,
   adapter: 'xhr', // Force XHR adapter for React Native
+  timeout: 10000,
 });
 
 export default function Index() {
@@ -72,6 +75,8 @@ export default function Index() {
       const response = await axios.post(`${EXPO_PUBLIC_BACKEND_URL}/api/auth/login`, {
         username,
         password,
+      }, {
+        adapter: 'xhr', // Force XHR adapter for React Native
       });
       const { access_token, user: userData } = response.data;
       await AsyncStorage.setItem('token', access_token);
@@ -93,6 +98,8 @@ export default function Index() {
         name,
         email,
         role,
+      }, {
+        adapter: 'xhr', // Force XHR adapter for React Native
       });
       const { access_token, user: userData } = response.data;
       await AsyncStorage.setItem('token', access_token);
