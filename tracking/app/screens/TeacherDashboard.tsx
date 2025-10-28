@@ -17,11 +17,13 @@ export default function TeacherDashboard() {
   const { user, logout } = useAuth();
   const router = useRouter();
   const [classes, setClasses] = useState<any[]>([]);
+  const [pendingCount, setPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadClasses();
+    loadPendingCount();
   }, []);
 
   const loadClasses = async () => {
@@ -36,9 +38,19 @@ export default function TeacherDashboard() {
     }
   };
 
+  const loadPendingCount = async () => {
+    try {
+      const response = await api.get('/api/attendance/pending');
+      setPendingCount(response.data.length);
+    } catch (error) {
+      console.error('Error loading pending count:', error);
+    }
+  };
+
   const onRefresh = () => {
     setRefreshing(true);
     loadClasses();
+    loadPendingCount();
   };
 
   if (loading) {
@@ -72,6 +84,21 @@ export default function TeacherDashboard() {
           >
             <Ionicons name="add-circle" size={24} color="#fff" />
             <Text style={styles.createButtonText}>Create New Class</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.approveButton}
+            onPress={() => router.push('/screens/ApproveAttendanceScreen' as any)}
+          >
+            <View style={styles.approveButtonContent}>
+              <Ionicons name="checkmark-done-circle" size={24} color="#10B981" />
+              <Text style={styles.approveButtonText}>Approve Attendance</Text>
+            </View>
+            {pendingCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{pendingCount}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -164,6 +191,41 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  approveButton: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    borderWidth: 2,
+    borderColor: '#10B981',
+  },
+  approveButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  approveButtonText: {
+    color: '#10B981',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  badge: {
+    backgroundColor: '#EF4444',
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   section: {
     padding: 24,

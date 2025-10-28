@@ -75,6 +75,11 @@ class MarkAttendanceRequest(BaseModel):
     method: str  # "geo" or "qr"
     qr_code: Optional[str] = None
 
+class ApproveAttendanceRequest(BaseModel):
+    attendance_id: str
+    status: str  # "approved", "rejected"
+    remarks: Optional[str] = None
+
 class GeofenceLogEntry(BaseModel):
     student_id: str
     class_id: str
@@ -362,21 +367,26 @@ async def mark_attendance(request: MarkAttendanceRequest, current_user: dict = D
             flagged = True
             reason = f"Attendance marked {abs(minutes_diff)} minutes {'before' if minutes_diff < 0 else 'after'} class time"
         
-        # Mark attendance
+        # Mark attendance - now requires teacher approval
         attendance_data = {
             "student_id": current_user["_id"],
             "student_name": current_user["name"],
             "class_id": request.class_id,
             "class_name": cls["name"],
+            "teacher_id": cls["teacher_id"],
             "timestamp": datetime.utcnow(),
             "location": {
                 "latitude": request.latitude,
                 "longitude": request.longitude
             } if request.latitude else None,
             "method": request.method,
-            "status": "flagged" if flagged else "present",
+            "status": "pending",  # Changed to pending - requires teacher approval
+            "approved": False,  # New field
             "flagged": flagged,
-            "flag_reason": reason
+            "flag_reason": reason,
+            "teacher_remarks": None,
+            "approved_at": None,
+            "approved_by": None
         }
         
         result = await db.attendance.insert_one(attendance_data)
@@ -405,6 +415,52 @@ async def get_class_attendance(class_id: str, current_user: dict = Depends(get_c
         record["_id"] = str(record["_id"])
     
     return attendance_records
+
+@api_router.post("/attendance/approve")
+async def approve_attendance(request: ApproveAttendanceRequest, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] not in ["teacher", "admin"]:
+        raise HTTPException(status_code=403, detail="Only teachers and admins can approve attendance")
+    
+    # Get attendance record
+    attendance = await db.attendance.find_one({"_id": ObjectId(request.attendance_id)})
+    if not attendance:
+        raise HTTPException(status_code=404, detail="Attendance record not found")
+    
+    # Teachers can only approve attendance for their own classes
+    if current_user["role"] == "teacher" and attendance["teacher_id"] != current_user["_id"]:
+        raise HTTPException(status_code=403, detail="You can only approve attendance for your own classes")
+    
+    # Update attendance status
+    update_data = {
+        "status": "present" if request.status == "approved" else "absent",
+        "approved": request.status == "approved",
+        "approved_at": datetime.utcnow(),
+        "approved_by": current_user["_id"],
+        "teacher_remarks": request.remarks
+    }
+    
+    await db.attendance.update_one(
+        {"_id": ObjectId(request.attendance_id)},
+        {"$set": update_data}
+    )
+    
+    return {"message": f"Attendance {request.status} successfully"}
+
+@api_router.get("/attendance/pending")
+async def get_pending_attendance(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] not in ["teacher", "admin"]:
+        raise HTTPException(status_code=403, detail="Only teachers and admins can view pending attendance")
+    
+    # Filter based on role
+    query = {"status": "pending"}
+    if current_user["role"] == "teacher":
+        query["teacher_id"] = current_user["_id"]
+    
+    pending_records = await db.attendance.find(query).sort("timestamp", -1).to_list(1000)
+    for record in pending_records:
+        record["_id"] = str(record["_id"])
+    
+    return pending_records
 
 # ====================
 # ADMIN ROUTES
