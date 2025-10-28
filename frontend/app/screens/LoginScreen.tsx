@@ -84,7 +84,7 @@ export default function LoginScreen({ authContext, navigation }: any) {
 
           <TouchableOpacity
             style={styles.registerLink}
-            onPress={() => navigation.navigate('Register')}
+            onPress={() => navigation.navigate('register')}
           >
             <Text style={styles.registerLinkText}>
               Don't have an account? <Text style={styles.registerLinkBold}>Register</Text>
