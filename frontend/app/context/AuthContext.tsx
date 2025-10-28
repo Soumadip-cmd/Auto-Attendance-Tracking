@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 
 // Get backend URL from environment or use localhost as fallback
-const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.31.103:8000';
 
 interface User {
   _id: string;
@@ -70,6 +70,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const response = await axios.post(`${API_URL}/api/auth/login`, {
         username,
         password,
+      }, {
+        adapter: 'xhr', // Force XHR adapter for React Native
       });
 
       const { access_token, user: userData } = response.data;
@@ -104,6 +106,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         name,
         email,
         role,
+      }, {
+        adapter: 'xhr', // Force XHR adapter for React Native
       });
 
       const { access_token, user: userData } = response.data;

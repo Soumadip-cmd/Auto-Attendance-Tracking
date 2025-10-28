@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
-import { Picker } from '@react-native-picker/picker';
+
 
 export default function RegisterScreen({ navigation }: any) {
   const [username, setUsername] = useState('');

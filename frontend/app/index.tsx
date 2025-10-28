@@ -18,9 +18,10 @@ import { Ionicons } from '@expo/vector-icons';
 
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
-// Create axios instance with auth interceptor
+// Create axios instance with XHR adapter for React Native
 const api = axios.create({
   baseURL: EXPO_PUBLIC_BACKEND_URL,
+  adapter: 'xhr', // Force XHR adapter for React Native
 });
 
 export default function Index() {

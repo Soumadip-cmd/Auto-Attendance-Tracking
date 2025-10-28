@@ -11,6 +11,18 @@ config.cacheStores = [
   new FileStore({ root: path.join(root, 'cache') }),
 ];
 
+// Fix for axios and follow-redirects in React Native
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  // Redirect axios to use xhr adapter for React Native
+  if (moduleName === 'follow-redirects') {
+    return {
+      type: 'empty',
+    };
+  }
+  
+  // Use default resolution
+  return context.resolveRequest(context, moduleName, platform);
+};
 
 // // Exclude unnecessary directories from file watching
 // config.watchFolders = [__dirname];
