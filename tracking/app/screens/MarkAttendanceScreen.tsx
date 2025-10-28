@@ -9,13 +9,15 @@ import {
   Platform,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
+import { useRouter } from 'expo-router';
 import api from '../utils/api';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 
-export default function MarkAttendanceScreen({ route, navigation }: any) {
-  const { classData } = route.params;
+export default function MarkAttendanceScreen({ route }: any) {
+  const { classData } = route?.params || {};
   const { user } = useAuth();
+  const router = useRouter();
   const [location, setLocation] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
@@ -52,7 +54,7 @@ export default function MarkAttendanceScreen({ route, navigation }: any) {
         response.data.flagged
           ? `Attendance marked but flagged: ${response.data.flag_reason}`
           : 'Attendance marked successfully!',
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
+        [{ text: 'OK', onPress: () => router.back() }]
       );
     } catch (error: any) {
       Alert.alert('Error', error.response?.data?.detail || 'Failed to mark attendance');

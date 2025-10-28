@@ -269,6 +269,28 @@ async def regenerate_qr(class_id: str, current_user: dict = Depends(get_current_
     
     return {"qr_code": new_qr}
 
+@api_router.delete("/class/{class_id}")
+async def delete_class(class_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] not in ["teacher", "admin"]:
+        raise HTTPException(status_code=403, detail="Only teachers and admins can delete classes")
+    
+    # Check if class exists
+    cls = await db.classes.find_one({"_id": ObjectId(class_id)})
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found")
+    
+    # Teachers can only delete their own classes, admins can delete any
+    if current_user["role"] == "teacher" and cls["teacher_id"] != current_user["_id"]:
+        raise HTTPException(status_code=403, detail="You can only delete your own classes")
+    
+    # Delete the class
+    await db.classes.delete_one({"_id": ObjectId(class_id)})
+    
+    # Optionally delete all attendance records for this class
+    await db.attendance.delete_many({"class_id": class_id})
+    
+    return {"message": "Class deleted successfully"}
+
 # ====================
 # ATTENDANCE ROUTES
 # ====================

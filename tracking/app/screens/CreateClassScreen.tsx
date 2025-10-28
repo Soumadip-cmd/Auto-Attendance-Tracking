@@ -12,14 +12,16 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
+import { useRouter } from 'expo-router';
 import api from '../utils/api';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-export default function CreateClassScreen({ navigation }: any) {
+export default function CreateClassScreen() {
   const { user } = useAuth();
+  const router = useRouter();
   const [name, setName] = useState('');
   const [time, setTime] = useState('');
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
@@ -80,7 +82,17 @@ export default function CreateClassScreen({ navigation }: any) {
       });
 
       Alert.alert('Success', 'Class created successfully!', [
-        { text: 'OK', onPress: () => navigation.goBack() },
+        { 
+          text: 'OK', 
+          onPress: () => {
+            setName('');
+            setTime('');
+            setSelectedDays([]);
+            setRadius('50');
+            setLocation(null);
+            router.back();
+          }
+        },
       ]);
     } catch (error: any) {
       Alert.alert('Error', error.response?.data?.detail || 'Failed to create class');

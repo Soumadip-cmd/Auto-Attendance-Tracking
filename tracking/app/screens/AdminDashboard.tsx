@@ -93,7 +93,7 @@ export default function AdminDashboard() {
             <View style={styles.quickActions}>
               <TouchableOpacity
                 style={styles.createButton}
-                onPress={() => navigation.navigate('CreateClass')}
+                onPress={() => router.push('/(app)/create' as any)}
               >
                 <Ionicons name="add-circle" size={24} color="#fff" />
                 <Text style={styles.createButtonText}>Create New Class</Text>
