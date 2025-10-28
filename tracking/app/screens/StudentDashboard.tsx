@@ -9,12 +9,12 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
-import api from '../utils/api';
 import { Ionicons } from '@expo/vector-icons';
+import api from '../utils/api';
 
 export default function StudentDashboard({ navigation }: any) {
   const { user, logout } = useAuth();
-  const [classes, setClasses] = useState([]);
+  const [classes, setClasses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 

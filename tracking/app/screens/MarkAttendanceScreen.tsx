@@ -12,8 +12,7 @@ import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { Camera } from 'expo-camera';
-import { BarCodeScanner } from 'expo-camera';
+import { BarCodeScanner } from 'expo-barcode-scanner';
 
 export default function MarkAttendanceScreen({ route, navigation }: any) {
   const { classData } = route.params;
@@ -66,7 +65,7 @@ export default function MarkAttendanceScreen({ route, navigation }: any) {
   };
 
   const startQRScanning = async () => {
-    const { status } = await Camera.requestCameraPermissionsAsync();
+    const { status } = await BarCodeScanner.requestPermissionsAsync();
     setHasPermission(status === 'granted');
 
     if (status === 'granted') {
@@ -104,12 +103,10 @@ export default function MarkAttendanceScreen({ route, navigation }: any) {
   if (scanning) {
     return (
       <View style={styles.container}>
-        <Camera
+        <BarCodeScanner
           style={StyleSheet.absoluteFillObject}
           onBarCodeScanned={handleBarCodeScanned}
-          barCodeScannerSettings={{
-            barCodeTypes: [BarCodeScanner.Constants.BarCodeType.qr],
-          }}
+          barCodeTypes={[BarCodeScanner.Constants.BarCodeType.qr]}
         />
         <View style={styles.scannerOverlay}>
           <Text style={styles.scannerText}>Scan QR Code</Text>
