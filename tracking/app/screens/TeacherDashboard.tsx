@@ -68,7 +68,7 @@ export default function TeacherDashboard() {
         <View style={styles.quickActions}>
           <TouchableOpacity
             style={styles.createButton}
-            onPress={() => navigation.navigate('CreateClass')}
+            onPress={() => router.push('/(app)/create' as any)}
           >
             <Ionicons name="add-circle" size={24} color="#fff" />
             <Text style={styles.createButtonText}>Create New Class</Text>
@@ -88,7 +88,7 @@ export default function TeacherDashboard() {
               <TouchableOpacity
                 key={cls._id}
                 style={styles.classCard}
-                onPress={() => navigation.navigate('ClassDetails', { classId: cls._id })}
+                onPress={() => alert(`View details for ${cls.name}`)}
               >
                 <View style={styles.classHeader}>
                   <View style={{ flex: 1 }}>
