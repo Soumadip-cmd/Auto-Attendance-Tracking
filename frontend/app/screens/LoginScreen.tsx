@@ -11,14 +11,13 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { useAuth } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 
-export default function LoginScreen({ navigation }: any) {
+export default function LoginScreen({ authContext, navigation }: any) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login } = authContext;
 
   const handleLogin = async () => {
     if (!username || !password) {
