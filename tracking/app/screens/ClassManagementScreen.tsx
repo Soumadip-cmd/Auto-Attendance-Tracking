@@ -11,10 +11,12 @@ import {
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import api from '../utils/api';
 
-export default function ClassManagementScreen({ navigation }: any) {
+export default function ClassManagementScreen() {
   const { user } = useAuth();
+  const router = useRouter();
   const [classes, setClasses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -121,7 +123,7 @@ export default function ClassManagementScreen({ navigation }: any) {
                 <View style={styles.classActions}>
                   <TouchableOpacity
                     style={styles.actionButton}
-                    onPress={() => navigation?.navigate('ClassDetails', { classId: cls._id })}
+                    onPress={() => alert(`View details for ${cls.name}`)}
                   >
                     <Ionicons name="eye-outline" size={20} color="#6C5CE7" />
                     <Text style={styles.actionButtonText}>View</Text>

@@ -10,10 +10,12 @@ import {
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import api from '../utils/api';
 
-export default function StudentDashboard({ navigation }: any) {
+export default function StudentDashboard() {
   const { user, logout } = useAuth();
+  const router = useRouter();
   const [classes, setClasses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -66,7 +68,7 @@ export default function StudentDashboard({ navigation }: any) {
         <View style={styles.quickActions}>
           <TouchableOpacity
             style={styles.actionCard}
-            onPress={() => navigation.navigate('AttendanceHistory')}
+            onPress={() => router.push('/(app)/attendance' as any)}
           >
             <View style={[styles.actionIcon, { backgroundColor: '#DBEAFE' }]}>
               <Ionicons name="calendar" size={24} color="#2563EB" />
@@ -87,7 +89,10 @@ export default function StudentDashboard({ navigation }: any) {
               <TouchableOpacity
                 key={cls._id}
                 style={styles.classCard}
-                onPress={() => navigation.navigate('MarkAttendance', { classData: cls })}
+                onPress={() => {
+                  // For now, just show alert - will add navigation later
+                  alert(`Mark attendance for ${cls.name}`);
+                }}
               >
                 <View style={styles.classHeader}>
                   <View>

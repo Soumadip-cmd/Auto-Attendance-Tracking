@@ -30,13 +30,17 @@ export default function TabsLayout() {
             backgroundColor: '#FFFFFF',
             borderTopWidth: 1,
             borderTopColor: '#E5E7EB',
-            height: 70,
-            paddingBottom: 10,
-            paddingTop: 10,
+            height: 85,
+            paddingBottom: 20,
+            paddingTop: 12,
           },
           tabBarLabelStyle: {
-            fontSize: 12,
-            marginBottom: 5,
+            fontSize: 13,
+            fontWeight: '600',
+            marginBottom: 8,
+          },
+          tabBarIconStyle: {
+            marginTop: 8,
           },
         }}
       >
@@ -77,13 +81,17 @@ export default function TabsLayout() {
             backgroundColor: '#FFFFFF',
             borderTopWidth: 1,
             borderTopColor: '#E5E7EB',
-            height: 70,
-            paddingBottom: 10,
-            paddingTop: 10,
+            height: 85,
+            paddingBottom: 20,
+            paddingTop: 12,
           },
           tabBarLabelStyle: {
-            fontSize: 12,
-            marginBottom: 5,
+            fontSize: 13,
+            fontWeight: '600',
+            marginBottom: 8,
+          },
+          tabBarIconStyle: {
+            marginTop: 8,
           },
         }}
       >
@@ -124,13 +132,17 @@ export default function TabsLayout() {
             backgroundColor: '#FFFFFF',
             borderTopWidth: 1,
             borderTopColor: '#E5E7EB',
-            height: 70,
-            paddingBottom: 10,
-            paddingTop: 10,
+            height: 85,
+            paddingBottom: 20,
+            paddingTop: 12,
           },
           tabBarLabelStyle: {
-            fontSize: 12,
-            marginBottom: 5,
+            fontSize: 13,
+            fontWeight: '600',
+            marginBottom: 8,
+          },
+          tabBarIconStyle: {
+            marginTop: 8,
           },
         }}
       >

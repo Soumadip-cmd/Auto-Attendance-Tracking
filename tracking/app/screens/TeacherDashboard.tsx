@@ -10,10 +10,12 @@ import {
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import api from '../utils/api';
 
-export default function TeacherDashboard({ navigation }: any) {
+export default function TeacherDashboard() {
   const { user, logout } = useAuth();
+  const router = useRouter();
   const [classes, setClasses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

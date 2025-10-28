@@ -9,13 +9,14 @@ import {
   Alert,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
+import { useRouter } from 'expo-router';
 import api from '../utils/api';
 import { Ionicons } from '@expo/vector-icons';
-import QRCode from 'react-native-qrcode-svg';
 
-export default function ClassDetailsScreen({ route, navigation }: any) {
-  const { classId } = route.params;
+export default function ClassDetailsScreen({ route }: any) {
+  const { classId } = route?.params || {};
   const { user } = useAuth();
+  const router = useRouter();
   const [classData, setClassData] = useState<any>(null);
   const [attendance, setAttendance] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -122,16 +123,17 @@ export default function ClassDetailsScreen({ route, navigation }: any) {
       {(user?.role === 'teacher' || user?.role === 'admin') && (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>QR Code</Text>
+            <Text style={styles.sectionTitle}>Class Code</Text>
             <TouchableOpacity onPress={regenerateQR} style={styles.regenerateButton}>
               <Ionicons name="refresh" size={20} color="#4F46E5" />
               <Text style={styles.regenerateText}>Regenerate</Text>
             </TouchableOpacity>
           </View>
           <View style={styles.qrCard}>
-            <QRCode value={classData.qr_code} size={200} />
-            <Text style={styles.qrCode}>{classData.qr_code}</Text>
-            <Text style={styles.qrHint}>Students can scan this QR code to mark attendance</Text>
+            <View style={styles.codeBox}>
+              <Text style={styles.codeText}>{classData.qr_code}</Text>
+            </View>
+            <Text style={styles.qrHint}>Students can use this code to join the class</Text>
           </View>
         </View>
       )}
