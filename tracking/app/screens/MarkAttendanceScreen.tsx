@@ -12,15 +12,12 @@ import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { BarCodeScanner } from 'expo-barcode-scanner';
 
 export default function MarkAttendanceScreen({ route, navigation }: any) {
   const { classData } = route.params;
   const { user } = useAuth();
   const [location, setLocation] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [scanning, setScanning] = useState(false);
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -63,63 +60,6 @@ export default function MarkAttendanceScreen({ route, navigation }: any) {
       setLoading(false);
     }
   };
-
-  const startQRScanning = async () => {
-    const { status } = await BarCodeScanner.requestPermissionsAsync();
-    setHasPermission(status === 'granted');
-
-    if (status === 'granted') {
-      setScanning(true);
-    } else {
-      Alert.alert('Permission Denied', 'Camera permission is required to scan QR codes');
-    }
-  };
-
-  const handleBarCodeScanned = async ({ type, data }: any) => {
-    setScanning(false);
-    setLoading(true);
-
-    try {
-      const response = await api.post('/api/attendance/mark', {
-        class_id: classData._id,
-        method: 'qr',
-        qr_code: data,
-      });
-
-      Alert.alert(
-        'Success',
-        response.data.flagged
-          ? `Attendance marked but flagged: ${response.data.flag_reason}`
-          : 'Attendance marked successfully!',
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
-      );
-    } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.detail || 'Failed to mark attendance');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (scanning) {
-    return (
-      <View style={styles.container}>
-        <BarCodeScanner
-          style={StyleSheet.absoluteFillObject}
-          onBarCodeScanned={handleBarCodeScanned}
-          barCodeTypes={[BarCodeScanner.Constants.BarCodeType.qr]}
-        />
-        <View style={styles.scannerOverlay}>
-          <Text style={styles.scannerText}>Scan QR Code</Text>
-          <TouchableOpacity
-            style={styles.cancelButton}
-            onPress={() => setScanning(false)}
-          >
-            <Text style={styles.cancelButtonText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
 
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
     const R = 6371000; // Earth radius in meters
@@ -212,23 +152,6 @@ export default function MarkAttendanceScreen({ route, navigation }: any) {
             ) : (
               <Ionicons name="chevron-forward" size={24} color="#9CA3AF" />
             )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.methodButton, loading && styles.methodButtonDisabled]}
-            onPress={startQRScanning}
-            disabled={loading}
-          >
-            <View style={[styles.methodIcon, { backgroundColor: '#F3E8FF' }]}>
-              <Ionicons name="qr-code" size={28} color="#7C3AED" />
-            </View>
-            <View style={styles.methodContent}>
-              <Text style={styles.methodTitle}>QR Code Scanning</Text>
-              <Text style={styles.methodDescription}>
-                Scan the class QR code to mark attendance
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color="#9CA3AF" />
           </TouchableOpacity>
         </View>
       </View>
