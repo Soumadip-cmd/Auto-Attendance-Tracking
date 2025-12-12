@@ -3,17 +3,10 @@
     "name": "AutoAttendance",
     "slug": "auto-attendance",
     "version": "1.0.0",
+    "scheme": "autoattendance",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "backgroundColor": "#3B82F6",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.yourcompany.autoattendance",
@@ -28,10 +21,6 @@
       }
     },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
       "package": "com.yourcompany.autoattendance",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
@@ -40,9 +29,6 @@
         "FOREGROUND_SERVICE",
         "FOREGROUND_SERVICE_LOCATION"
       ]
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       [
