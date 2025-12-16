@@ -11,3 +11,6 @@ VITE_WS_URL=ws://localhost:5000
 # Feature Flags
 VITE_ENABLE_ANALYTICS=false
 VITE_ENABLE_DEBUG=true
+
+VITE_API_URL=http://localhost:5000/api/v1
+VITE_APP_NAME=Attendance Tracker

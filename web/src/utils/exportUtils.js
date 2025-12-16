@@ -1,6 +1,5 @@
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
-import * as XLSX from 'xlsx';
 
 // Export data to Excel
 export const exportToExcel = (data, filename = 'export') => {

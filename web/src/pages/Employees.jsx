@@ -6,7 +6,7 @@ import {
   Users, Plus, Search, Edit2, Trash2, Mail, Phone, 
   Filter, Download, X, Check 
 } from 'lucide-react';
-import { usersAPI } from '../services/api';
+import { userAPI as usersAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 

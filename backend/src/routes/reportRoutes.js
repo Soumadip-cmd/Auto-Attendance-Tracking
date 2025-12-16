@@ -1,35 +1,74 @@
 const express = require('express');
 const router = express.Router();
 const { protect, authorize } = require('../middleware/auth');
-const Attendance = require('../models/Attendance');
+const {
+  generateReport,
+  getDailyReport,
+  getWeeklyReport,
+  getMonthlyReport,
+  exportReportData
+} = require('../controllers/reportController');
+
+// All report routes require authentication and admin authorization
+router.use(protect);
+router.use(authorize('admin', 'manager'));
+
+/**
+ * @route   POST /api/v1/reports/generate
+ * @desc    Generate custom report by type and date range
+ * @access  Private/Admin/Manager
+ */
+router.post('/generate', generateReport);
+
+/**
+ * @route   GET /api/v1/reports/daily/: date
+ * @desc    Get daily attendance report
+ * @access  Private/Admin/Manager
+ * @example /api/v1/reports/daily/2025-12-17
+ */
+router.get('/daily/:date', getDailyReport);
+
+/**
+ * @route   GET /api/v1/reports/weekly/: startDate/:endDate
+ * @desc    Get weekly attendance report
+ * @access  Private/Admin/Manager
+ * @example /api/v1/reports/weekly/2025-12-10/2025-12-16
+ */
+router.get('/weekly/:startDate/:endDate', getWeeklyReport);
+
+/**
+ * @route   GET /api/v1/reports/monthly/:month/:year
+ * @desc    Get monthly attendance report
+ * @access  Private/Admin/Manager
+ * @example /api/v1/reports/monthly/12/2025
+ */
+router.get('/monthly/:month/:year', getMonthlyReport);
+
+/**
+ * @route   GET /api/v1/reports/export
+ * @desc    Export report data for Excel/CSV
+ * @access  Private/Admin/Manager
+ * @query   startDate, endDate, format
+ * @example /api/v1/reports/export?startDate=2025-12-01&endDate=2025-12-17&format=json
+ */
+router.get('/export', exportReportData);
+
+// ============================================
+// LEGACY ROUTES (Keep for backward compatibility)
+// ============================================
 
 /**
  * @route   GET /api/v1/reports/daily
- * @desc    Get daily report
- * @access  Private/Admin
+ * @desc    Get daily report (legacy - query param version)
+ * @access  Private/Admin/Manager
  */
-router.get('/daily', protect, authorize('admin'), async (req, res, next) => {
+router.get('/daily', async (req, res, next) => {
   try {
     const { date } = req.query;
-    const targetDate = date ? new Date(date) : new Date();
-    targetDate.setHours(0, 0, 0, 0);
+    const targetDate = date || new Date().toISOString().split('T')[0];
     
-    const nextDay = new Date(targetDate);
-    nextDay.setDate(nextDay.getDate() + 1);
-    
-    const attendance = await Attendance.find({
-      checkIn: {
-        $gte: targetDate,
-        $lt: nextDay,
-      },
-    }).populate('user', 'firstName lastName email employeeId department');
-    
-    res.status(200).json({
-      success: true,
-      date: targetDate,
-      count: attendance.length,
-      data: attendance,
-    });
+    // Redirect to new endpoint
+    return getDailyReport({ params: { date: targetDate } }, res);
   } catch (error) {
     next(error);
   }
@@ -37,34 +76,22 @@ router.get('/daily', protect, authorize('admin'), async (req, res, next) => {
 
 /**
  * @route   GET /api/v1/reports/monthly
- * @desc    Get monthly report
- * @access  Private/Admin
+ * @desc    Get monthly report (legacy - query param version)
+ * @access  Private/Admin/Manager
  */
-router. get('/monthly', protect, authorize('admin'), async (req, res, next) => {
+router.get('/monthly', async (req, res, next) => {
   try {
     const { year, month } = req.query;
-    const targetYear = year ? parseInt(year) : new Date().getFullYear();
-    const targetMonth = month ? parseInt(month) - 1 : new Date().getMonth();
+    const targetYear = year || new Date().getFullYear();
+    const targetMonth = month || new Date().getMonth() + 1;
     
-    const startDate = new Date(targetYear, targetMonth, 1);
-    const endDate = new Date(targetYear, targetMonth + 1, 0, 23, 59, 59);
-    
-    const attendance = await Attendance.find({
-      checkIn: {
-        $gte: startDate,
-        $lte: endDate,
-      },
-    }).populate('user', 'firstName lastName email employeeId department');
-    
-    res.status(200).json({
-      success: true,
-      period: {
-        year: targetYear,
-        month: targetMonth + 1,
-      },
-      count: attendance.length,
-      data: attendance,
-    });
+    // Redirect to new endpoint
+    return getMonthlyReport({ 
+      params: { 
+        month: targetMonth, 
+        year: targetYear 
+      } 
+    }, res);
   } catch (error) {
     next(error);
   }

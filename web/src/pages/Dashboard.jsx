@@ -1,76 +1,75 @@
 import { StatsCardSkeleton, ChartSkeleton } from '../components/common/Skeleton';
+import { dashboardAPI } from '../services/api';
+import { toast } from 'react-hot-toast';
 import { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { Users, UserCheck, UserX, Clock, TrendingUp } from 'lucide-react';
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { attendanceAPI, usersAPI } from '../services/api';
 
 const Dashboard = () => {
   const { setPageTitle } = useOutletContext();
+  
+  // State declarations
+  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalEmployees: 0,
     presentToday: 0,
     absentToday: 0,
     lateToday: 0,
   });
-  const [loading, setLoading] = useState(true);
+  const [weeklyData, setWeeklyData] = useState([]);
+  const [departmentData, setDepartmentData] = useState([]);
+  const [monthlyTrend, setMonthlyTrend] = useState([]);
+  const [recentActivity, setRecentActivity] = useState([]);
 
-  // Mock chart data
-  const weeklyData = [
-    { day: 'Mon', present: 42, absent: 8 },
-    { day: 'Tue', present: 45, absent: 5 },
-    { day: 'Wed', present: 40, absent: 10 },
-    { day: 'Thu', present: 46, absent: 4 },
-    { day: 'Fri', present: 43, absent: 7 },
-    { day: 'Sat', present: 38, absent: 12 },
-    { day: 'Sun', present: 35, absent: 15 },
-  ];
-
-  const departmentData = [
-    { name: 'IT', value: 18, color: '#3b82f6' },
-    { name: 'HR', value:  8, color: '#10b981' },
-    { name: 'Sales', value: 12, color: '#f59e0b' },
-    { name:  'Marketing', value: 7, color: '#ef4444' },
-    { name: 'Finance', value: 5, color: '#8b5cf6' },
-  ];
-
-  const monthlyTrend = [
-    { month: 'Jan', attendance: 85 },
-    { month: 'Feb', attendance: 88 },
-    { month: 'Mar', attendance: 82 },
-    { month: 'Apr', attendance: 90 },
-    { month: 'May', attendance: 87 },
-    { month: 'Jun', attendance: 91 },
-  ];
-
+  // Fetch dashboard data
   useEffect(() => {
     setPageTitle('Dashboard');
+    
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+
+        // Fetch all dashboard data in parallel
+        const [
+          statsRes,
+          weeklyRes,
+          deptRes,
+          trendRes,
+          activityRes
+        ] = await Promise. all([
+          dashboardAPI. getStats(),
+          dashboardAPI.getWeeklyAttendance(),
+          dashboardAPI.getDepartmentDistribution(),
+          dashboardAPI.getMonthlyTrend(),
+          dashboardAPI.getRecentActivity(),
+        ]);
+
+        // Update states with real data
+        setStats(statsRes.data);
+        setWeeklyData(weeklyRes.data);
+        setDepartmentData(deptRes.data);
+        setMonthlyTrend(trendRes.data);
+        setRecentActivity(activityRes.data);
+
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        toast.error('Failed to load dashboard data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchDashboardData();
   }, [setPageTitle]);
 
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
-      // Mock data for now
-      setStats({
-        totalEmployees:  50,
-        presentToday: 42,
-        absentToday:  5,
-        lateToday:  3,
-      });
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Stats cards configuration
   const statsCards = [
     {
       title: 'Total Employees',
-      value: stats. totalEmployees,
-      icon:  Users,
-      color: 'bg-blue-500',
+      value:  stats.totalEmployees,
+      icon: Users,
+      color:  'bg-blue-500',
       bgColor: 'bg-blue-50',
       textColor: 'text-blue-700',
       change: '+5%',
@@ -82,17 +81,17 @@ const Dashboard = () => {
       icon: UserCheck,
       color: 'bg-green-500',
       bgColor: 'bg-green-50',
-      textColor: 'text-green-700',
+      textColor:  'text-green-700',
       change: '+2%',
       trend: 'up',
     },
     {
       title: 'Absent Today',
       value: stats.absentToday,
-      icon:  UserX,
+      icon: UserX,
       color: 'bg-red-500',
       bgColor: 'bg-red-50',
-      textColor: 'text-red-700',
+      textColor:  'text-red-700',
       change: '-1%',
       trend: 'down',
     },
@@ -108,33 +107,35 @@ const Dashboard = () => {
     },
   ];
 
-if (loading) {
-  return (
-    <div className="space-y-6">
-      {/* Stats Skeleton */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {[...Array(4)].map((_, i) => (
-          <StatsCardSkeleton key={i} />
-        ))}
-      </div>
+  // Loading skeleton
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        {/* Stats Skeleton */}
+        <div className="grid grid-cols-1 md: grid-cols-2 lg: grid-cols-4 gap-6">
+          {[...Array(4)].map((_, i) => (
+            <StatsCardSkeleton key={i} />
+          ))}
+        </div>
 
-      {/* Charts Skeleton */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ChartSkeleton />
-        <ChartSkeleton />
-      </div>
+        {/* Charts Skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <ChartSkeleton />
+          <ChartSkeleton />
+        </div>
 
-      {/* Monthly Chart Skeleton */}
-      <ChartSkeleton />
+        {/* Monthly Chart Skeleton */}
+        <ChartSkeleton />
 
-      {/* Quick Actions Skeleton */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ChartSkeleton />
-        <ChartSkeleton />
+        {/* Quick Actions Skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <ChartSkeleton />
+          <ChartSkeleton />
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Stats Grid */}
@@ -144,20 +145,20 @@ if (loading) {
           return (
             <div key={stat.title} className="card hover:shadow-lg transition-shadow duration-300">
               <div className="flex items-center justify-between mb-3">
-  <div className={`${stat.bgColor} p-3 rounded-lg`}>
-    <Icon className={`w-6 h-6 ${stat.textColor}`} />
-  </div>
-  <div className={`flex items-center gap-1 text-sm ${
-    stat. trend === 'up' ? 'text-green-600 dark:text-green-400' :  
-    stat.trend === 'down' ? 'text-red-600 dark:text-red-400' : 
-    'text-gray-600 dark: text-gray-400'
-  }`}>
-    <TrendingUp className={`w-4 h-4 ${stat. trend === 'down' ? 'rotate-180' : ''}`} />
-    <span className="font-medium">{stat.change}</span>
-  </div>
-</div>
-<p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{stat.title}</p>
-<p className="text-3xl font-bold text-gray-900 dark:text-white">{stat.value}</p>
+                <div className={`${stat.bgColor} p-3 rounded-lg`}>
+                  <Icon className={`w-6 h-6 ${stat.textColor}`} />
+                </div>
+                <div className={`flex items-center gap-1 text-sm ${
+                  stat.trend === 'up' ? 'text-green-600 dark:text-green-400' :  
+                  stat.trend === 'down' ? 'text-red-600 dark:text-red-400' : 
+                  'text-gray-600 dark: text-gray-400'
+                }`}>
+                  <TrendingUp className={`w-4 h-4 ${stat.trend === 'down' ?  'rotate-180' : ''}`} />
+                  <span className="font-medium">{stat.change}</span>
+                </div>
+              </div>
+              <p className="text-sm text-gray-600 dark: text-gray-400 mb-1">{stat.title}</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white">{stat.value}</p>
             </div>
           );
         })}
@@ -167,20 +168,19 @@ if (loading) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Weekly Attendance Chart */}
         <div className="card">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Weekly Attendance</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark: text-white mb-4">Weekly Attendance</h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={weeklyData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis dataKey="day" stroke="#6b7280" />
               <YAxis stroke="#6b7280" />
               <Tooltip 
-  contentStyle={{ 
-    backgroundColor: document. documentElement.classList.contains('dark') ? '#1f2937' : '#fff',
-    border: document.documentElement.classList.contains('dark') ? '1px solid #374151' : '1px solid #e5e7eb',
-    borderRadius: '8px',
-    color: document.documentElement.classList. contains('dark') ? '#fff' : '#000'
-  }}
-/>
+                contentStyle={{ 
+                  backgroundColor: '#fff',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px'
+                }}
+              />
               <Legend />
               <Bar dataKey="present" fill="#10b981" radius={[8, 8, 0, 0]} />
               <Bar dataKey="absent" fill="#ef4444" radius={[8, 8, 0, 0]} />
@@ -198,13 +198,13 @@ if (loading) {
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                label={({ name, percentage }) => `${name} ${percentage}%`}
                 outerRadius={100}
                 fill="#8884d8"
                 dataKey="value"
               >
                 {departmentData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
+                  <Cell key={`cell-${index}`} fill={entry.color || `hsl(${index * 45}, 70%, 50%)`} />
                 ))}
               </Pie>
               <Tooltip />
@@ -255,8 +255,9 @@ if (loading) {
 
       {/* Quick Actions & Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Quick Actions */}
         <div className="card">
-          <h3 className="text-lg font-semibold text-gray-900 dark: text-white mb-4">Quick Actions</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quick Actions</h3>
           <div className="space-y-3">
             <button className="w-full btn-secondary justify-start">
               👥 Add New Employee
@@ -270,30 +271,29 @@ if (loading) {
           </div>
         </div>
 
+        {/* Recent Activity */}
         <div className="card">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recent Activity</h3>
           <div className="space-y-3">
-            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-900">John Doe checked in</p>
-                <p className="text-xs text-gray-500">2 minutes ago</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-900">New employee added</p>
-                <p className="text-xs text-gray-500">15 minutes ago</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-900">Late arrival:  Jane Smith</p>
-                <p className="text-xs text-gray-500">1 hour ago</p>
-              </div>
-            </div>
+            {recentActivity.length > 0 ? (
+              recentActivity.map((activity) => (
+                <div key={activity.id} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className={`w-2 h-2 rounded-full ${
+                    activity.status === 'present' ? 'bg-green-500' : 
+                    activity.status === 'late' ? 'bg-yellow-500' :
+                    'bg-red-500'
+                  }`}></div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      {activity.employeeName} {activity.action}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{activity.timeAgo}</p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-gray-500 dark: text-gray-400">No recent activity</p>
+            )}
           </div>
         </div>
       </div>
