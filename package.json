@@ -1,0 +1,31 @@
+{
+  "name": "auto-attendance-tracking",
+  "version": "1.0.0",
+  "description": "Production-ready geolocation-based staff attendance & performance tracking system",
+  "private": true,
+  "scripts": {
+    "install:all": "npm install && npm install --prefix backend && npm install --prefix mobile",
+    "dev:backend": "npm run dev --prefix backend",
+    "dev:mobile": "npm start --prefix mobile",
+    "test": "npm test --prefix backend",
+    "build:backend": "npm run build --prefix backend",
+    "lint": "npm run lint --prefix backend && npm run lint --prefix mobile"
+  },
+  "keywords": [
+    "attendance",
+    "geolocation",
+    "tracking",
+    "react-native",
+    "express",
+    "mongodb"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "dependencies": {
+    "react-native-worklets-core": "^1.6.2"
+  }
+}

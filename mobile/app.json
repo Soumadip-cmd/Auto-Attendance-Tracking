@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "AutoAttendance",
+    "slug": "auto-attendance",
+    "version": "1.0.0",
+    "scheme": "autoattendance",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#3B82F6",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.yourcompany.autoattendance",
+      "infoPlist": {
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "We need your location to track attendance and verify you're at the workplace.",
+        "NSLocationWhenInUseUsageDescription": "We need your location to track attendance and verify you're at the workplace.",
+        "NSLocationAlwaysUsageDescription": "We need your location in the background to automatically track your attendance.",
+        "UIBackgroundModes": [
+          "location",
+          "fetch"
+        ]
+      }
+    },
+    "android": {
+      "package": "com.yourcompany.autoattendance",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location to track attendance.",
+          "locationAlwaysPermission": "Allow $(PRODUCT_NAME) to use your location in the background for automatic attendance tracking.",
+          "locationWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location to track attendance."
+        }
+      ]
+    ]
+  }
+}

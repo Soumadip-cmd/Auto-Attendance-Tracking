@@ -1,0 +1,507 @@
+{
+  "info": {
+    "name": "Auto Attendance Tracking API",
+    "description": "Complete API collection for the geolocation-based attendance tracking system",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('accessToken', response.data.token);",
+                  "    pm.environment.set('refreshToken', response.data.refreshToken);",
+                  "    pm.environment.set('userId', response.data.user.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"staff@example.com\",\n  \"password\": \"Staff@12345\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"role\": \"staff\",\n  \"employeeId\": \"EMP001\",\n  \"department\": \"Engineering\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('accessToken', response.data.token);",
+                  "    pm.environment.set('refreshToken', response.data.refreshToken);",
+                  "    pm.environment.set('userId', response.data.user.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"Admin@12345\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('accessToken', response.data.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "refresh"]
+            }
+          }
+        },
+        {
+          "name": "Update Privacy Settings",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"consentGiven\": true,\n  \"trackingEnabled\": true,\n  \"privacySettings\": {\n    \"shareLocationWithManagers\": true,\n    \"allowHistoryAccess\": true,\n    \"dataRetentionDays\": 90\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/privacy",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "privacy"]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Geofences",
+      "item": [
+        {
+          "name": "Create Geofence",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Main Campus\",\n  \"description\": \"Primary office location\",\n  \"type\": \"campus\",\n  \"latitude\": 40.7128,\n  \"longitude\": -74.0060,\n  \"radius\": 200,\n  \"address\": {\n    \"street\": \"123 Main St\",\n    \"city\": \"New York\",\n    \"state\": \"NY\",\n    \"country\": \"USA\",\n    \"postalCode\": \"10001\"\n  },\n  \"workingHours\": {\n    \"enabled\": true,\n    \"schedule\": [\n      {\n        \"day\": \"monday\",\n        \"startTime\": \"09:00\",\n        \"endTime\": \"17:00\"\n      },\n      {\n        \"day\": \"tuesday\",\n        \"startTime\": \"09:00\",\n        \"endTime\": \"17:00\"\n      },\n      {\n        \"day\": \"wednesday\",\n        \"startTime\": \"09:00\",\n        \"endTime\": \"17:00\"\n      },\n      {\n        \"day\": \"thursday\",\n        \"startTime\": \"09:00\",\n        \"endTime\": \"17:00\"\n      },\n      {\n        \"day\": \"friday\",\n        \"startTime\": \"09:00\",\n        \"endTime\": \"17:00\"\n      }\n    ]\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/geofences",
+              "host": ["{{baseUrl}}"],
+              "path": ["geofences"]
+            }
+          }
+        },
+        {
+          "name": "Get All Geofences",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/geofences",
+              "host": ["{{baseUrl}}"],
+              "path": ["geofences"]
+            }
+          }
+        },
+        {
+          "name": "Check Location",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"latitude\": 40.7128,\n  \"longitude\": -74.0060\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/geofences/check",
+              "host": ["{{baseUrl}}"],
+              "path": ["geofences", "check"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Attendance",
+      "item": [
+        {
+          "name": "Check In",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"latitude\": 40.7128,\n  \"longitude\": -74.0060,\n  \"method\": \"manual\",\n  \"deviceId\": \"test-device-id\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/attendance/checkin",
+              "host": ["{{baseUrl}}"],
+              "path": ["attendance", "checkin"]
+            }
+          }
+        },
+        {
+          "name": "Check Out",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"latitude\": 40.7128,\n  \"longitude\": -74.0060,\n  \"method\": \"manual\",\n  \"deviceId\": \"test-device-id\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/attendance/checkout",
+              "host": ["{{baseUrl}}"],
+              "path": ["attendance", "checkout"]
+            }
+          }
+        },
+        {
+          "name": "Get Today's Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/attendance/today",
+              "host": ["{{baseUrl}}"],
+              "path": ["attendance", "today"]
+            }
+          }
+        },
+        {
+          "name": "Get Attendance Records",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/attendance/records?limit=30&page=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["attendance", "records"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "30"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Attendance Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/attendance/summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["attendance", "summary"]
+            }
+          }
+        },
+        {
+          "name": "Get Attendance Overview (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/attendance/overview",
+              "host": ["{{baseUrl}}"],
+              "path": ["attendance", "overview"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Locations",
+      "item": [
+        {
+          "name": "Submit Location",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"latitude\": 40.7128,\n  \"longitude\": -74.0060,\n  \"accuracy\": 10.5,\n  \"altitude\": 50.0,\n  \"heading\": 90,\n  \"speed\": 0,\n  \"timestamp\": \"{{$isoTimestamp}}\",\n  \"trackingType\": \"foreground\",\n  \"batteryLevel\": 85,\n  \"networkType\": \"wifi\",\n  \"activity\": \"still\",\n  \"signature\": \"test-signature\",\n  \"deviceId\": \"test-device-id\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/locations",
+              "host": ["{{baseUrl}}"],
+              "path": ["locations"]
+            }
+          }
+        },
+        {
+          "name": "Get Location History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/locations/history?limit=100&page=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["locations", "history"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "100"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Live Locations (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/locations/live",
+              "host": ["{{baseUrl}}"],
+              "path": ["locations", "live"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["health"]
+        }
+      }
+    }
+  ]
+}
