@@ -1,3 +1,7 @@
+import Settings from './pages/Settings';
+import Reports from './pages/Reports';
+import Attendance from './pages/Attendance';
+import Employees from './pages/Employees';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/layout/Layout';
@@ -42,10 +46,10 @@ const AppRoutes = () => {
       >
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
-        <Route path="employees" element={<div className="card">Employees Page - Coming Soon</div>} />
-        <Route path="attendance" element={<div className="card">Attendance Page - Coming Soon</div>} />
-        <Route path="reports" element={<div className="card">Reports Page - Coming Soon</div>} />
-        <Route path="settings" element={<div className="card">Settings Page - Coming Soon</div>} />
+        <Route path="employees" element={<Employees />} />
+        <Route path="attendance" element={<Attendance />} />
+        <Route path="reports" element={<Reports />} />
+        <Route path="settings" element={<Settings />} />
       </Route>
 
       {/* 404 */}
