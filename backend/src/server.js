@@ -1,3 +1,6 @@
+require('dotenv').config();
+console.log('NODE_ENV:', process.env. NODE_ENV);
+console.log('JWT_SECRET:', process.env.JWT_SECRET ?  'LOADED ✅' : 'NOT LOADED ❌');
 const { server, io } = require('./app');
 const logger = require('./config/logger');
 const mongoose = require('mongoose');
