@@ -1,3 +1,5 @@
+import { TableSkeleton, StatsCardSkeleton } from '../components/common/Skeleton';
+import { exportEmployeesToExcel } from '../utils/exportUtils';
 import { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { 
@@ -5,6 +7,8 @@ import {
   Filter, Download, X, Check 
 } from 'lucide-react';
 import { usersAPI } from '../services/api';
+import toast from 'react-hot-toast';
+import ConfirmDialog from '../components/common/ConfirmDialog';
 
 const Employees = () => {
   const { setPageTitle } = useOutletContext();
@@ -14,6 +18,7 @@ const Employees = () => {
   const [filterRole, setFilterRole] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState({ isOpen: false, employee: null });
 
   useEffect(() => {
     setPageTitle('Employees');
@@ -33,7 +38,7 @@ const Employees = () => {
           _id: '1',
           firstName: 'John',
           lastName: 'Doe',
-          email: 'john@example. com',
+          email: 'john@example.com',
           employeeId: 'EMP001',
           role: 'admin',
           department: 'IT',
@@ -68,15 +73,20 @@ const Employees = () => {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (! window.confirm('Are you sure you want to delete this employee?')) return;
+  const handleDelete = async () => {
+    if (! deleteConfirm.employee) return;
     
+    setLoading(true);
     try {
-      await usersAPI.delete(id);
+      await usersAPI.delete(deleteConfirm.employee._id);
+      toast.success('Employee deleted successfully!');
       fetchEmployees();
+      setDeleteConfirm({ isOpen: false, employee: null });
     } catch (error) {
       console.error('Error deleting employee:', error);
-      alert('Failed to delete employee');
+      toast.error('Failed to delete employee');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -89,30 +99,45 @@ const Employees = () => {
     const matchesSearch = 
       emp.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       emp.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      emp.email. toLowerCase().includes(searchTerm. toLowerCase()) ||
+      emp.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       emp.employeeId.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesRole = filterRole === 'all' || emp.role === filterRole;
+    const matchesRole = filterRole === 'all' || emp. role === filterRole;
     
     return matchesSearch && matchesRole;
   });
 
   const getRoleBadge = (role) => {
     const colors = {
-      admin: 'bg-red-100 text-red-800',
-      manager: 'bg-blue-100 text-blue-800',
-      staff: 'bg-gray-100 text-gray-800',
+      admin: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+      manager: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+      staff: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
     };
     return colors[role] || 'bg-gray-100 text-gray-800';
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="w-12 h-12 border-4 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
+if (loading) {
+  return (
+    <div className="space-y-6">
+      {/* Search and Actions Skeleton */}
+      <div className="flex gap-4">
+        <div className="flex-1 h-10 animate-pulse bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+        <div className="w-32 h-10 animate-pulse bg-gray-200 dark: bg-gray-700 rounded-lg"></div>
+        <div className="w-32 h-10 animate-pulse bg-gray-200 dark: bg-gray-700 rounded-lg"></div>
       </div>
-    );
-  }
+
+      {/* Stats Skeleton */}
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        {[...Array(4)].map((_, i) => (
+          <StatsCardSkeleton key={i} />
+        ))}
+      </div>
+
+      {/* Table Skeleton */}
+      <TableSkeleton rows={8} columns={6} />
+    </div>
+  );
+}
 
   return (
     <div className="space-y-6">
@@ -146,7 +171,11 @@ const Employees = () => {
 
         {/* Actions */}
         <div className="flex gap-2">
-          <button className="btn-secondary flex items-center gap-2">
+          <button 
+            onClick={() => exportEmployeesToExcel(filteredEmployees)}
+            className="btn-secondary flex items-center gap-2"
+            disabled={filteredEmployees.length === 0}
+          >
             <Download className="w-4 h-4" />
             Export
           </button>
@@ -166,23 +195,23 @@ const Employees = () => {
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <div className="card">
-          <p className="text-sm text-gray-600">Total Employees</p>
-          <p className="text-2xl font-bold text-gray-900">{employees.length}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Total Employees</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white">{employees.length}</p>
         </div>
         <div className="card">
-          <p className="text-sm text-gray-600">Active</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Active</p>
           <p className="text-2xl font-bold text-green-600">
             {employees.filter(e => e.isActive).length}
           </p>
         </div>
         <div className="card">
-          <p className="text-sm text-gray-600">Inactive</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Inactive</p>
           <p className="text-2xl font-bold text-red-600">
             {employees.filter(e => !e.isActive).length}
           </p>
         </div>
         <div className="card">
-          <p className="text-sm text-gray-600">Admins</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Admins</p>
           <p className="text-2xl font-bold text-blue-600">
             {employees.filter(e => e.role === 'admin').length}
           </p>
@@ -193,50 +222,50 @@ const Employees = () => {
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Employee
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   ID
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Department
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Role
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {filteredEmployees.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan="6" className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                     No employees found
                   </td>
                 </tr>
               ) : (
                 filteredEmployees.map((employee) => (
-                  <tr key={employee._id} className="hover:bg-gray-50">
+                  <tr key={employee._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
-                          <span className="text-primary-700 font-semibold text-sm">
+                        <div className="w-10 h-10 bg-primary-100 dark:bg-primary-900/30 rounded-full flex items-center justify-center">
+                          <span className="text-primary-700 dark:text-primary-400 font-semibold text-sm">
                             {employee.firstName[0]}{employee.lastName[0]}
                           </span>
                         </div>
                         <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
                             {employee.firstName} {employee.lastName}
                           </div>
-                          <div className="text-sm text-gray-500 flex items-center gap-1">
+                          <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
                             <Mail className="w-3 h-3" />
                             {employee.email}
                           </div>
@@ -244,12 +273,12 @@ const Employees = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm font-mono text-gray-900">
+                      <span className="text-sm font-mono text-gray-900 dark: text-white">
                         {employee.employeeId}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-900">{employee.department}</span>
+                      <span className="text-sm text-gray-900 dark:text-white">{employee.department}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${getRoleBadge(employee.role)}`}>
@@ -259,8 +288,8 @@ const Employees = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                         employee.isActive 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
+                          : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
                       }`}>
                         {employee.isActive ? 'Active' : 'Inactive'}
                       </span>
@@ -269,14 +298,14 @@ const Employees = () => {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleEdit(employee)}
-                          className="p-1 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                          className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
                           title="Edit"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDelete(employee._id)}
-                          className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                          onClick={() => setDeleteConfirm({ isOpen: true, employee })}
+                          className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                           title="Delete"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -306,6 +335,19 @@ const Employees = () => {
           }}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={deleteConfirm.isOpen}
+        onClose={() => setDeleteConfirm({ isOpen:  false, employee: null })}
+        onConfirm={handleDelete}
+        title="Delete Employee"
+        message={`Are you sure you want to delete ${deleteConfirm.employee?.firstName} ${deleteConfirm.employee?.lastName}?  This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
+        loading={loading}
+      />
     </div>
   );
 };
@@ -332,13 +374,15 @@ const EmployeeModal = ({ employee, onClose, onSave }) => {
     try {
       if (employee) {
         await usersAPI. update(employee._id, formData);
+        toast.success('Employee updated successfully!');
       } else {
         await usersAPI.create(formData);
+        toast.success('Employee created successfully!');
       }
       onSave();
     } catch (error) {
       console.error('Error saving employee:', error);
-      alert('Failed to save employee');
+      toast.error('Failed to save employee');
     } finally {
       setLoading(false);
     }
@@ -346,14 +390,14 @@ const EmployeeModal = ({ employee, onClose, onSave }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white">
-          <h3 className="text-xl font-bold text-gray-900">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between sticky top-0 bg-white dark:bg-gray-800">
+          <h3 className="text-xl font-bold text-gray-900 dark: text-white">
             {employee ? 'Edit Employee' : 'Add New Employee'}
           </h3>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -447,9 +491,9 @@ const EmployeeModal = ({ employee, onClose, onSave }) => {
               <label className="label">Password *</label>
               <input
                 type="password"
-                required={! employee}
+                required={!employee}
                 className="input"
-                value={formData.password}
+                value={formData. password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 minLength="8"
               />
@@ -462,14 +506,14 @@ const EmployeeModal = ({ employee, onClose, onSave }) => {
               id="isActive"
               checked={formData.isActive}
               onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-              className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+              className="w-4 h-4 text-primary-600 border-gray-300 rounded focus: ring-primary-500"
             />
-            <label htmlFor="isActive" className="text-sm text-gray-700">
+            <label htmlFor="isActive" className="text-sm text-gray-700 dark: text-gray-300">
               Active Employee
             </label>
           </div>
 
-          <div className="flex gap-3 pt-4 border-t border-gray-200">
+          <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
             <button
               type="button"
               onClick={onClose}
