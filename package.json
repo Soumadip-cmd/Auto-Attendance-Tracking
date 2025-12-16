@@ -27,5 +27,8 @@
   },
   "dependencies": {
     "react-native-worklets-core": "^1.6.2"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.18"
   }
 }

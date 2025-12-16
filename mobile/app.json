@@ -1,44 +1,65 @@
 {
   "expo": {
-    "name": "AutoAttendance",
-    "slug": "auto-attendance",
+    "name": "Attendance Tracker",
+    "slug": "attendance-tracker",
     "version": "1.0.0",
-    "scheme": "autoattendance",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "backgroundColor": "#3B82F6",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#6366f1"
+    },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yourcompany.autoattendance",
+      "bundleIdentifier":  "com.yourcompany.attendancetracker",
+      "deploymentTarget": "15.1",
       "infoPlist": {
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "We need your location to track attendance and verify you're at the workplace.",
-        "NSLocationWhenInUseUsageDescription": "We need your location to track attendance and verify you're at the workplace.",
-        "NSLocationAlwaysUsageDescription": "We need your location in the background to automatically track your attendance.",
-        "UIBackgroundModes": [
-          "location",
-          "fetch"
-        ]
+        "NSLocationWhenInUseUsageDescription": "Location access for attendance tracking.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Background location access.",
+        "NSCameraUsageDescription": "Camera access for profile pictures."
       }
     },
     "android": {
-      "package": "com.yourcompany.autoattendance",
+      "package": "com.yourcompany.attendancetracker",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION",
-        "FOREGROUND_SERVICE",
-        "FOREGROUND_SERVICE_LOCATION"
-      ]
+        "VIBRATE",
+        "USE_BIOMETRIC"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#6366f1"
+      }
+    },
+    "web": {
+      "bundler": "metro"
     },
     "plugins": [
+      "expo-router",
+      "expo-location",
+      "expo-notifications",
+      "expo-secure-store",
+      "expo-local-authentication",
       [
-        "expo-location",
+        "expo-build-properties",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location to track attendance.",
-          "locationAlwaysPermission": "Allow $(PRODUCT_NAME) to use your location in the background for automatic attendance tracking.",
-          "locationWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location to track attendance."
+          "android": {
+            "compileSdkVersion": 34,
+            "targetSdkVersion": 34,
+            "buildToolsVersion":  "34.0.0"
+          },
+          "ios": {
+            "deploymentTarget": "15.1"
+          }
         }
       ]
-    ]
+    ],
+    "scheme": "attendancetracker",
+    "extra": {
+      "router": {
+        "origin": false
+      }
+    }
   }
 }

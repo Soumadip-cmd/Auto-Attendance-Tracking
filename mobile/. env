@@ -1,0 +1,382 @@
+# ============================================
+# ATTENDANCE TRACKER MOBILE APP
+# Environment Configuration
+# ============================================
+
+# ============================================
+# API CONFIGURATION
+# ============================================
+# IMPORTANT: Replace with YOUR computer's IP address!
+# Find your IP: 
+#   Windows: ipconfig
+#   Mac/Linux: ifconfig | grep "inet "
+# 
+# DO NOT use "localhost" or "127.0.0.1" - mobile apps cannot connect to these!
+# Use your local network IP (starts with 192.168.x.x or 10.0.x.x)
+
+API_URL=http:// 192.168.29.65/api/v1
+WS_URL=http:// 192.168.29.65
+
+# API Timeout (milliseconds)
+API_TIMEOUT=30000
+
+# API Retry Configuration
+API_MAX_RETRIES=3
+API_RETRY_DELAY=1000
+
+# ============================================
+# APP CONFIGURATION
+# ============================================
+APP_NAME=Attendance Tracker
+APP_VERSION=1.0.0
+APP_ENVIRONMENT=development
+
+# App Scheme (for deep linking)
+APP_SCHEME=attendancetracker
+
+# ============================================
+# EXPO CONFIGURATION
+# ============================================
+# Get your project ID from:  https://expo.dev
+# Run: eas init
+# Or leave empty for local development
+EXPO_PROJECT_ID=
+
+# Expo Public Key (optional)
+EXPO_PUBLIC_KEY=
+
+# ============================================
+# LOCATION CONFIGURATION
+# ============================================
+# Location tracking accuracy:  high, balanced, low
+LOCATION_ACCURACY=high
+
+# Minimum distance (meters) between location updates
+LOCATION_DISTANCE_FILTER=10
+
+# Background location update interval (milliseconds) - 5 minutes
+BACKGROUND_LOCATION_INTERVAL=300000
+
+# Geofence radius in meters
+GEOFENCE_RADIUS_METERS=100
+
+# Enable background location tracking
+ENABLE_BACKGROUND_LOCATION=true
+
+# ============================================
+# NOTIFICATION CONFIGURATION
+# ============================================
+# Notification channel ID (Android)
+NOTIFICATION_CHANNEL_ID=attendance-notifications
+NOTIFICATION_CHANNEL_NAME=Attendance Notifications
+
+# Check-in reminder time (24-hour format)
+CHECK_IN_REMINDER_TIME=09:00
+
+# Check-out reminder time (24-hour format)
+CHECK_OUT_REMINDER_TIME=18:00
+
+# Enable push notifications
+ENABLE_PUSH_NOTIFICATIONS=true
+
+# ============================================
+# STORAGE KEYS
+# ============================================
+# Keys for secure storage
+TOKEN_KEY=auth_token
+REFRESH_TOKEN_KEY=refresh_token
+USER_KEY=user_data
+THEME_KEY=app_theme
+BIOMETRIC_KEY=biometric_enabled
+LANGUAGE_KEY=app_language
+
+# ============================================
+# ATTENDANCE CONFIGURATION
+# ============================================
+# Auto check-out enabled
+AUTO_CHECKOUT_ENABLED=false
+
+# Auto check-out time (24-hour format)
+AUTO_CHECKOUT_TIME=18:30
+
+# Minimum work hours per day
+MINIMUM_WORK_HOURS=8
+
+# Grace period for late check-in (minutes)
+LATE_GRACE_PERIOD=15
+
+# Allow manual attendance
+ALLOW_MANUAL_ATTENDANCE=true
+
+# Require check-in notes
+REQUIRE_CHECKIN_NOTES=false
+
+# Require check-out notes
+REQUIRE_CHECKOUT_NOTES=false
+
+# ============================================
+# UI CONFIGURATION
+# ============================================
+# Default theme:  light, dark, auto
+DEFAULT_THEME=auto
+
+# Animation duration (milliseconds)
+ANIMATION_DURATION=300
+
+# Toast/Snackbar duration (milliseconds)
+TOAST_DURATION=3000
+
+# Data refresh interval (milliseconds) - 1 minute
+REFRESH_INTERVAL=60000
+
+# Enable haptic feedback
+ENABLE_HAPTICS=true
+
+# Enable sound effects
+ENABLE_SOUNDS=true
+
+# ============================================
+# CACHE CONFIGURATION
+# ============================================
+# Cache duration (milliseconds) - 5 minutes
+CACHE_DURATION=300000
+
+# Cache size limit (MB)
+CACHE_SIZE_LIMIT=50
+
+# Enable offline mode
+ENABLE_OFFLINE_MODE=true
+
+# ============================================
+# SECURITY CONFIGURATION
+# ============================================
+# Enable biometric authentication
+ENABLE_BIOMETRIC_AUTH=true
+
+# Session timeout (milliseconds) - 30 minutes
+SESSION_TIMEOUT=1800000
+
+# Auto-lock after inactivity (milliseconds) - 5 minutes
+AUTO_LOCK_TIMEOUT=300000
+
+# Maximum login attempts
+MAX_LOGIN_ATTEMPTS=5
+
+# Lock duration after max attempts (milliseconds) - 15 minutes
+LOCKOUT_DURATION=900000
+
+# Enable SSL pinning (production only)
+ENABLE_SSL_PINNING=false
+
+# ============================================
+# FIREBASE CONFIGURATION (Optional)
+# ============================================
+# For Push Notifications via Firebase Cloud Messaging
+# Get these from Firebase Console:  https://console.firebase.google.com/
+
+FIREBASE_API_KEY=
+FIREBASE_AUTH_DOMAIN=
+FIREBASE_PROJECT_ID=
+FIREBASE_STORAGE_BUCKET=
+FIREBASE_MESSAGING_SENDER_ID=
+FIREBASE_APP_ID=
+FIREBASE_MEASUREMENT_ID=
+
+# Firebase Web Push Certificate (VAPID Key)
+FIREBASE_VAPID_KEY=
+
+# ============================================
+# GOOGLE MAPS CONFIGURATION (Optional)
+# ============================================
+# For advanced map features
+# Get API key from: https://console.cloud.google.com/
+
+GOOGLE_MAPS_API_KEY=
+
+# ============================================
+# ANALYTICS CONFIGURATION (Optional)
+# ============================================
+# Enable analytics tracking
+ENABLE_ANALYTICS=false
+
+# Google Analytics Tracking ID
+GA_TRACKING_ID=
+
+# Mixpanel Token
+MIXPANEL_TOKEN=
+
+# Sentry DSN (Error tracking)
+SENTRY_DSN=
+
+# ============================================
+# FEATURE FLAGS
+# ============================================
+# Enable/disable features for testing
+
+# Enable attendance history
+FEATURE_ATTENDANCE_HISTORY=true
+
+# Enable reports
+FEATURE_REPORTS=true
+
+# Enable profile editing
+FEATURE_PROFILE_EDIT=true
+
+# Enable password change
+FEATURE_PASSWORD_CHANGE=true
+
+# Enable dark mode toggle
+FEATURE_DARK_MODE=true
+
+# Enable language selection
+FEATURE_LANGUAGE_SELECTION=false
+
+# Enable face recognition (future feature)
+FEATURE_FACE_RECOGNITION=false
+
+# Enable QR code check-in (future feature)
+FEATURE_QR_CHECKIN=false
+
+# ============================================
+# DEBUG CONFIGURATION
+# ============================================
+# Debug mode (shows console logs)
+DEBUG_MODE=true
+
+# Show API logs
+DEBUG_API=true
+
+# Show WebSocket logs
+DEBUG_WEBSOCKET=true
+
+# Show location logs
+DEBUG_LOCATION=true
+
+# Show notification logs
+DEBUG_NOTIFICATIONS=true
+
+# Mock location (for testing without GPS)
+MOCK_LOCATION=false
+
+# Mock location coordinates
+MOCK_LATITUDE=40.7128
+MOCK_LONGITUDE=-74.0060
+
+# ============================================
+# DEVELOPMENT CONFIGURATION
+# ============================================
+# Skip authentication (for testing screens)
+SKIP_AUTH=false
+
+# Use mock data instead of API calls
+USE_MOCK_DATA=false
+
+# Enable React Native Debugger
+ENABLE_DEBUGGER=true
+
+# Enable Flipper (React Native debugging tool)
+ENABLE_FLIPPER=false
+
+# ============================================
+# PERFORMANCE CONFIGURATION
+# ============================================
+# Enable performance monitoring
+ENABLE_PERFORMANCE_MONITORING=false
+
+# Image cache size (MB)
+IMAGE_CACHE_SIZE=100
+
+# Maximum image size (MB)
+MAX_IMAGE_SIZE=5
+
+# Image quality (0-100)
+IMAGE_QUALITY=80
+
+# Enable lazy loading
+ENABLE_LAZY_LOADING=true
+
+# ============================================
+# LOCALIZATION
+# ============================================
+# Default language: en, es, fr, de, etc.
+DEFAULT_LANGUAGE=en
+
+# Available languages (comma-separated)
+AVAILABLE_LANGUAGES=en,es,fr
+
+# Date format:  MM/DD/YYYY, DD/MM/YYYY, YYYY-MM-DD
+DATE_FORMAT=MM/DD/YYYY
+
+# Time format: 12h, 24h
+TIME_FORMAT=12h
+
+# Currency
+CURRENCY=USD
+
+# ============================================
+# COMPANY CONFIGURATION (Optional)
+# ============================================
+# Company name
+COMPANY_NAME=Your Company
+
+# Company logo URL
+COMPANY_LOGO_URL=
+
+# Support email
+SUPPORT_EMAIL=support@yourcompany.com
+
+# Support phone
+SUPPORT_PHONE=+1-555-0123
+
+# Terms of service URL
+TERMS_URL=https://yourcompany.com/terms
+
+# Privacy policy URL
+PRIVACY_URL=https://yourcompany.com/privacy
+
+# Help center URL
+HELP_URL=https://yourcompany.com/help
+
+# ============================================
+# ADVANCED CONFIGURATION
+# ============================================
+# WebSocket reconnection attempts
+WS_MAX_RECONNECT_ATTEMPTS=5
+
+# WebSocket reconnection delay (milliseconds)
+WS_RECONNECT_DELAY=1000
+
+# Request queue size (offline mode)
+OFFLINE_QUEUE_SIZE=100
+
+# Sync interval when back online (milliseconds) - 30 seconds
+SYNC_INTERVAL=30000
+
+# Battery optimization mode
+BATTERY_OPTIMIZATION_MODE=balanced
+
+# Data saver mode
+DATA_SAVER_MODE=false
+
+# ============================================
+# TESTING CONFIGURATION
+# ============================================
+# Test mode (bypass certain validations)
+TEST_MODE=false
+
+# Test user credentials
+TEST_EMAIL=test@example.com
+TEST_PASSWORD=Test@123456
+
+# Test API endpoint
+TEST_API_URL=
+
+# ============================================
+# END OF CONFIGURATION
+# ============================================
+
+# Notes:
+# - Make sure to replace IP addresses with your actual computer's IP
+# - Never commit this file with production credentials
+# - Keep . env in . gitignore
+# - Use . env.example for sharing configuration templates

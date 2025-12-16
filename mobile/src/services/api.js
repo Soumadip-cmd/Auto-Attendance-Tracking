@@ -1,130 +1,122 @@
 import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+import { config, APP_CONFIG } from '../constants/config';
+import { secureStorage } from '../utils/storage';
 
 // Create axios instance
 const api = axios.create({
-  baseURL: API_URL,
-  timeout: 30000,
+  baseURL: config.API_URL,
+  timeout: APP_CONFIG.API_TIMEOUT,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor to add auth token
+// Request interceptor - Add auth token
 api.interceptors.request.use(
   async (config) => {
-    const token = await AsyncStorage.getItem('accessToken');
+    const token = await secureStorage.getItem(APP_CONFIG.TOKEN_KEY);
+    
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    console.log(`📡 API Request: ${config. method. toUpperCase()} ${config.url}`);
     return config;
   },
   (error) => {
+    console.error('❌ API Request Error:', error);
     return Promise.reject(error);
   }
 );
 
-// Response interceptor to handle token refresh
+// Response interceptor - Handle errors and token refresh
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log(`✅ API Response: ${response. config.url}`, response.status);
+    return response. data;
+  },
   async (error) => {
     const originalRequest = error.config;
 
-    // If 401 and not already retried, try to refresh token
+    // Handle 401 Unauthorized - Token expired
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
       try {
-        const refreshToken = await AsyncStorage.getItem('refreshToken');
-        if (!refreshToken) {
-          throw new Error('No refresh token');
+        const refreshToken = await secureStorage.getItem(APP_CONFIG.REFRESH_TOKEN_KEY);
+        
+        if (refreshToken) {
+          const response = await axios.post(
+            `${config.API_URL}/auth/refresh`,
+            { refreshToken }
+          );
+
+          const { token } = response.data. data;
+          await secureStorage.setItem(APP_CONFIG. TOKEN_KEY, token);
+
+          originalRequest.headers.Authorization = `Bearer ${token}`;
+          return api(originalRequest);
         }
-
-        const response = await axios.post(`${API_URL}/auth/refresh`, {
-          refreshToken,
-        });
-
-        const { token } = response.data.data;
-        await AsyncStorage.setItem('accessToken', token);
-
-        // Retry original request with new token
-        originalRequest.headers.Authorization = `Bearer ${token}`;
-        return api(originalRequest);
       } catch (refreshError) {
-        // Refresh failed, logout user
-        await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'user']);
-        // Navigate to login (handled by context)
+        // Refresh token failed - logout user
+        await secureStorage. removeItem(APP_CONFIG.TOKEN_KEY);
+        await secureStorage.removeItem(APP_CONFIG.REFRESH_TOKEN_KEY);
+        
+        // Emit event to redirect to login
+        // You can use your navigation/auth store here
+        console.error('Token refresh failed - redirecting to login');
         return Promise.reject(refreshError);
       }
     }
 
-    return Promise.reject(error);
+    // Handle other errors
+    const errorMessage = error.response?.data?.message || error.message || 'Something went wrong';
+    console.error(`❌ API Error: ${error.config?. url}`, errorMessage);
+
+    return Promise.reject({
+      message: errorMessage,
+      status:  error.response?.status,
+      data: error.response?. data,
+    });
   }
 );
 
-// Auth API
+// API Methods
 export const authAPI = {
-  login: (email, password) => 
-    api.post('/auth/login', { email, password }),
-  
-  register: (userData) => 
-    api.post('/auth/register', userData),
-  
-  logout: (refreshToken) => 
-    api.post('/auth/logout', { refreshToken }),
-  
-  getMe: () => 
-    api.get('/auth/me'),
-  
-  updatePrivacy: (settings) => 
-    api.put('/auth/privacy', settings),
-  
-  updatePassword: (currentPassword, newPassword) => 
-    api.put('/auth/password', { currentPassword, newPassword }),
+  login: (credentials) => api.post('/auth/login', credentials),
+  register: (userData) => api.post('/auth/register', userData),
+  logout: () => api.post('/auth/logout'),
+  refreshToken: (refreshToken) => api.post('/auth/refresh', { refreshToken }),
+  getProfile: () => api.get('/auth/profile'),
+  updateProfile: (data) => api.put('/auth/profile', data),
+  changePassword: (data) => api.put('/auth/change-password', data),
 };
 
-// Location API
-export const locationAPI = {
-  submit: (locationData) => 
-    api.post('/locations', locationData),
-  
-  submitBatch: (locations, deviceId) => 
-    api.post('/locations/batch', { locations, deviceId }),
-  
-  getHistory: (params) => 
-    api.get('/locations/history', { params }),
-  
-  deleteHistory: (startDate, endDate) => 
-    api.delete('/locations/history', { data: { startDate, endDate } }),
-};
-
-// Attendance API
 export const attendanceAPI = {
-  checkIn: (latitude, longitude, method, deviceId) => 
-    api.post('/attendance/checkin', { latitude, longitude, method, deviceId }),
-  
-  checkOut: (latitude, longitude, method, deviceId) => 
-    api.post('/attendance/checkout', { latitude, longitude, method, deviceId }),
-  
-  getToday: () => 
-    api.get('/attendance/today'),
-  
-  getRecords: (params) => 
-    api.get('/attendance/records', { params }),
-  
-  getSummary: (params) => 
-    api.get('/attendance/summary', { params }),
+  checkIn: (data) => api.post('/attendance/check-in', data),
+  checkOut: (data) => api.post('/attendance/check-out', data),
+  getToday: () => api.get('/attendance/today'),
+  getHistory: (params) => api.get('/attendance/history', { params }),
+  getById: (id) => api.get(`/attendance/${id}`),
+  getStats: (params) => api.get('/attendance/stats', { params }),
 };
 
-// Geofence API
+export const locationAPI = {
+  track: (data) => api.post('/location/track', data),
+  getHistory: (params) => api.get('/location/history', { params }),
+};
+
 export const geofenceAPI = {
-  getAll: () => 
-    api.get('/geofences'),
-  
-  check: (latitude, longitude) => 
-    api.post('/geofences/check', { latitude, longitude }),
+  getAll: () => api.get('/geofences'),
+  getById: (id) => api.get(`/geofences/${id}`),
+  checkLocation: (data) => api.post('/geofences/check', data),
+};
+
+export const notificationAPI = {
+  getAll: (params) => api.get('/notifications', { params }),
+  markAsRead: (id) => api.put(`/notifications/${id}/read`),
+  markAllAsRead: () => api.put('/notifications/read-all'),
+  getUnreadCount: () => api.get('/notifications/unread-count'),
 };
 
 export default api;

@@ -13,4 +13,4 @@ router.get('/me', protect, authController.getMe);
 router.put('/privacy', protect, validate(schemas.privacySettings), authController.updatePrivacy);
 router.put('/password', protect, validate(schemas.updatePassword), authController.updatePassword);
 
-module.exports = router;
+module.exports = router;  // ← Make sure this line exists!

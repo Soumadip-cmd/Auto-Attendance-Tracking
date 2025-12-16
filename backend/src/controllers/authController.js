@@ -1,3 +1,4 @@
+const asyncHandler = require('express-async-handler');
 const jwt = require('jsonwebtoken');
 const { User, Device, Event } = require('../models');
 const { asyncHandler } = require('../middleware/errorHandler');

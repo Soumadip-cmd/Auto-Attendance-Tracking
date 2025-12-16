@@ -1,191 +1,200 @@
 import { io } from 'socket.io-client';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const WS_URL = process.env.EXPO_PUBLIC_WS_URL || 'http://localhost:5000';
+import { config } from '../constants/config';
+import { secureStorage } from '../utils/storage';
+import { APP_CONFIG } from '../constants/config';
 
 class WebSocketService {
   constructor() {
     this.socket = null;
-    this.isConnected = false;
+    this. isConnected = false;
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 5;
     this.listeners = new Map();
   }
 
+  /**
+   * Connect to WebSocket server
+   */
   async connect() {
     try {
-      const token = await AsyncStorage.getItem('accessToken');
-      if (!token) {
-        console.warn('No access token found, cannot connect to WebSocket');
+      const token = await secureStorage.getItem(APP_CONFIG.TOKEN_KEY);
+      
+      if (! token) {
+        console.warn('No auth token found for WebSocket connection');
         return;
       }
 
-      this.socket = io(WS_URL, {
+      if (this.socket?. connected) {
+        console.warn('WebSocket already connected');
+        return;
+      }
+
+      this.socket = io(config.WS_URL, {
         auth: { token },
         transports: ['websocket'],
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
-        reconnectionAttempts: this.maxReconnectAttempts,
+        reconnectionAttempts: this. maxReconnectAttempts,
       });
 
-      this.setupEventHandlers();
+      this.setupEventListeners();
+      
+      console.log('🔌 Connecting to WebSocket.. .');
     } catch (error) {
       console.error('Error connecting to WebSocket:', error);
+      throw error;
     }
   }
 
-  setupEventHandlers() {
-    if (!this.socket) return;
-
-    this.socket.on('connect', () => {
-      console.log('WebSocket connected');
-      this.isConnected = true;
-      this.reconnectAttempts = 0;
-      this.emit('connection_status', { connected: true });
-    });
-
-    this.socket.on('connected', (data) => {
-      console.log('WebSocket authentication successful:', data);
-    });
-
-    this.socket.on('disconnect', (reason) => {
-      console.log('WebSocket disconnected:', reason);
-      this.isConnected = false;
-      this.emit('connection_status', { connected: false, reason });
-    });
-
-    this.socket.on('connect_error', (error) => {
-      console.error('WebSocket connection error:', error);
-      this.reconnectAttempts++;
-      
-      if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-        console.error('Max reconnection attempts reached');
-        this.disconnect();
-      }
-    });
-
-    this.socket.on('error', (error) => {
-      console.error('WebSocket error:', error);
-      this.emit('error', error);
-    });
-
-    // Handle heartbeat
-    this.socket.on('heartbeat', (data) => {
-      // Respond to heartbeat to keep connection alive
-      console.log('Heartbeat received');
-    });
-
-    // Handle pong
-    this.socket.on('pong', (data) => {
-      console.log('Pong received:', data);
-    });
-
-    // Location updates (for admin/manager)
-    this.socket.on('location:update', (data) => {
-      this.emit('location_update', data);
-    });
-
-    // Attendance updates
-    this.socket.on('attendance:checkin', (data) => {
-      this.emit('attendance_checkin', data);
-    });
-
-    this.socket.on('attendance:checkout', (data) => {
-      this.emit('attendance_checkout', data);
-    });
-
-    // Alerts
-    this.socket.on('alert:new', (data) => {
-      this.emit('alert', data);
-    });
-
-    // Subscription confirmations
-    this.socket.on('subscribed:live-locations', (data) => {
-      console.log('Subscribed to live locations:', data);
-    });
-
-    this.socket.on('subscribed:attendance', (data) => {
-      console.log('Subscribed to attendance updates:', data);
-    });
-  }
-
+  /**
+   * Disconnect from WebSocket server
+   */
   disconnect() {
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;
       this.isConnected = false;
+      this.listeners.clear();
+      console.log('🔌 WebSocket disconnected');
     }
   }
 
-  // Subscribe to live locations (admin/manager only)
-  subscribeLiveLocations() {
+  /**
+   * Setup default event listeners
+   */
+  setupEventListeners() {
+    if (!this.socket) return;
+
+    // Connection events
+    this.socket.on('connect', () => {
+      this.isConnected = true;
+      this.reconnectAttempts = 0;
+      console.log('✅ WebSocket connected');
+      this.emitToListeners('connected');
+    });
+
+    this.socket.on('disconnect', (reason) => {
+      this.isConnected = false;
+      console.log('❌ WebSocket disconnected:', reason);
+      this.emitToListeners('disconnected', reason);
+    });
+
+    this.socket.on('connect_error', (error) => {
+      this.reconnectAttempts++;
+      console.error('WebSocket connection error:', error);
+      this.emitToListeners('error', error);
+    });
+
+    this.socket.on('reconnect', (attemptNumber) => {
+      console.log(`🔄 WebSocket reconnected after ${attemptNumber} attempts`);
+      this.emitToListeners('reconnected', attemptNumber);
+    });
+
+    // Custom events from backend
+    this.socket.on('notification', (data) => {
+      console.log('🔔 Notification received:', data);
+      this.emitToListeners('notification', data);
+    });
+
+    this.socket.on('attendance: updated', (data) => {
+      console.log('📊 Attendance updated:', data);
+      this.emitToListeners('attendance:updated', data);
+    });
+
+    this.socket.on('location:update', (data) => {
+      console.log('📍 Location update:', data);
+      this.emitToListeners('location: update', data);
+    });
+
+    this.socket.on('geofence:entry', (data) => {
+      console.log('🚪 Geofence entry:', data);
+      this.emitToListeners('geofence:entry', data);
+    });
+
+    this.socket.on('geofence:exit', (data) => {
+      console.log('🚪 Geofence exit:', data);
+      this.emitToListeners('geofence:exit', data);
+    });
+  }
+
+  /**
+   * Emit event to socket
+   */
+  emit(event, data) {
     if (this.socket && this.isConnected) {
-      this.socket.emit('subscribe:live-locations');
+      this.socket.emit(event, data);
+    } else {
+      console.warn('Cannot emit - WebSocket not connected');
     }
   }
 
-  // Unsubscribe from live locations
-  unsubscribeLiveLocations() {
-    if (this.socket && this.isConnected) {
-      this.socket.emit('unsubscribe:live-locations');
-    }
-  }
-
-  // Subscribe to attendance updates
-  subscribeAttendance() {
-    if (this.socket && this.isConnected) {
-      this.socket.emit('subscribe:attendance');
-    }
-  }
-
-  // Send ping
-  ping() {
-    if (this.socket && this.isConnected) {
-      this.socket.emit('ping');
-    }
-  }
-
-  // Send status update
-  sendStatusUpdate(status) {
-    if (this.socket && this.isConnected) {
-      this.socket.emit('status:update', { status });
-    }
-  }
-
-  // Event listener methods
+  /**
+   * Listen to events
+   */
   on(event, callback) {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, []);
     }
     this.listeners.get(event).push(callback);
+
+    // Return cleanup function
+    return () => this.off(event, callback);
   }
 
+  /**
+   * Remove event listener
+   */
   off(event, callback) {
-    if (!this.listeners.has(event)) return;
-    
-    const callbacks = this.listeners.get(event);
-    const index = callbacks.indexOf(callback);
-    if (index > -1) {
-      callbacks.splice(index, 1);
+    const listeners = this.listeners.get(event);
+    if (listeners) {
+      const index = listeners.indexOf(callback);
+      if (index > -1) {
+        listeners.splice(index, 1);
+      }
     }
   }
 
-  emit(event, data) {
-    if (!this.listeners.has(event)) return;
-    
-    const callbacks = this.listeners.get(event);
-    callbacks.forEach(callback => {
-      try {
-        callback(data);
-      } catch (error) {
-        console.error(`Error in listener for event ${event}:`, error);
-      }
-    });
+  /**
+   * Emit to all registered listeners
+   */
+  emitToListeners(event, data) {
+    const listeners = this. listeners.get(event);
+    if (listeners) {
+      listeners.forEach(callback => callback(data));
+    }
   }
 
-  removeAllListeners() {
-    this.listeners.clear();
+  /**
+   * Join a room
+   */
+  joinRoom(room) {
+    this.emit('join', { room });
+  }
+
+  /**
+   * Leave a room
+   */
+  leaveRoom(room) {
+    this.emit('leave', { room });
+  }
+
+  /**
+   * Send location update
+   */
+  sendLocation(locationData) {
+    this.emit('location:track', locationData);
+  }
+
+  /**
+   * Get connection status
+   */
+  getConnectionStatus() {
+    return {
+      isConnected: this. isConnected,
+      socketId: this.socket?.id,
+      reconnectAttempts:  this.reconnectAttempts,
+    };
   }
 }
 
