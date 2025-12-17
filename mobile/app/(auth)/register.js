@@ -11,33 +11,27 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { Input } from '../../src/components/common/Input';
 import { Button } from '../../src/components/common/Button';
 import { useAuth } from '../../src/hooks/useAuth';
 import { useTheme } from '../../src/hooks/useTheme';
-import { useBiometric } from '../../src/hooks/useBiometric';
 
 export default function RegisterScreen() {
   const router = useRouter();
   const { register, isLoading } = useAuth();
   const { theme } = useTheme();
-  const { isAvailable, biometricType, enableBiometric } = useBiometric();
 
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
     email: '',
-    password:  '',
+    password: '',
     confirmPassword: '',
-    employeeId: '',
   });
   const [errors, setErrors] = useState({});
-
-  const handleChange = (field, value) => {
-    setFormData({ ...formData, [field]: value });
-    setErrors({ ...errors, [field]: null });
-  };
 
   const validate = () => {
     const newErrors = {};
@@ -58,15 +52,11 @@ export default function RegisterScreen() {
 
     if (!formData.password) {
       newErrors.password = 'Password is required';
-    } else if (formData.password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters';
-    } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*? &])/.test(formData.password)) {
-      newErrors.password = 'Password must include uppercase, lowercase, number and special character';
+    } else if (formData.password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters';
     }
 
-    if (!formData.confirmPassword) {
-      newErrors.confirmPassword = 'Please confirm password';
-    } else if (formData.password !== formData.confirmPassword) {
+    if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match';
     }
 
@@ -74,54 +64,91 @@ export default function RegisterScreen() {
     return Object.keys(newErrors).length === 0;
   };
 
+  const askForBiometric = async (email, token) => {
+    const hasHardware = await LocalAuthentication.hasHardwareAsync();
+    const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+    const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
+
+    if (!hasHardware || !isEnrolled) {
+      // No biometric available, just proceed
+      router.replace('/(tabs)');
+      return;
+    }
+
+    let biometricType = 'Biometric';
+    if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
+      biometricType = 'Face ID';
+    } else if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
+      biometricType = 'Fingerprint';
+    }
+
+    Alert.alert(
+      '🔐 Enable Quick Login',
+      `Would you like to enable ${biometricType} login for faster access?`,
+      [
+        {
+          text: 'Not Now',
+          style: 'cancel',
+          onPress: () => router.replace('/(tabs)'),
+        },
+        {
+          text: 'Enable',
+          onPress: async () => {
+            try {
+              const result = await LocalAuthentication.authenticateAsync({
+                promptMessage: `Setup ${biometricType} Login`,
+                fallbackLabel: 'Cancel',
+                cancelLabel: 'Cancel',
+              });
+
+              if (result.success) {
+                await AsyncStorage.setItem('biometric_email', email);
+                await AsyncStorage.setItem('biometric_token', token);
+                await AsyncStorage.setItem('biometric_enabled', 'true');
+                
+                Alert.alert(
+                  'Success!',
+                  `${biometricType} login has been enabled. You can now use it to login quickly.`,
+                  [{ text: 'Great!', onPress: () => router.replace('/(tabs)') }]
+                );
+              } else {
+                router.replace('/(tabs)');
+              }
+            } catch (error) {
+              console.error('Biometric setup error:', error);
+              router.replace('/(tabs)');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleRegister = async () => {
     if (!validate()) return;
 
-    const { confirmPassword, ...userData } = formData;
-    const result = await register(userData);
+    const result = await register({
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email,
+      password: formData.password,
+    });
 
     if (result.success) {
-      // Ask if user wants to enable biometric login
-      if (isAvailable) {
-        Alert.alert(
-          'Registration Successful! 🎉',
-          `Would you like to enable ${biometricType || 'Biometric'} login for quick access?`,
-          [
-            {
-              text: 'Not Now',
-              style: 'cancel',
-              onPress: () => router.replace('/(tabs)')
-            },
-            {
-              text: `Enable ${biometricType || 'Biometric'}`,
-              onPress: async () => {
-                const enabled = await enableBiometric();
-                if (enabled) {
-                  // Save email and token for biometric login
-                  await AsyncStorage.setItem('biometric_email', formData.email);
-                  await AsyncStorage.setItem('biometric_token', result.data?.token || '');
-                  Alert.alert(
-                    'Biometric Enabled! 🔐',
-                    `You can now login using ${biometricType} next time.`,
-                    [{ text: 'OK', onPress: () => router.replace('/(tabs)') }]
-                  );
-                } else {
-                  router.replace('/(tabs)');
-                }
-              }
-            }
-          ]
-        );
+      // Ask if user wants to enable biometric
+      if (result.data?.token) {
+        await askForBiometric(formData.email, result.data.token);
       } else {
-        Alert.alert(
-          'Registration Successful! 🎉',
-          'Your account has been created.',
-          [{ text: 'OK', onPress: () => router.replace('/(tabs)') }]
-        );
+        router.replace('/(tabs)');
       }
     } else {
       Alert.alert('Registration Failed', result.error || 'Please try again');
     }
+  };
+
+  const updateField = (field, value) => {
+    setFormData({ ...formData, [field]: value });
+    setErrors({ ...errors, [field]: null });
   };
 
   return (
@@ -129,7 +156,7 @@ export default function RegisterScreen() {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <StatusBar style={theme.isDarkMode ? 'light' :  'dark'} />
+      <StatusBar style={theme.isDarkMode ? 'light' : 'dark'} />
       
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -137,41 +164,43 @@ export default function RegisterScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={[styles. title, { color: theme.colors.text }]}>
+          <Text style={[styles.title, { color: theme.colors.text }]}>
             Create Account 🚀
           </Text>
-          <Text style={[styles.subtitle, { color: theme.colors. textSecondary }]}>
-            Join us and start tracking your attendance
+          <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+            Sign up to start tracking your attendance
           </Text>
         </View>
 
         <View style={styles.form}>
           <View style={styles.row}>
-            <Input
-              label="First Name"
-              value={formData.firstName}
-              onChangeText={(text) => handleChange('firstName', text)}
-              placeholder="John"
-              icon="person-outline"
-              error={errors.firstName}
-              style={{ flex: 1, marginRight: 8 }}
-            />
-
-            <Input
-              label="Last Name"
-              value={formData.lastName}
-              onChangeText={(text) => handleChange('lastName', text)}
-              placeholder="Doe"
-              error={errors.lastName}
-              style={{ flex: 1, marginLeft: 8 }}
-            />
+            <View style={styles.halfWidth}>
+              <Input
+                label="First Name"
+                value={formData.firstName}
+                onChangeText={(text) => updateField('firstName', text)}
+                placeholder="John"
+                icon="person-outline"
+                error={errors.firstName}
+              />
+            </View>
+            <View style={styles.halfWidth}>
+              <Input
+                label="Last Name"
+                value={formData.lastName}
+                onChangeText={(text) => updateField('lastName', text)}
+                placeholder="Doe"
+                icon="person-outline"
+                error={errors.lastName}
+              />
+            </View>
           </View>
 
           <Input
             label="Email"
             value={formData.email}
-            onChangeText={(text) => handleChange('email', text)}
-            placeholder="john. doe@company.com"
+            onChangeText={(text) => updateField('email', text)}
+            placeholder="john.doe@example.com"
             keyboardType="email-address"
             autoCapitalize="none"
             icon="mail-outline"
@@ -179,19 +208,10 @@ export default function RegisterScreen() {
           />
 
           <Input
-            label="Employee ID (Optional)"
-            value={formData.employeeId}
-            onChangeText={(text) => handleChange('employeeId', text)}
-            placeholder="EMP001"
-            autoCapitalize="characters"
-            icon="card-outline"
-          />
-
-          <Input
             label="Password"
             value={formData.password}
-            onChangeText={(text) => handleChange('password', text)}
-            placeholder="Enter password"
+            onChangeText={(text) => updateField('password', text)}
+            placeholder="At least 6 characters"
             secureTextEntry
             icon="lock-closed-outline"
             error={errors.password}
@@ -200,8 +220,8 @@ export default function RegisterScreen() {
           <Input
             label="Confirm Password"
             value={formData.confirmPassword}
-            onChangeText={(text) => handleChange('confirmPassword', text)}
-            placeholder="Confirm password"
+            onChangeText={(text) => updateField('confirmPassword', text)}
+            placeholder="Re-enter password"
             secureTextEntry
             icon="lock-closed-outline"
             error={errors.confirmPassword}
@@ -213,13 +233,21 @@ export default function RegisterScreen() {
             loading={isLoading}
             style={{ marginTop: 24 }}
           />
+
+          {/* Info about biometric */}
+          <View style={[styles.infoBox, { backgroundColor: theme.colors.primary + '10' }]}>
+            <Ionicons name="information-circle" size={20} color={theme.colors.primary} />
+            <Text style={[styles.infoText, { color: theme.colors.text }]}>
+              After registration, you'll be able to enable quick biometric login
+            </Text>
+          </View>
         </View>
 
         <View style={styles.footer}>
-          <Text style={[styles.footerText, { color: theme. colors.textSecondary }]}>
-            Already have an account? {' '}
+          <Text style={[styles.footerText, { color: theme.colors.textSecondary }]}>
+            Already have an account?{' '}
           </Text>
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
             <Text style={[styles.footerLink, { color: theme.colors.primary }]}>
               Sign In
             </Text>
@@ -236,7 +264,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    padding:  24,
+    padding: 24,
     paddingTop: 60,
   },
   header: {
@@ -255,13 +283,30 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-    marginBottom: 0,
+    gap: 12,
+    marginBottom: 16,
   },
-  footer:  {
+  halfWidth: {
+    flex: 1,
+  },
+  infoBox: {
     flexDirection: 'row',
-    justifyContent:  'center',
     alignItems: 'center',
-    paddingBottom: 24,
+    padding: 12,
+    borderRadius: 12,
+    marginTop: 16,
+    gap: 8,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 24,
   },
   footerText: {
     fontSize: 14,
