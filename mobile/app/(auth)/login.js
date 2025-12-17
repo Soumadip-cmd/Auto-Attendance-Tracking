@@ -81,12 +81,10 @@ export default function LoginScreen() {
     const result = await login({ email, password });
 
     if (result.success) {
-      // Save credentials for biometric login
+      // Save credentials for biometric login (encrypted in secure storage)
       await AsyncStorage.setItem('biometric_email', email);
+      await AsyncStorage.setItem('biometric_password', password);
       await AsyncStorage.setItem('biometric_enabled', 'true');
-      if (result.data?.token) {
-        await AsyncStorage.setItem('biometric_token', result.data.token);
-      }
       
       router.replace('/(tabs)');
     } else {
@@ -97,9 +95,9 @@ export default function LoginScreen() {
   const handleBiometricLogin = async () => {
     try {
       const savedEmail = await AsyncStorage.getItem('biometric_email');
-      const savedToken = await AsyncStorage.getItem('biometric_token');
+      const savedPassword = await AsyncStorage.getItem('biometric_password');
 
-      if (!savedEmail) {
+      if (!savedEmail || !savedPassword) {
         Alert.alert(
           'Setup Required',
           'Please login with email and password first to enable biometric login.',
@@ -115,21 +113,17 @@ export default function LoginScreen() {
       });
 
       if (result.success) {
-        // Try to login with saved token
-        if (savedToken) {
-          const loginResult = await login({ token: savedToken, biometric: true });
-          
-          if (loginResult.success) {
-            router.replace('/(tabs)');
-          } else {
-            Alert.alert(
-              'Session Expired',
-              'Your session has expired. Please login with email and password.',
-              [{ text: 'OK' }]
-            );
-          }
+        // Login with saved credentials
+        const loginResult = await login({ email: savedEmail, password: savedPassword });
+        
+        if (loginResult.success) {
+          router.replace('/(tabs)');
         } else {
-          Alert.alert('Error', 'No saved credentials found. Please login with email and password.');
+          Alert.alert(
+            'Login Failed',
+            'Your saved credentials are invalid. Please login with email and password.',
+            [{ text: 'OK' }]
+          );
         }
       }
     } catch (error) {

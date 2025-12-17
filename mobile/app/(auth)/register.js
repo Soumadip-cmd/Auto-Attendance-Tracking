@@ -64,7 +64,7 @@ export default function RegisterScreen() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const askForBiometric = async (email, token) => {
+  const askForBiometric = async (email, password) => {
     const hasHardware = await LocalAuthentication.hasHardwareAsync();
     const isEnrolled = await LocalAuthentication.isEnrolledAsync();
     const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
@@ -103,7 +103,7 @@ export default function RegisterScreen() {
 
               if (result.success) {
                 await AsyncStorage.setItem('biometric_email', email);
-                await AsyncStorage.setItem('biometric_token', token);
+                await AsyncStorage.setItem('biometric_password', password);
                 await AsyncStorage.setItem('biometric_enabled', 'true');
                 
                 Alert.alert(
@@ -136,11 +136,7 @@ export default function RegisterScreen() {
 
     if (result.success) {
       // Ask if user wants to enable biometric
-      if (result.data?.token) {
-        await askForBiometric(formData.email, result.data.token);
-      } else {
-        router.replace('/(tabs)');
-      }
+      await askForBiometric(formData.email, formData.password);
     } else {
       Alert.alert('Registration Failed', result.error || 'Please try again');
     }
