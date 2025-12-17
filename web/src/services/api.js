@@ -96,7 +96,7 @@ export const attendanceAPI = {
   getById: (id) => api.get(`/attendance/${id}`),
   getByDate: (date) => {
     console.log('📅 Fetching attendance for date:', date);
-    return api.get('/attendance', { params: { date } });
+    return api.get('/attendance/history', { params: { date } });
   },
   checkIn: (data) => {
     console.log('✅ Check-in:', data);

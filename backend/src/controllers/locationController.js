@@ -23,7 +23,13 @@ exports.submitLocation = asyncHandler(async (req, res) => {
     networkType,
     activity,
     signature,
-    deviceId
+    deviceId,
+    violation,
+    violationType,
+    geofenceId,
+    geofenceName,
+    severity,
+    notes
   } = req.body;
 
   // Check if user has given consent and tracking is enabled
@@ -122,16 +128,68 @@ exports.submitLocation = asyncHandler(async (req, res) => {
     });
   }
 
+  // Handle violation if flagged
+  if (violation) {
+    await Event.log({
+      eventType: `geofence.${violationType || 'violation'}`,
+      actor: req.user._id,
+      resource: { type: 'geofence', id: geofenceId },
+      severity: severity || 'warning',
+      details: {
+        geofenceName,
+        violationType,
+        notes,
+        location: { latitude, longitude },
+        timestamp
+      },
+      device: device._id
+    });
+
+    // Mark attendance with anomaly
+    const Attendance = require('../models/Attendance');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    await Attendance.findOneAndUpdate(
+      { user: req.user._id, date: today },
+      {
+        $push: {
+          anomalies: {
+            type: violationType || 'early_departure',
+            description: notes || `Left ${geofenceName} during working hours`,
+            detectedAt: new Date(),
+            location: { latitude, longitude },
+            severity: severity || 'high'
+          }
+        }
+      },
+      { new: true }
+    );
+
+    // Notify managers
+    const notificationService = require('../services/notificationService');
+    const managers = await User.find({ role: { $in: ['admin', 'manager'] }, isActive: true });
+    
+    if (managers.length > 0) {
+      await notificationService.sendGeofenceViolationNotification(
+        req.user,
+        { name: geofenceName, _id: geofenceId }
+      );
+    }
+  }
+
   // Log location update
   await Event.log({
-    eventType: 'location.update',
+    eventType: violation ? 'location.violation' : 'location.update',
     actor: req.user._id,
     resource: { type: 'location', id: location._id },
-    severity: 'info',
+    severity: violation ? (severity || 'warning') : 'info',
     details: {
       trackingType,
       geofencesInside: geofences.length,
-      batteryLevel
+      batteryLevel,
+      violation,
+      violationType
     },
     device: device._id
   });

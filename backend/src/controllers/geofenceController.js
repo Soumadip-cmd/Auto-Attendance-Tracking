@@ -199,9 +199,17 @@ exports.checkLocation = asyncHandler(async (req, res) => {
     data: {
       isInside: geofences.length > 0,
       geofences: geofences.map(gf => ({
-        id: gf._id,
+        _id: gf._id,
         name: gf.name,
-        type: gf.type
+        type: gf.type,
+        radius: gf.radius,
+        center: {
+          latitude: gf.center.coordinates[1],
+          longitude: gf.center.coordinates[0]
+        },
+        workingHours: gf.workingHours,
+        alerts: gf.alerts,
+        color: gf.color
       }))
     }
   });

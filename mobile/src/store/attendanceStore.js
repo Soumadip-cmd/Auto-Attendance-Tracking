@@ -20,7 +20,7 @@ export const useAttendanceStore = create((set, get) => ({
       set({ isLoading: true, error: null });
 
       const response = await attendanceAPI.getToday();
-      const attendance = response.data;
+      const attendance = response?.data || null;
 
       console.log('📊 TODAY ATTENDANCE:', {
         hasCheckIn: !!attendance?.checkIn?.time,
@@ -69,7 +69,7 @@ export const useAttendanceStore = create((set, get) => ({
       console.log('📍 CHECK-IN REQUEST:', checkInData);
 
       const response = await attendanceAPI.checkIn(checkInData);
-      const attendance = response.data;
+      const attendance = response?.data || response;
 
       console.log('✅ CHECK-IN SUCCESS:', attendance);
 
@@ -134,7 +134,7 @@ export const useAttendanceStore = create((set, get) => ({
       };
 
       const response = await attendanceAPI.checkOut(checkOutData);
-      const attendance = response. data;
+      const attendance = response?.data || response;
 
       set({
         todayAttendance: attendance,
@@ -176,7 +176,7 @@ export const useAttendanceStore = create((set, get) => ({
       set({ isLoading: true, error: null });
 
       const response = await attendanceAPI.getHistory(params);
-      const history = response.data;
+      const history = response?.data || [];
 
       set({
         attendanceHistory: history,

@@ -76,7 +76,7 @@ export const useAuthStore = create((set, get) => ({
       // Connect to WebSocket
       await websocketService.connect();
 
-      return { success: true, user };
+      return { success: true, user, data: { token, refreshToken } };
     } catch (error) {
       set({
         isLoading: false,
@@ -113,7 +113,7 @@ export const useAuthStore = create((set, get) => ({
       // Connect to WebSocket
       await websocketService.connect();
 
-      return { success: true, user };
+      return { success: true, user, data: { token, refreshToken } };
     } catch (error) {
       set({
         isLoading: false,
@@ -130,8 +130,12 @@ export const useAuthStore = create((set, get) => ({
     try {
       set({ isLoading:  true });
 
-      // Call backend logout
-      await authAPI. logout();
+      // Call backend logout (ignore errors)
+      try {
+        await authAPI.logout();
+      } catch (error) {
+        console.log('Backend logout error (ignored):', error);
+      }
 
       // Clear storage
       await secureStorage.removeItem(APP_CONFIG.TOKEN_KEY);

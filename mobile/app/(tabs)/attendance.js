@@ -101,41 +101,45 @@ export default function AttendanceScreen() {
       </View>
 
       {attendanceHistory. length > 0 && (
-        <View style={styles.summary}>
-          <View style={styles.summaryItem}>
-            <Text style={[styles.summaryValue, { color: theme.colors. success }]}>
-              {attendanceHistory.filter((a) => a.status === 'present').length}
+        <View style={styles.statsContainer}>
+          <View style={styles.statItem}>
+            <View style={[styles.statIcon, { backgroundColor: theme.colors.success + '20' }]}>
+              <Ionicons name="checkmark-circle" size={20} color={theme.colors.success} />
+            </View>
+            <Text style={[styles.statValue, { color: theme.colors.text }]}>
+              {attendanceHistory.filter((a) => a.checkIn?.time).length}
             </Text>
-            <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>
-              Present
-            </Text>
+            <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Present</Text>
           </View>
 
-          <View style={styles.summaryItem}>
-            <Text style={[styles. summaryValue, { color: theme.colors.warning }]}>
-              {attendanceHistory.filter((a) => a.status === 'late').length}
+          <View style={styles.statItem}>
+            <View style={[styles.statIcon, { backgroundColor: theme.colors.warning + '20' }]}>
+              <Ionicons name="time" size={20} color={theme.colors.warning} />
+            </View>
+            <Text style={[styles. summaryValue, { color: theme.colors.text }]}>
+              {attendanceHistory.filter((a) => a.isLate).length}
             </Text>
-            <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>
-              Late
-            </Text>
+            <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Late</Text>
           </View>
 
-          <View style={styles.summaryItem}>
-            <Text style={[styles.summaryValue, { color: theme. colors.error }]}>
-              {attendanceHistory.filter((a) => a.status === 'absent').length}
+          <View style={styles.statItem}>
+            <View style={[styles.statIcon, { backgroundColor: theme.colors.error + '20' }]}>
+              <Ionicons name="close-circle" size={20} color={theme.colors.error} />
+            </View>
+            <Text style={[styles.statValue, { color: theme.colors.text }]}>
+              0
             </Text>
-            <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>
-              Absent
-            </Text>
+            <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Absent</Text>
           </View>
 
-          <View style={styles.summaryItem}>
-            <Text style={[styles.summaryValue, { color: theme.colors.info }]}>
-              {attendanceHistory.filter((a) => a.status === 'half-day').length}
+          <View style={styles.statItem}>
+            <View style={[styles.statIcon, { backgroundColor: theme.colors.primary + '20' }]}>
+              <Ionicons name="hourglass" size={20} color={theme.colors.primary} />
+            </View>
+            <Text style={[styles.statValue, { color: theme.colors.text }]}>
+              {attendanceHistory.reduce((acc, a) => acc + (a.actualHours || 0), 0).toFixed(1)}h
             </Text>
-            <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>
-              Half Day
-            </Text>
+            <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Total Hours</Text>
           </View>
         </View>
       )}
@@ -223,6 +227,35 @@ const styles = StyleSheet.create({
   monthText: {
     fontSize: 18,
     fontWeight: '600',
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255,255,255,0.5)',
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 16,
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 11,
+    textAlign: 'center',
   },
   summary:  {
     flexDirection: 'row',

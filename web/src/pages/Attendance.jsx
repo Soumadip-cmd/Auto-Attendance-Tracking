@@ -48,10 +48,10 @@ const Attendance = () => {
       setEmployees(allEmployees);
 
       // Calculate stats
-      const present = records.filter(r => r.status === 'present').length;
-      const late = records.filter(r => r.status === 'late').length;
+      const present = records.filter(r => r.checkIn?.time).length;
+      const late = records.filter(r => r.isLate).length;
       const total = allEmployees.filter(e => e.isActive).length;
-      const absent = total - (present + late);
+      const absent = total - present;
 
       setStats({ present, late, absent, total });
     } catch (error) {
@@ -130,9 +130,11 @@ const Attendance = () => {
 
   const getStatusBadge = (status) => {
     const styles = {
-      present: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-      late: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
-      absent: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+      'checked-in': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+      'checked-out': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+      'present': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+      'late': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+      'absent': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
     };
     return styles[status] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
   };
@@ -324,7 +326,7 @@ const Attendance = () => {
                       <div className="flex items-center gap-2">
                         <Clock className="w-4 h-4 text-gray-400" />
                         <span className="text-sm text-gray-900 dark:text-white">
-                          {formatTime(record. checkIn)}
+                          {formatTime(record.checkIn?.time)}
                         </span>
                       </div>
                     </td>
@@ -332,13 +334,13 @@ const Attendance = () => {
                       <div className="flex items-center gap-2">
                         <Clock className="w-4 h-4 text-gray-400" />
                         <span className="text-sm text-gray-900 dark:text-white">
-                          {formatTime(record. checkOut)}
+                          {formatTime(record.checkOut?.time)}
                         </span>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-sm text-gray-900 dark:text-white">
-                        {calculateDuration(record. checkIn, record.checkOut)}
+                        {calculateDuration(record.checkIn?.time, record.checkOut?.time)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -348,7 +350,7 @@ const Attendance = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <div className="flex items-center gap-2">
-                        {! record.checkOut && (
+                        {record.checkIn?.time && !record.checkOut?.time && (
                           <button
                             onClick={() => handleCheckOut(record._id)}
                             className="p-1 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors"

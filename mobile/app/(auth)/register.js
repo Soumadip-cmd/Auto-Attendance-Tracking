@@ -11,15 +11,18 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Input } from '../../src/components/common/Input';
 import { Button } from '../../src/components/common/Button';
 import { useAuth } from '../../src/hooks/useAuth';
 import { useTheme } from '../../src/hooks/useTheme';
+import { useBiometric } from '../../src/hooks/useBiometric';
 
 export default function RegisterScreen() {
   const router = useRouter();
   const { register, isLoading } = useAuth();
   const { theme } = useTheme();
+  const { isAvailable, biometricType, enableBiometric } = useBiometric();
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -78,13 +81,46 @@ export default function RegisterScreen() {
     const result = await register(userData);
 
     if (result.success) {
-      Alert.alert(
-        'Registration Successful!  ',
-        'Your account has been created.  Please wait for admin approval.',
-        [{ text: 'OK', onPress: () => router.replace('/(tabs)') }]
-      );
+      // Ask if user wants to enable biometric login
+      if (isAvailable) {
+        Alert.alert(
+          'Registration Successful! 🎉',
+          `Would you like to enable ${biometricType || 'Biometric'} login for quick access?`,
+          [
+            {
+              text: 'Not Now',
+              style: 'cancel',
+              onPress: () => router.replace('/(tabs)')
+            },
+            {
+              text: `Enable ${biometricType || 'Biometric'}`,
+              onPress: async () => {
+                const enabled = await enableBiometric();
+                if (enabled) {
+                  // Save email and token for biometric login
+                  await AsyncStorage.setItem('biometric_email', formData.email);
+                  await AsyncStorage.setItem('biometric_token', result.data?.token || '');
+                  Alert.alert(
+                    'Biometric Enabled! 🔐',
+                    `You can now login using ${biometricType} next time.`,
+                    [{ text: 'OK', onPress: () => router.replace('/(tabs)') }]
+                  );
+                } else {
+                  router.replace('/(tabs)');
+                }
+              }
+            }
+          ]
+        );
+      } else {
+        Alert.alert(
+          'Registration Successful! 🎉',
+          'Your account has been created.',
+          [{ text: 'OK', onPress: () => router.replace('/(tabs)') }]
+        );
+      }
     } else {
-      Alert. alert('Registration Failed', result.error || 'Please try again');
+      Alert.alert('Registration Failed', result.error || 'Please try again');
     }
   };
 

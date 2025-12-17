@@ -21,6 +21,7 @@ import { Avatar } from '../../src/components/common/Avatar';
 import { CheckInButton } from '../../src/components/attendance/CheckInButton';
 import { StatsCard } from '../../src/components/attendance/StatsCard';
 import { StatusBadge } from '../../src/components/attendance/StatusBadge';
+import geofenceService from '../../src/services/geofenceService';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -40,11 +41,43 @@ export default function HomeScreen() {
   const { theme } = useTheme();
 
   const [refreshing, setRefreshing] = useState(false);
+  const [geofenceStatus, setGeofenceStatus] = useState(null);
 
   useEffect(() => {
     initializeScreen();
     setupWebSocketListeners();
+    startGeofenceMonitoring();
+
+    // Update geofence status periodically
+    const statusInterval = setInterval(updateGeofenceStatus, 30000); // Every 30 seconds
+
+    // Cleanup on unmount
+    return () => {
+      geofenceService.stopMonitoring();
+      clearInterval(statusInterval);
+    };
   }, []);
+
+  const startGeofenceMonitoring = async () => {
+    try {
+      if (hasPermission) {
+        await geofenceService.startMonitoring(60000); // Check every 60 seconds
+        await updateGeofenceStatus(); // Initial status check
+        console.log('✅ Geofence monitoring started');
+      }
+    } catch (error) {
+      console.error('❌ Error starting geofence monitoring:', error);
+    }
+  };
+
+  const updateGeofenceStatus = async () => {
+    try {
+      const status = await geofenceService.checkCurrentLocation();
+      setGeofenceStatus(status);
+    } catch (error) {
+      console.error('❌ Error updating geofence status:', error);
+    }
+  };
 
   const initializeScreen = async () => {
     // Only fetch if not already loading or in error state
@@ -158,6 +191,29 @@ export default function HomeScreen() {
     return 'Good Evening';
   };
 
+  const getWorkingHoursText = (workingHours) => {
+    if (!workingHours?.enabled || !workingHours?.schedule?.length) {
+      return '9:00 AM - 6:00 PM';
+    }
+
+    const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+    const todaySchedule = workingHours.schedule.find(s => s.day === today);
+
+    if (!todaySchedule) {
+      return 'No schedule for today';
+    }
+
+    const formatTime = (time) => {
+      const [hours, minutes] = time.split(':');
+      const hour = parseInt(hours);
+      const ampm = hour >= 12 ? 'PM' : 'AM';
+      const hour12 = hour % 12 || 12;
+      return `${hour12}:${minutes} ${ampm}`;
+    };
+
+    return `${formatTime(todaySchedule.startTime)} - ${formatTime(todaySchedule.endTime)}`;
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <ScrollView
@@ -222,6 +278,16 @@ export default function HomeScreen() {
             </View>
           )}
 
+          {/* Geofence Status Indicator */}
+          {geofenceStatus?.inGeofence && (
+            <View style={[styles.geofenceIndicator, { backgroundColor: theme.colors.success + '15', borderColor: theme.colors.success }]}>
+              <Ionicons name="location" size={16} color={theme.colors.success} />
+              <Text style={[styles.geofenceText, { color: theme.colors.success }]}>
+                Inside {geofenceStatus.geofence?.name || 'Work Area'}
+              </Text>
+            </View>
+          )}
+
           <View style={styles.statusContent}>
             <View style={styles.statusRow}>
               <View style={styles.statusItem}>
@@ -247,10 +313,13 @@ export default function HomeScreen() {
               </View>
             </View>
             
+            {/* Work Hours from Geofence */}
             <View style={[styles.workScheduleHint, { backgroundColor: theme.colors.primary + '10', borderColor: theme.colors.primary + '30' }]}>
               <Ionicons name="time-outline" size={16} color={theme.colors.primary} />
               <Text style={[styles.workScheduleText, { color: theme.colors.primary }]}>
-                Work Hours: 9:00 AM - 6:00 PM
+                Work Hours: {geofenceStatus?.geofence?.workingHours?.enabled 
+                  ? getWorkingHoursText(geofenceStatus.geofence.workingHours)
+                  : '9:00 AM - 6:00 PM'}
               </Text>
             </View>
           </View>
@@ -258,12 +327,25 @@ export default function HomeScreen() {
 
         {/* Check In/Out Button */}
         <View style={styles.checkInContainer}>
-          <CheckInButton
-            isCheckedIn={isCheckedIn}
-            onCheckIn={handleCheckIn}
-            onCheckOut={handleCheckOut}
-            disabled={isLoading}
-          />
+          {todayAttendance?.checkIn?.time && todayAttendance?.checkOut?.time ? (
+            // Already completed attendance for today
+            <Card style={[styles.completedCard, { backgroundColor: theme.colors.success + '15', borderColor: theme.colors.success }]}>
+              <Ionicons name="checkmark-circle" size={48} color={theme.colors.success} />
+              <Text style={[styles.completedText, { color: theme.colors.success }]}>
+                Attendance Completed
+              </Text>
+              <Text style={[styles.completedSubtext, { color: theme.colors.textSecondary }]}>
+                You've checked in and out for today
+              </Text>
+            </Card>
+          ) : (
+            <CheckInButton
+              isCheckedIn={isCheckedIn}
+              onCheckIn={handleCheckIn}
+              onCheckOut={handleCheckOut}
+              disabled={isLoading}
+            />
+          )}
         </View>
 
         {/* Monthly Stats */}
@@ -483,6 +565,43 @@ const styles = StyleSheet.create({
   checkInContainer: {
     alignItems: 'center',
     marginVertical: 32,
+  },
+  completedCard: {
+    padding: 24,
+    borderRadius: 16,
+    alignItems: 'center',
+    gap: 12,
+    marginVertical: 32,
+  },
+  completedIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  completedTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  completedSubtitle: {
+    fontSize: 14,
+    textAlign: 'center',
+    opacity: 0.7,
+  },
+  geofenceIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  geofenceText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   section:  {
     marginBottom: 24,

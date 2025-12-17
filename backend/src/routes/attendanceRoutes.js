@@ -17,8 +17,8 @@ router.get('/today', protect, async (req, res, next) => {
     
     const attendance = await Attendance.findOne({
       user: req.user._id,
-      checkIn: { $gte: today, $lt: tomorrow },
-    });
+      date: { $gte: today, $lt: tomorrow },
+    }).sort({ date: -1 });
     
     res.status(200).json({
       success: true,
@@ -36,27 +36,44 @@ router.get('/today', protect, async (req, res, next) => {
  */
 router.get('/history', protect, async (req, res, next) => {
   try {
-    const { startDate, endDate, sortBy = 'date', sortOrder = 'desc' } = req.query;
+    const { startDate, endDate, sortBy = 'date', sortOrder = 'desc', date } = req.query;
     
-    let query = { user: req.user._id };
+    let query = {};
     
-    if (startDate || endDate) {
-      query.checkIn = {};
-      if (startDate) query.checkIn.$gte = new Date(startDate);
-      if (endDate) query.checkIn.$lte = new Date(endDate);
+    // If specific date requested (for admin view)
+    if (date) {
+      const queryDate = new Date(date);
+      queryDate.setHours(0, 0, 0, 0);
+      const nextDay = new Date(queryDate);
+      nextDay.setDate(nextDay.getDate() + 1);
+      
+      query.date = { $gte: queryDate, $lt: nextDay };
+    } else {
+      // For regular user history
+      query.user = req.user._id;
+      
+      if (startDate || endDate) {
+        query.date = {};
+        if (startDate) query.date.$gte = new Date(startDate);
+        if (endDate) query.date.$lte = new Date(endDate);
+      }
     }
     
-    const sortField = sortBy === 'date' ? 'checkIn' : sortBy;
+    const sortField = sortBy === 'date' ? 'date' : sortBy;
     const sortDirection = sortOrder === 'desc' ? -1 : 1;
     
     const attendance = await Attendance.find(query)
+      .populate('user', 'firstName lastName email employeeId department')
       .sort({ [sortField]: sortDirection })
       .limit(100);
     
     res.status(200).json({
       success: true,
       count: attendance.length,
-      data: attendance,
+      data: attendance.map(att => ({
+        ...att.toObject(),
+        employee: att.user  // Map 'user' to 'employee' for frontend compatibility
+      })),
     });
   } catch (error) {
     next(error);
@@ -85,13 +102,18 @@ router.get('/stats', protect, async (req, res, next) => {
     
     const attendanceRecords = await Attendance.find({
       user: req.user._id,
-      checkIn: { $gte: startDate },
+      date: { $gte: startDate },
     });
     
     const totalDays = attendanceRecords.length;
-    const presentDays = attendanceRecords.filter(r => r.status === 'present').length;
-    const lateDays = attendanceRecords.filter(r => r.status === 'late').length;
-    const absentDays = attendanceRecords.filter(r => r.status === 'absent').length;
+    const presentDays = attendanceRecords.filter(r => r.checkIn?.time).length;
+    const lateDays = attendanceRecords.filter(r => r.isLate).length;
+    const totalHours = attendanceRecords.reduce((sum, r) => sum + (r.actualHours || 0), 0);
+    
+    // Calculate working days in period
+    const workingDays = Math.floor((today - startDate) / (1000 * 60 * 60 * 24)) - Math.floor((today - startDate) / (1000 * 60 * 60 * 24 * 7)) * 2;
+    const absentDays = Math.max(0, workingDays - presentDays);
+    const attendanceRate = workingDays > 0 ? Math.round((presentDays / workingDays) * 100) : 0;
     
     res.status(200).json({
       success: true,
@@ -101,7 +123,9 @@ router.get('/stats', protect, async (req, res, next) => {
         presentDays,
         lateDays,
         absentDays,
-        attendanceRate: totalDays > 0 ? ((presentDays + lateDays) / totalDays * 100).toFixed(1) : 0,
+        totalHours: Math.round(totalHours * 10) / 10,
+        attendanceRate,
+        workingDays,
       },
     });
   } catch (error) {
