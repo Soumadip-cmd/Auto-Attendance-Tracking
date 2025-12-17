@@ -20,7 +20,8 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
     
-    console.log(`📡 API Request: ${config. method. toUpperCase()} ${config.url}`);
+    // Only log in development if needed
+    // console.log(`📡 API Request: ${config.method.toUpperCase()} ${config.url}`);
     return config;
   },
   (error) => {
@@ -32,8 +33,9 @@ api.interceptors.request.use(
 // Response interceptor - Handle errors and token refresh
 api.interceptors.response.use(
   (response) => {
-    console.log(`✅ API Response: ${response. config.url}`, response.status);
-    return response. data;
+    // Only log in development if needed
+    // console.log(`✅ API Response: ${response.config.url}`, response.status);
+    return response.data;
   },
   async (error) => {
     const originalRequest = error.config;
@@ -51,8 +53,8 @@ api.interceptors.response.use(
             { refreshToken }
           );
 
-          const { token } = response.data. data;
-          await secureStorage.setItem(APP_CONFIG. TOKEN_KEY, token);
+          const { token } = response.data.data;
+          await secureStorage.setItem(APP_CONFIG.TOKEN_KEY, token);
 
           originalRequest.headers.Authorization = `Bearer ${token}`;
           return api(originalRequest);
@@ -71,12 +73,17 @@ api.interceptors.response.use(
 
     // Handle other errors
     const errorMessage = error.response?.data?.message || error.message || 'Something went wrong';
-    console.error(`❌ API Error: ${error.config?. url}`, errorMessage);
+    
+    // Only log network errors once, not repeatedly
+    if (__DEV__ && !error.config?._logged) {
+      console.warn(`⚠️ API Error: ${error.config?.url}`, errorMessage);
+      if (error.config) error.config._logged = true;
+    }
 
     return Promise.reject({
       message: errorMessage,
-      status:  error.response?.status,
-      data: error.response?. data,
+      status: error.response?.status,
+      data: error.response?.data,
     });
   }
 );

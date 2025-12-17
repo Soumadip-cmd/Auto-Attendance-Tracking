@@ -47,10 +47,19 @@ export default function HomeScreen() {
   }, []);
 
   const initializeScreen = async () => {
-    await getTodayAttendance();
-    await getStats({ period: 'month' });
+    // Only fetch if not already loading or in error state
+    // This prevents continuous failed API calls
+    if (!isLoading) {
+      try {
+        await getTodayAttendance();
+        await getStats({ period: 'month' });
+      } catch (error) {
+        // Silently handle - error is already logged
+        console.log('Failed to initialize data - check network connection');
+      }
+    }
     
-    if (! hasPermission) {
+    if (!hasPermission) {
       await requestPermissions();
     }
   };

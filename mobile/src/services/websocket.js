@@ -19,13 +19,14 @@ class WebSocketService {
     try {
       const token = await secureStorage.getItem(APP_CONFIG.TOKEN_KEY);
       
-      if (! token) {
-        console.warn('No auth token found for WebSocket connection');
+      if (!token) {
+        // Don't spam console - user is not logged in yet
+        // console.warn('No auth token found for WebSocket connection');
         return;
       }
 
-      if (this.socket?. connected) {
-        console.warn('WebSocket already connected');
+      if (this.socket?.connected) {
+        // Already connected, no need to warn
         return;
       }
 
@@ -35,12 +36,14 @@ class WebSocketService {
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
-        reconnectionAttempts: this. maxReconnectAttempts,
+        reconnectionAttempts: this.maxReconnectAttempts,
       });
 
       this.setupEventListeners();
       
-      console.log('🔌 Connecting to WebSocket.. .');
+      if (__DEV__) {
+        console.log('🔌 Connecting to WebSocket...');
+      }
     } catch (error) {
       console.error('Error connecting to WebSocket:', error);
       throw error;

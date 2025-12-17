@@ -1,16 +1,20 @@
 import Constants from 'expo-constants';
 
+// Read from environment variables (from .env file)
+const API_URL_FROM_ENV = Constants.expoConfig?.extra?.API_URL || process.env.EXPO_PUBLIC_API_URL;
+const WS_URL_FROM_ENV = Constants.expoConfig?.extra?.WS_URL || process.env.EXPO_PUBLIC_WS_URL;
+
 const ENV = {
   dev: {
-    API_URL:  'http://localhost:5000/api/v1',
-    WS_URL: 'http://localhost:5000',
+    API_URL: API_URL_FROM_ENV || 'http://192.168.31.102:5000/api/v1',
+    WS_URL: WS_URL_FROM_ENV || 'http://192.168.31.102:5000',
   },
   staging: {
     API_URL: 'https://staging-api.yourapp.com/api/v1',
-    WS_URL:  'https://staging-api.yourapp.com',
+    WS_URL: 'https://staging-api.yourapp.com',
   },
   prod: {
-    API_URL:  'https://api.yourapp.com/api/v1',
+    API_URL: 'https://api.yourapp.com/api/v1',
     WS_URL: 'https://api.yourapp.com',
   },
 };

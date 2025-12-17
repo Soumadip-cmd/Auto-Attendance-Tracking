@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { useAttendanceStore } from '../store/attendanceStore';
 
 export const useAttendance = () => {
@@ -18,10 +17,8 @@ export const useAttendance = () => {
     reset,
   } = useAttendanceStore();
 
-  // Fetch today's attendance on mount
-  useEffect(() => {
-    getTodayAttendance();
-  }, []);
+  // Don't auto-fetch - let components decide when to load data
+  // This prevents continuous failed API calls
 
   return {
     todayAttendance,
