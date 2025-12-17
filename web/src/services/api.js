@@ -1,109 +1,125 @@
 import axios from 'axios';
 
-// API Base URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
-
-// Create axios instance
+// Create axios instance with base configuration
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1',
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 30000, // 30 seconds timeout
 });
 
-// Request interceptor - Add auth token
+// Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // Log request for debugging
+    console.log(`API Request: ${config.method. toUpperCase()} ${config.url}`);
+    
     return config;
   },
   (error) => {
+    console.error('Request Error:', error);
     return Promise.reject(error);
   }
 );
 
-// Response interceptor - Handle errors
-api.interceptors.response.use(
-  (response) => response.data,
+// Response interceptor for error handling
+api.interceptors. response.use(
+  (response) => {
+    console.log(`API Response: ${response.config.method.toUpperCase()} ${response.config.url} - ${response.status}`);
+    return response;
+  },
   (error) => {
+    console.error('API Error:', error. response || error);
+    
     if (error.response?.status === 401) {
       // Unauthorized - clear token and redirect to login
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
     }
-    return Promise.reject(error. response?.data || error.message);
+    
+    return Promise.reject(error);
   }
 );
 
-// ==========================================
-// AUTH APIs
-// ==========================================
-
+// Auth APIs
 export const authAPI = {
   login: (credentials) => api.post('/auth/login', credentials),
   register: (userData) => api.post('/auth/register', userData),
-  logout: () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    return Promise.resolve();
-  },
-  getCurrentUser: () => api.get('/auth/me'),
+  logout: () => api.post('/auth/logout'),
+  getMe: () => api.get('/auth/me'),
   forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
   resetPassword: (token, password) => api.post(`/auth/reset-password/${token}`, { password }),
+  updatePassword: (passwords) => api.put('/auth/update-password', passwords),
 };
 
-// ==========================================
-// USER APIs
-// ==========================================
-
+// User APIs
 export const userAPI = {
-  getAll: (params) => api.get('/users', { params }),
+  getAll:  (params) => api.get('/users', { params }),
   getById: (id) => api.get(`/users/${id}`),
-  create: (userData) => api.post('/users', userData),
-  update: (id, userData) => api.put(`/users/${id}`, userData),
+  create: (data) => api.post('/users', data),
+  update: (id, data) => api.put(`/users/${id}`, data),
   delete: (id) => api.delete(`/users/${id}`),
   updateProfile: (id, data) => api.put(`/users/${id}/profile`, data),
   changePassword: (id, data) => api.put(`/users/${id}/change-password`, data),
-  uploadProfilePicture: (id, formData) => 
-    api.post(`/users/${id}/upload-profile-picture`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    }),
-  deleteProfilePicture: (id) => api.delete(`/users/${id}/profile-picture`),
+  uploadProfilePicture: (id, formData) => {
+    console.log('📤 Uploading profile picture for user ID:', id);
+    console.log('📦 FormData contents:', formData);
+    
+    return api.post(`/users/${id}/upload-profile-picture`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 30000, // 30 second timeout for file uploads
+      onUploadProgress: (progressEvent) => {
+        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+        console.log(`📊 Upload Progress: ${percentCompleted}%`);
+      },
+    });
+  },
+  deleteProfilePicture: (id) => {
+    console.log('🗑️ Deleting profile picture for user ID:', id);
+    return api.delete(`/users/${id}/profile-picture`);
+  },
+  getStats: () => api.get('/users/stats/overview'),
 };
 
-// ==========================================
-// ATTENDANCE APIs
-// ==========================================
-
+// Attendance APIs
 export const attendanceAPI = {
   getAll: (params) => api.get('/attendance', { params }),
   getById: (id) => api.get(`/attendance/${id}`),
+  getByDate: (date) => {
+    console.log('📅 Fetching attendance for date:', date);
+    return api.get('/attendance', { params: { date } });
+  },
+  checkIn: (data) => {
+    console.log('✅ Check-in:', data);
+    return api.post('/attendance/check-in', data);
+  },
+  checkOut: (id) => {
+    console.log('🚪 Check-out:', id);
+    return api.post(`/attendance/check-out/${id}`);
+  },
   create: (data) => api.post('/attendance', data),
   update: (id, data) => api.put(`/attendance/${id}`, data),
   delete: (id) => api.delete(`/attendance/${id}`),
-  checkIn: (data) => api.post('/attendance/check-in', data),
-  checkOut: (id) => api.post(`/attendance/check-out/${id}`),
   getStats: (date) => api.get(`/attendance/stats/${date}`),
-  getEmployeeMonthly: (empId, month) => api.get(`/attendance/employee/${empId}/${month}`),
+  getEmployeeHistory: (employeeId, month) => api.get(`/attendance/employee/${employeeId}/${month}`),
   getTodayAttendance: () => {
     const today = new Date().toISOString().split('T')[0];
-    return api. get('/attendance', { 
-      params: { 
-        startDate: today, 
-        endDate: today 
-      } 
-    });
+    return api. get('/attendance', { params: { date: today } });
   },
+  getWeeklyAttendance: () => api.get('/attendance/weekly'),
+  getMonthlyAttendance:  (month, year) => api.get(`/attendance/monthly/${month}/${year}`),
 };
 
-// ==========================================
-// DASHBOARD APIs
-// ==========================================
-
+// Dashboard APIs
 export const dashboardAPI = {
   getStats: () => api.get('/dashboard/stats'),
   getWeeklyAttendance: () => api.get('/dashboard/weekly-attendance'),
@@ -112,28 +128,70 @@ export const dashboardAPI = {
   getRecentActivity: () => api.get('/dashboard/recent-activity'),
 };
 
-// ==========================================
-// REPORTS APIs
-// ==========================================
-
-export const reportsAPI = {
+// Report APIs
+export const reportAPI = {
   generate: (data) => api.post('/reports/generate', data),
-  getDaily: (date) => api.get(`/reports/daily/${date}`),
-  getWeekly: (startDate, endDate) => api.get(`/reports/weekly/${startDate}/${endDate}`),
-  getMonthly: (month, year) => api.get(`/reports/monthly/${month}/${year}`),
-  exportData: (params) => api.get('/reports/export', { params }),
+  getDaily: (date) => {
+    console.log('📊 Generating daily report for:', date);
+    return api.get(`/reports/daily/${date}`);
+  },
+  getWeekly: (startDate, endDate) => {
+    console.log('📊 Generating weekly report:', startDate, 'to', endDate);
+    return api.get(`/reports/weekly/${startDate}/${endDate}`);
+  },
+  getMonthly: (month, year) => {
+    console.log('📊 Generating monthly report:', month, year);
+    return api.get(`/reports/monthly/${month}/${year}`);
+  },
+  export: (params) => api.get('/reports/export', { 
+    params,
+    responseType: 'blob',
+  }),
+  getEmployeeReport: (employeeId, startDate, endDate) => 
+    api.get(`/reports/employee/${employeeId}`, { 
+      params: { startDate, endDate } 
+    }),
+  getDepartmentReport: (department, startDate, endDate) => 
+    api.get(`/reports/department/${department}`, { 
+      params: { startDate, endDate } 
+    }),
+  getCustomReport: (filters) => {
+    console.log('📊 Generating custom report with filters:', filters);
+    return api.post('/reports/custom', filters);
+  },
 };
 
-// ==========================================
-// SETTINGS APIs
-// ==========================================
-
+// Settings APIs
 export const settingsAPI = {
-  updatePreferences: (userId, data) => api.put(`/users/${userId}/preferences`, data),
-  updateNotifications: (userId, data) => api.put(`/users/${userId}/notifications`, data),
+  getCompanySettings: () => api.get('/settings/company'),
+  updateCompanySettings: (data) => api.put('/settings/company', data),
+  getSystemSettings: () => api.get('/settings/system'),
+  updateSystemSettings: (data) => api.put('/settings/system', data),
+  getNotificationSettings: (userId) => api.get(`/settings/notifications/${userId}`),
+  updateNotificationSettings: (userId, data) => api.put(`/settings/notifications/${userId}`, data),
+  getWorkSchedule: () => api.get('/settings/work-schedule'),
+  updateWorkSchedule: (data) => api.put('/settings/work-schedule', data),
+  getHolidays: () => api.get('/settings/holidays'),
+  addHoliday: (data) => api.post('/settings/holidays', data),
+  deleteHoliday: (id) => api.delete(`/settings/holidays/${id}`),
 };
 
+// Notification APIs
+export const notificationAPI = {
+  getAll: (userId) => api.get(`/notifications/${userId}`),
+  markAsRead: (id) => api.put(`/notifications/${id}/read`),
+  markAllAsRead: (userId) => api.put(`/notifications/${userId}/read-all`),
+  delete: (id) => api.delete(`/notifications/${id}`),
+  deleteAll: (userId) => api.delete(`/notifications/${userId}/all`),
+};
+
+// Health Check
+export const healthAPI = {
+  check: () => api.get('/health'),
+};
+
+// Export aliases for backward compatibility
 export const usersAPI = userAPI;
 
-// Default export
+// Export base API instance
 export default api;
