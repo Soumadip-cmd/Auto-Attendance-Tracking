@@ -103,10 +103,17 @@ export default function HomeScreen() {
         {
           text: 'Check In',
           onPress: async () => {
+            console.log('🔵 User clicked Check In');
             const result = await checkIn();
+            console.log('🔵 Check-in result:', result);
             if (!result.success) {
-              Alert.alert('Check-in Failed', result.error);
+              console.error('🔴 Check-in failed:', result.error);
+              Alert.alert(
+                'Check-in Failed',
+                result.error || 'An error occurred. Please try again.'
+              );
             } else {
+              console.log('🟢 Check-in successful, refreshing...');
               // Refresh to show updated times
               await getTodayAttendance();
             }
@@ -222,8 +229,8 @@ export default function HomeScreen() {
                 <Text style={[styles.statusLabel, { color: theme.colors.textSecondary }]}>
                   Check In
                 </Text>
-                <Text style={[styles.statusValue, { color: theme.colors. text }]}>
-                  {formatTime(todayAttendance?. checkIn?. timestamp)}
+                <Text style={[styles.statusValue, { color: theme.colors.text }]}>
+                  {formatTime(todayAttendance?.checkIn?.time)}
                 </Text>
               </View>
 
@@ -235,7 +242,7 @@ export default function HomeScreen() {
                   Check Out
                 </Text>
                 <Text style={[styles.statusValue, { color: theme.colors.text }]}>
-                  {formatTime(todayAttendance?.checkOut?.timestamp)}
+                  {formatTime(todayAttendance?.checkOut?.time)}
                 </Text>
               </View>
             </View>

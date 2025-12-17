@@ -11,7 +11,7 @@ const Geofences = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    type: 'office',
+    type: 'campus',
     latitude: '',
     longitude: '',
     radius: 100,
@@ -47,18 +47,82 @@ const Geofences = () => {
     e.preventDefault();
     
     try {
+      // Prepare data with proper types matching backend schema
+      const geofenceData = {
+        name: formData.name,
+        description: formData.description,
+        type: formData.type,
+        latitude: parseFloat(formData.latitude),
+        longitude: parseFloat(formData.longitude),
+        radius: parseInt(formData.radius),
+        // Address as object (backend expects object structure)
+        address: formData.address ? {
+          street: formData.address,
+          city: '',
+          state: '',
+          country: '',
+          postalCode: ''
+        } : undefined,
+        // Working hours matching backend schema
+        workingHours: {
+          enabled: true,
+          schedule: [
+            {
+              day: 'monday',
+              startTime: formData.workingHours.start,
+              endTime: formData.workingHours.end
+            },
+            {
+              day: 'tuesday',
+              startTime: formData.workingHours.start,
+              endTime: formData.workingHours.end
+            },
+            {
+              day: 'wednesday',
+              startTime: formData.workingHours.start,
+              endTime: formData.workingHours.end
+            },
+            {
+              day: 'thursday',
+              startTime: formData.workingHours.start,
+              endTime: formData.workingHours.end
+            },
+            {
+              day: 'friday',
+              startTime: formData.workingHours.start,
+              endTime: formData.workingHours.end
+            }
+          ]
+        },
+        // Alerts matching backend schema
+        alerts: {
+          entryAlert: formData.alerts.onEntry,
+          exitAlert: formData.alerts.onExit,
+          violationAlert: false,
+          notifyManagers: true
+        },
+        color: formData.color,
+        isActive: formData.isActive,
+      };
+
+      console.log('Submitting geofence:', geofenceData);
+
       if (editingGeofence) {
-        await api.put(`/geofences/${editingGeofence._id}`, formData);
+        await api.put(`/geofences/${editingGeofence._id}`, geofenceData);
         toast.success('Geofence updated successfully');
       } else {
-        await api.post('/geofences', formData);
+        await api.post('/geofences', geofenceData);
         toast.success('Geofence created successfully');
       }
       
       fetchGeofences();
       handleCloseModal();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to save geofence');
+      console.error('Geofence submit error:', error);
+      const errorMsg = error.response?.data?.errors?.[0]?.message || 
+                       error.response?.data?.message || 
+                       'Failed to save geofence';
+      toast.error(errorMsg);
     }
   };
 
@@ -108,7 +172,7 @@ const Geofences = () => {
     setFormData({
       name: '',
       description: '',
-      type: 'office',
+      type: 'campus',
       latitude: '',
       longitude: '',
       radius: 100,
@@ -317,10 +381,10 @@ const Geofences = () => {
                       onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     >
-                      <option value="office">Office</option>
-                      <option value="branch">Branch</option>
-                      <option value="site">Site</option>
-                      <option value="warehouse">Warehouse</option>
+                      <option value="campus">Campus</option>
+                      <option value="building">Building</option>
+                      <option value="department">Department</option>
+                      <option value="custom">Custom</option>
                     </select>
                   </div>
 

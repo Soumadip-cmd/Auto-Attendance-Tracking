@@ -22,9 +22,18 @@ export const useAttendanceStore = create((set, get) => ({
       const response = await attendanceAPI.getToday();
       const attendance = response.data;
 
+      console.log('📊 TODAY ATTENDANCE:', {
+        hasCheckIn: !!attendance?.checkIn?.time,
+        hasCheckOut: !!attendance?.checkOut?.time,
+        checkInTime: attendance?.checkIn?.time,
+        checkOutTime: attendance?.checkOut?.time,
+        status: attendance?.status,
+        fullData: attendance,
+      });
+
       set({
         todayAttendance: attendance,
-        isCheckedIn: attendance?. checkIn && ! attendance?.checkOut,
+        isCheckedIn: attendance?.checkIn?.time && !attendance?.checkOut?.time,
         isLoading: false,
       });
 
@@ -57,8 +66,12 @@ export const useAttendanceStore = create((set, get) => ({
         timestamp: new Date().toISOString(),
       };
 
+      console.log('📍 CHECK-IN REQUEST:', checkInData);
+
       const response = await attendanceAPI.checkIn(checkInData);
       const attendance = response.data;
+
+      console.log('✅ CHECK-IN SUCCESS:', attendance);
 
       set({
         todayAttendance: attendance,
@@ -68,27 +81,36 @@ export const useAttendanceStore = create((set, get) => ({
       });
 
       // Show success notification
-      await notificationService. scheduleNotification(
-        'Check-in Successful!  ✅',
+      await notificationService.scheduleNotification(
+        'Check-in Successful! ✅',
         `You checked in at ${new Date().toLocaleTimeString()}`,
         { type: 'check_in_success' }
       );
 
-      return { success: true, data:  attendance };
+      return { success: true, data: attendance };
     } catch (error) {
+      console.error('❌ CHECK-IN ERROR:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        fullError: error,
+      });
+
+      const errorMessage = error.response?.data?.message || error.message || 'Check-in failed';
+
       set({
         isLoading: false,
-        error: error.message || 'Check-in failed',
+        error: errorMessage,
       });
 
       // Show error notification
       await notificationService.scheduleNotification(
         'Check-in Failed ❌',
-        error.message || 'Please try again',
+        errorMessage,
         { type: 'check_in_error' }
       );
 
-      return { success: false, error: error.message };
+      return { success: false, error: errorMessage };
     }
   },
 

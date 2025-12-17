@@ -128,10 +128,21 @@ router.post('/check-in', protect, async (req, res, next) => {
       date: currentDate,
     });
     
-    if (existingAttendance) {
+    // If attendance exists, check if they've already checked in
+    if (existingAttendance && existingAttendance.checkIn) {
+      // If they haven't checked out yet, they can't check in again
+      if (!existingAttendance.checkOut) {
+        return res.status(400).json({
+          success: false,
+          message: 'You have already checked in today. Please check out first.',
+          data: existingAttendance,
+        });
+      }
+      
+      // If they've already checked out, they shouldn't be able to check in again same day
       return res.status(400).json({
         success: false,
-        message: 'Already checked in today',
+        message: 'You have already completed attendance for today (checked in and out).',
         data: existingAttendance,
       });
     }
