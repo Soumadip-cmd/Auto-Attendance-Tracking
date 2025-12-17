@@ -1,5 +1,5 @@
 const { Geofence, Event } = require('../models');
-const { asyncHandler } = require('../middleware/errorHandler');
+const asyncHandler = require('express-async-handler');
 
 /**
  * @desc    Create geofence

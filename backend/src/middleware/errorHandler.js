@@ -85,3 +85,4 @@ const asyncHandler = (fn) => (req, res, next) => {
 };
 
 module.exports = errorHandler;
+module.exports.asyncHandler = asyncHandler;
