@@ -10,7 +10,11 @@ import Attendance from './pages/Attendance';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 
-// ...  ProtectedRoute and AppRoutes components stay the same
+// You may want to define ProtectedRoute here if needed
+function ProtectedRoute({ children }) {
+  const { user } = useAuth();
+  return user ? children : <Navigate to="/login" />;
+}
 
 function App() {
   return (
@@ -42,7 +46,25 @@ function App() {
               },
             }}
           />
-          <AppRoutes />
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route 
+              path="/" 
+              element={
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Dashboard />} />
+              <Route path="employees" element={<Employees />} />
+              <Route path="attendance" element={<Attendance />} />
+              <Route path="reports" element={<Reports />} />
+              <Route path="settings" element={<Settings />} />
+            </Route>
+            {/* Redirect any unknown route */}
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>
