@@ -118,27 +118,23 @@ router.post('/check-in', protect, async (req, res, next) => {
   try {
     const { latitude, longitude, accuracy, notes } = req.body;
     
-    // Check if already checked in today
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    // Get current date (date only, no time)
+    const currentDate = new Date();
+    currentDate.setHours(0, 0, 0, 0);
     
+    // Check if already checked in today using date field
     const existingAttendance = await Attendance.findOne({
       user: req.user._id,
-      checkIn: { $gte: today, $lt: tomorrow },
+      date: currentDate,
     });
     
     if (existingAttendance) {
       return res.status(400).json({
         success: false,
         message: 'Already checked in today',
+        data: existingAttendance,
       });
     }
-    
-    // Get current date (date only, no time)
-    const currentDate = new Date();
-    currentDate.setHours(0, 0, 0, 0);
     
     // Create new attendance record
     const attendance = await Attendance.create({
