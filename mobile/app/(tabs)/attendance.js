@@ -169,7 +169,7 @@ export default function AttendanceScreen() {
         )}
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmptyState}
-        contentContainerStyle={[styles.listContent, { paddingBottom: 90 }]}
+        contentContainerStyle={[styles.listContent, { paddingBottom: 20 }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

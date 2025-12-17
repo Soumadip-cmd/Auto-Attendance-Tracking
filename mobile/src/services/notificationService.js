@@ -166,10 +166,28 @@ class NotificationService {
    */
   removeListeners() {
     if (this.notificationListener) {
-      Notifications.removeNotificationSubscription(this.notificationListener);
+      try {
+        if (typeof Notifications.removeNotificationSubscription === 'function') {
+          Notifications.removeNotificationSubscription(this.notificationListener);
+        } else {
+          // For newer versions of expo-notifications
+          this.notificationListener.remove();
+        }
+      } catch (error) {
+        console.warn('Error removing notification listener:', error);
+      }
     }
-    if (this. responseListener) {
-      Notifications.removeNotificationSubscription(this.responseListener);
+    if (this.responseListener) {
+      try {
+        if (typeof Notifications.removeNotificationSubscription === 'function') {
+          Notifications.removeNotificationSubscription(this.responseListener);
+        } else {
+          // For newer versions of expo-notifications
+          this.responseListener.remove();
+        }
+      } catch (error) {
+        console.warn('Error removing response listener:', error);
+      }
     }
   }
 

@@ -30,6 +30,40 @@ router.get('/today', protect, async (req, res, next) => {
 });
 
 /**
+ * @route   GET /api/v1/attendance/history
+ * @desc    Get attendance history for current user
+ * @access  Private
+ */
+router.get('/history', protect, async (req, res, next) => {
+  try {
+    const { startDate, endDate, sortBy = 'date', sortOrder = 'desc' } = req.query;
+    
+    let query = { user: req.user._id };
+    
+    if (startDate || endDate) {
+      query.checkIn = {};
+      if (startDate) query.checkIn.$gte = new Date(startDate);
+      if (endDate) query.checkIn.$lte = new Date(endDate);
+    }
+    
+    const sortField = sortBy === 'date' ? 'checkIn' : sortBy;
+    const sortDirection = sortOrder === 'desc' ? -1 : 1;
+    
+    const attendance = await Attendance.find(query)
+      .sort({ [sortField]: sortDirection })
+      .limit(100);
+    
+    res.status(200).json({
+      success: true,
+      count: attendance.length,
+      data: attendance,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * @route   GET /api/v1/attendance/stats
  * @desc    Get attendance statistics for current user
  * @access  Private

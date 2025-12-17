@@ -157,9 +157,6 @@ exports.login = asyncHandler(async (req, res) => {
   // Regular email/password login
   const { email: loginEmail, password: loginPassword } = req.body;
 
-  // Regular email/password login
-  const { email: loginEmail, password: loginPassword } = req.body;
-
   // Check if user exists
   const user = await User.findOne({ email: loginEmail || email }).select('+password');
   if (!user) {
