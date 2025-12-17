@@ -29,27 +29,39 @@ router.get('/', protect, authorize('admin'), async (req, res, next) => {
  * @desc    Get single attendance record
  * @access  Private
  */
-router.get('/: id', protect, async (req, res, next) => {
+// Get attendance by date
+router.get('/', protect, async (req, res, next) => {
   try {
-    const attendance = await Attendance.findById(req.params.id)
-      .populate('user', 'firstName lastName email employeeId');
+    const { date } = req.query;
     
-    if (!attendance) {
-      return res.status(404).json({
-        success: false,
-        message: 'Attendance record not found',
-      });
+    let query = {};
+    
+    if (date) {
+      const startOfDay = new Date(date);
+      startOfDay.setHours(0, 0, 0, 0);
+      
+      const endOfDay = new Date(date);
+      endOfDay.setHours(23, 59, 59, 999);
+      
+      query. checkIn = {
+        $gte: startOfDay,
+        $lte:  endOfDay,
+      };
     }
-
+    
+    const attendance = await Attendance.find(query)
+      .populate('employee', 'firstName lastName employeeId email department')
+      .sort('-checkIn');
+    
     res.status(200).json({
       success: true,
-      data:  attendance,
+      count: attendance.length,
+      data: attendance,
     });
   } catch (error) {
     next(error);
   }
 });
-
 /**
  * @route   GET /api/v1/attendance/user/:userId
  * @desc    Get attendance records for a specific user

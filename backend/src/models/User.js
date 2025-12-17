@@ -45,6 +45,10 @@ const userSchema = new mongoose.Schema({
   profileImage: {
     type: String
   },
+    profilePicture: {
+    type: String,
+    default: null,
+  },
   // Privacy and Consent
   consentGiven: {
     type: Boolean,

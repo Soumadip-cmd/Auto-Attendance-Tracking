@@ -1,302 +1,503 @@
 import { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { 
-  Calendar, BarChart3, PieChart, Filter, Download, 
-  TrendingUp, FileText 
+import { reportAPI, userAPI } from '../services/api';
+import { toast } from 'react-hot-toast';
+import {
+  FileText,
+  Download,
+  Filter,
+  Calendar,
+  Search,
+  Users,
+  TrendingUp,
+  BarChart3,
+  Printer,
 } from 'lucide-react';
-import { exportReportToExcel } from '../utils/exportUtils';
+import { TableSkeleton, StatsCardSkeleton } from '../components/common/Skeleton';
+import { exportReportsToExcel, printData } from '../utils/exportUtils';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts';
 
 const Reports = () => {
   const { setPageTitle } = useOutletContext();
-  const [selectedReport, setSelectedReport] = useState('daily');
+  const [loading, setLoading] = useState(false);
+  const [reportData, setReportData] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [departments, setDepartments] = useState([]);
+
+  // Filters
+  const [reportType, setReportType] = useState('daily');
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
-  const [reportData, setReportData] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState('');
+  const [selectedDepartment, setSelectedDepartment] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Stats
+  const [stats, setStats] = useState({
+    totalRecords: 0,
+    totalPresent: 0,
+    totalAbsent: 0,
+    totalLate: 0,
+    averageAttendance: 0,
+  });
 
   useEffect(() => {
     setPageTitle('Reports');
+    fetchEmployees();
   }, [setPageTitle]);
 
-  const generateReport = async () => {
-    setLoading(true);
-    setReportData(null); // Clear previous data
+  useEffect(() => {
+    if (reportType) {
+      generateReport();
+    }
+  }, [reportType, startDate, endDate, selectedEmployee, selectedDepartment]);
+
+  const fetchEmployees = async () => {
     try {
-      // Mock report generation with delay to show skeleton
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setReportData({
-        type: selectedReport,
-        period: `${startDate} to ${endDate}`,
-        totalEmployees: 50,
-        avgAttendance: 92,
-        totalPresent:  1260,
-        totalAbsent:  110,
-        totalLate: 45,
-      });
+      const response = await userAPI.getAll();
+      const employeeList = response.data.data || [];
+      setEmployees(employeeList);
+
+      // Extract unique departments
+      const uniqueDepts = [...new Set(employeeList.map(emp => emp.department))];
+      setDepartments(uniqueDepts. filter(Boolean));
+    } catch (error) {
+      console.error('Error fetching employees:', error);
+    }
+  };
+
+  const generateReport = async () => {
+    try {
+      setLoading(true);
+      let response;
+
+      switch (reportType) {
+        case 'daily':
+          response = await reportAPI.getDaily(startDate);
+          break;
+        case 'weekly':
+          response = await reportAPI.getWeekly(startDate, endDate);
+          break;
+        case 'monthly':
+          const [year, month] = startDate.split('-');
+          response = await reportAPI.getMonthly(month, year);
+          break;
+        case 'custom':
+          response = await reportAPI.getCustomReport({
+            startDate,
+            endDate,
+            employee: selectedEmployee,
+            department:  selectedDepartment,
+          });
+          break;
+        default: 
+          response = await reportAPI.getDaily(startDate);
+      }
+
+      const data = Array.isArray(response.data?. data) ? response.data.data : [];
+      setReportData(data);
+      calculateStats(data);
     } catch (error) {
       console.error('Error generating report:', error);
+      toast.error('Failed to generate report');
+      setReportData([]);
     } finally {
       setLoading(false);
     }
   };
 
+  const calculateStats = (data) => {
+    if (!Array.isArray(data) || data.length === 0) {
+      setStats({
+        totalRecords: 0,
+        totalPresent: 0,
+        totalAbsent: 0,
+        totalLate: 0,
+        averageAttendance: 0,
+      });
+      return;
+    }
+
+    const totalPresent = data.filter(r => r.status === 'present').length;
+    const totalLate = data.filter(r => r.status === 'late').length;
+    const totalAbsent = data.filter(r => r.status === 'absent').length;
+    const averageAttendance = data.length > 0 
+      ? ((totalPresent + totalLate) / data.length * 100).toFixed(1)
+      : 0;
+
+    setStats({
+      totalRecords: data.length,
+      totalPresent,
+      totalAbsent,
+      totalLate,
+      averageAttendance,
+    });
+  };
+
+  const handleExport = () => {
+    if (reportData.length === 0) {
+      toast.error('No data to export');
+      return;
+    }
+    exportReportsToExcel(reportData, reportType, startDate, endDate);
+    toast.success('Report exported successfully! ');
+  };
+
+  const handlePrint = () => {
+    if (reportData.length === 0) {
+      toast.error('No data to print');
+      return;
+    }
+
+    const printableData = reportData.map((record, index) => ({
+      'No. ': index + 1,
+      'Employee': record.name || `${record.employee?.firstName || ''} ${record.employee?.lastName || ''}`,
+      'Department': record.department || record.employee?.department || 'N/A',
+      'Date':  record.date ?  new Date(record.date).toLocaleDateString() : 'N/A',
+      'Status':  record.status || 'N/A',
+      'Check In': record.checkIn ? new Date(record.checkIn).toLocaleTimeString() : 'N/A',
+      'Check Out': record.checkOut ? new Date(record.checkOut).toLocaleTimeString() : 'N/A',
+    }));
+
+    printData(printableData, `${reportType. toUpperCase()} Report - ${startDate} to ${endDate}`);
+  };
+
+  const filteredReportData = reportData.filter((record) => {
+    const matchesSearch = searchTerm
+      ? (record.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+         record.employee?.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+         record.employee?.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+         record.employeeId?.toLowerCase().includes(searchTerm.toLowerCase()))
+      : true;
+
+    return matchesSearch;
+  });
+
+  // Prepare chart data
+  const chartData = [
+    { name: 'Present', value: stats.totalPresent, fill: '#10B981' },
+    { name: 'Late', value: stats.totalLate, fill: '#F59E0B' },
+    { name: 'Absent', value: stats.totalAbsent, fill: '#EF4444' },
+  ].filter(item => item.value > 0);
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <StatsCardSkeleton key={i} />
+          ))}
+        </div>
+        <TableSkeleton rows={8} columns={6} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Report Type Selection */}
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <FileText className="w-8 h-8 text-primary-600" />
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark: text-gray-400">
+              Reports & Analytics
+            </h1>
+            <p className="text-sm text-gray-600 dark: text-gray-400">
+              Generate and export attendance reports
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters Card */}
       <div className="card">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Generate Report</h3>
-        
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          {/* Daily Report */}
-          <button
-            onClick={() => setSelectedReport('daily')}
-            className={`p-6 rounded-xl border-2 transition-all ${
-              selectedReport === 'daily'
-                ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                : 'border-gray-200 dark:border-gray-700 hover:border-primary-300 dark:hover:border-primary-700'
-            }`}
-          >
-            <Calendar className={`w-8 h-8 mb-3 ${
-              selectedReport === 'daily' ? 'text-primary-600 dark:text-primary-400' : 'text-gray-400'
-            }`} />
-            <h4 className={`font-semibold mb-1 ${
-              selectedReport === 'daily' ? 'text-primary-900 dark: text-primary-300' : 'text-gray-900 dark:text-white'
-            }`}>
-              Daily Report
-            </h4>
-            <p className="text-sm text-gray-600 dark:text-gray-400">View attendance for a specific day</p>
-          </button>
+        <div className="grid grid-cols-1 md: grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Report Type */}
+          <div>
+            <label className="label">Report Type</label>
+            <select
+              className="input"
+              value={reportType}
+              onChange={(e) => setReportType(e.target.value)}
+            >
+              <option value="daily">Daily Report</option>
+              <option value="weekly">Weekly Report</option>
+              <option value="monthly">Monthly Report</option>
+              <option value="custom">Custom Report</option>
+            </select>
+          </div>
 
-          {/* Weekly Report */}
-          <button
-            onClick={() => setSelectedReport('weekly')}
-            className={`p-6 rounded-xl border-2 transition-all ${
-              selectedReport === 'weekly'
-                ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                : 'border-gray-200 dark:border-gray-700 hover:border-primary-300 dark:hover: border-primary-700'
-            }`}
-          >
-            <BarChart3 className={`w-8 h-8 mb-3 ${
-              selectedReport === 'weekly' ?  'text-primary-600 dark:text-primary-400' : 'text-gray-400'
-            }`} />
-            <h4 className={`font-semibold mb-1 ${
-              selectedReport === 'weekly' ? 'text-primary-900 dark:text-primary-300' : 'text-gray-900 dark:text-white'
-            }`}>
-              Weekly Report
-            </h4>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Analyze weekly attendance trends</p>
-          </button>
+          {/* Start Date */}
+          <div>
+            <label className="label">
+              {reportType === 'daily' ? 'Date' : 'Start Date'}
+            </label>
+            <div className="relative">
+              <Calendar className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="date"
+                className="pl-10 input"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </div>
+          </div>
 
-          {/* Monthly Report */}
-          <button
-            onClick={() => setSelectedReport('monthly')}
-            className={`p-6 rounded-xl border-2 transition-all ${
-              selectedReport === 'monthly'
-                ?  'border-primary-500 bg-primary-50 dark: bg-primary-900/20'
-                : 'border-gray-200 dark:border-gray-700 hover:border-primary-300 dark:hover:border-primary-700'
-            }`}
-          >
-            <PieChart className={`w-8 h-8 mb-3 ${
-              selectedReport === 'monthly' ? 'text-primary-600 dark:text-primary-400' : 'text-gray-400'
-            }`} />
-            <h4 className={`font-semibold mb-1 ${
-              selectedReport === 'monthly' ? 'text-primary-900 dark:text-primary-300' : 'text-gray-900 dark:text-white'
-            }`}>
-              Monthly Report
-            </h4>
-            <p className="text-sm text-gray-600 dark: text-gray-400">Monthly attendance summary</p>
-          </button>
+          {/* End Date (for weekly/custom) */}
+          {(reportType === 'weekly' || reportType === 'custom') && (
+            <div>
+              <label className="label">End Date</label>
+              <div className="relative">
+                <Calendar className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="date"
+                  className="pl-10 input"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
 
-          {/* Custom Report */}
-          <button
-            onClick={() => setSelectedReport('custom')}
-            className={`p-6 rounded-xl border-2 transition-all ${
-              selectedReport === 'custom'
-                ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                : 'border-gray-200 dark: border-gray-700 hover: border-primary-300 dark: hover:border-primary-700'
-            }`}
-          >
-            <Filter className={`w-8 h-8 mb-3 ${
-              selectedReport === 'custom' ? 'text-primary-600 dark:text-primary-400' : 'text-gray-400'
-            }`} />
-            <h4 className={`font-semibold mb-1 ${
-              selectedReport === 'custom' ? 'text-primary-900 dark: text-primary-300' : 'text-gray-900 dark:text-white'
-            }`}>
-              Custom Report
-            </h4>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Create custom date range report</p>
-          </button>
+          {/* Department Filter (for custom) */}
+          {reportType === 'custom' && (
+            <div>
+              <label className="label">Department</label>
+              <select
+                className="input"
+                value={selectedDepartment}
+                onChange={(e) => setSelectedDepartment(e.target.value)}
+              >
+                <option value="">All Departments</option>
+                {departments.map((dept) => (
+                  <option key={dept} value={dept}>
+                    {dept}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Employee Filter (for custom) */}
+          {reportType === 'custom' && (
+            <div>
+              <label className="label">Employee</label>
+              <select
+                className="input"
+                value={selectedEmployee}
+                onChange={(e) => setSelectedEmployee(e.target. value)}
+              >
+                <option value="">All Employees</option>
+                {employees.map((emp) => (
+                  <option key={emp._id} value={emp._id}>
+                    {emp.firstName} {emp.lastName}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
-        {/* Date Range Selection */}
-        <div className="flex flex-col sm:flex-row gap-4 items-end">
-          <div className="flex-1">
-            <label className="label">Start Date</label>
+        {/* Action Buttons */}
+        <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
-              type="date"
-              className="input"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-            />
-          </div>
-          <div className="flex-1">
-            <label className="label">End Date</label>
-            <input
-              type="date"
-              className="input"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
+              type="text"
+              placeholder="Search reports..."
+              className="pl-10 input"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <button
             onClick={generateReport}
+            className="btn-primary flex items-center gap-2"
             disabled={loading}
-            className="btn-primary flex items-center gap-2 whitespace-nowrap"
           >
-            {loading ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                Generating...
-              </>
-            ) : (
-              <>
-                <TrendingUp className="w-4 h-4" />
-                Generate Report
-              </>
-            )}
+            <BarChart3 className="w-4 h-4" />
+            Generate Report
+          </button>
+          <button
+            onClick={handleExport}
+            className="btn-secondary flex items-center gap-2"
+            disabled={filteredReportData.length === 0}
+          >
+            <Download className="w-4 h-4" />
+            Export Excel
+          </button>
+          <button
+            onClick={handlePrint}
+            className="btn-secondary flex items-center gap-2"
+            disabled={filteredReportData.length === 0}
+          >
+            <Printer className="w-4 h-4" />
+            Print
           </button>
         </div>
       </div>
 
-      {/* Report Results */}
-      <div className="card min-h-[400px] flex items-center justify-center">
-        {loading ? (
-          // Loading Skeleton
-          <div className="w-full space-y-6">
-            {/* Header Skeleton */}
-            <div className="flex items-center justify-between">
-              <div className="space-y-2">
-                <div className="h-6 w-48 animate-pulse bg-gray-200 dark: bg-gray-700 rounded"></div>
-                <div className="h-4 w-32 animate-pulse bg-gray-200 dark: bg-gray-700 rounded"></div>
-              </div>
-              <div className="h-10 w-32 animate-pulse bg-gray-200 dark: bg-gray-700 rounded-lg"></div>
-            </div>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="card">
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+            Total Records
+          </p>
+          <p className="text-3xl font-bold text-gray-900 dark:text-white">
+            {stats.totalRecords}
+          </p>
+        </div>
 
-            {/* Stats Grid Skeleton */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="p-4 animate-pulse bg-gray-100 dark:bg-gray-700 rounded-lg">
-                  <div className="h-4 w-24 bg-gray-200 dark:bg-gray-600 rounded mb-2"></div>
-                  <div className="h-8 w-16 bg-gray-200 dark:bg-gray-600 rounded"></div>
-                </div>
-              ))}
-            </div>
+        <div className="card">
+          <p className="text-sm text-gray-600 dark: text-gray-400 mb-1">
+            Present
+          </p>
+          <p className="text-3xl font-bold text-green-600">
+            {stats.totalPresent}
+          </p>
+        </div>
 
-            {/* Table Skeleton */}
-            <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-              <div className="bg-gray-50 dark:bg-gray-900 p-4">
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                  <div className="h-4 bg-gray-200 dark: bg-gray-700 rounded"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                </div>
-              </div>
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="p-4 border-t border-gray-200 dark: border-gray-700">
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-                    <div className="h-4 bg-gray-200 dark: bg-gray-700 rounded animate-pulse"></div>
-                    <div className="h-4 bg-gray-200 dark: bg-gray-700 rounded animate-pulse"></div>
-                  </div>
-                </div>
-              ))}
-            </div>
+        <div className="card">
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+            Late
+          </p>
+          <p className="text-3xl font-bold text-yellow-600">
+            {stats. totalLate}
+          </p>
+        </div>
+
+        <div className="card">
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+            Absent
+          </p>
+          <p className="text-3xl font-bold text-red-600">
+            {stats.totalAbsent}
+          </p>
+        </div>
+
+        <div className="card">
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+            Attendance %
+          </p>
+          <p className="text-3xl font-bold text-primary-600">
+            {stats. averageAttendance}%
+          </p>
+        </div>
+      </div>
+
+      {/* Chart */}
+      {chartData.length > 0 && (
+        <div className="card">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
+            Attendance Overview
+          </h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="value" fill="#4F46E5" />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
-        ) : ! reportData ? (
-          // No Report State
-          <div className="text-center">
-            <FileText className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No Report Generated</h3>
-            <p className="text-gray-500 dark:text-gray-400 mt-2">
-              Select a report type and date range, then click "Generate Report" to view analytics
-            </p>
-          </div>
-        ) : (
-          // Report Display
-          <div className="w-full">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-white capitalize">
-                  {reportData. type} Report
-                </h3>
-                <p className="text-sm text-gray-600 dark: text-gray-400">{reportData.period}</p>
-              </div>
-              <button 
-                onClick={() => exportReportToExcel(reportData, reportData.type)}
-                className="btn-secondary flex items-center gap-2"
-              >
-                <Download className="w-4 h-4" />
-                Export Excel
-              </button>
-            </div>
+        </div>
+      )}
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <p className="text-sm text-blue-600 dark:text-blue-400 mb-1">Total Employees</p>
-                <p className="text-2xl font-bold text-blue-900 dark:text-blue-300">{reportData.totalEmployees}</p>
-              </div>
-              <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                <p className="text-sm text-green-600 dark:text-green-400 mb-1">Avg Attendance</p>
-                <p className="text-2xl font-bold text-green-900 dark:text-green-300">{reportData.avgAttendance}%</p>
-              </div>
-              <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                <p className="text-sm text-purple-600 dark:text-purple-400 mb-1">Total Present</p>
-                <p className="text-2xl font-bold text-purple-900 dark: text-purple-300">{reportData.totalPresent}</p>
-              </div>
-              <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                <p className="text-sm text-red-600 dark:text-red-400 mb-1">Total Absent</p>
-                <p className="text-2xl font-bold text-red-900 dark:text-red-300">{reportData.totalAbsent}</p>
-              </div>
-            </div>
-
-            {/* Summary Table */}
-            <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-              <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-gray-900">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Metric</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Value</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Percentage</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  <tr className="bg-white dark:bg-gray-800">
-                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">Present</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{reportData.totalPresent}</td>
-                    <td className="px-4 py-3 text-sm text-green-600 dark:text-green-400 font-medium">
-                      {((reportData.totalPresent / (reportData.totalPresent + reportData.totalAbsent + reportData.totalLate)) * 100).toFixed(1)}%
+      {/* Report Table */}
+      <div className="card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 dark: bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark: text-gray-400 uppercase">
+                  #
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                  Employee
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                  Department
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                  Date
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                  Check In
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                  Check Out
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+              {filteredReportData.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                    <FileText className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p>No report data available.  Generate a report to see results.</p>
+                  </td>
+                </tr>
+              ) : (
+                filteredReportData.map((record, index) => (
+                  <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                      {index + 1}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        {record.name || `${record.employee?.firstName || ''} ${record.employee?. lastName || ''}`}
+                      </div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                        {record.employeeId || record.employee?.employeeId || 'N/A'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                      {record.department || record.employee?.department || 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                      {record.date ? new Date(record. date).toLocaleDateString() : 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span
+                        className={`px-2 py-1 text-xs font-medium rounded-full ${
+                          record.status === 'present'
+                            ?  'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                            : record.status === 'late'
+                            ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+                            : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                        }`}
+                      >
+                        {record.status || 'N/A'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                      {record.checkIn ? new Date(record.checkIn).toLocaleTimeString() : 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark: text-white">
+                      {record.checkOut ? new Date(record.checkOut).toLocaleTimeString() : 'Not yet'}
                     </td>
                   </tr>
-                  <tr className="bg-white dark:bg-gray-800">
-                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">Late</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{reportData.totalLate}</td>
-                    <td className="px-4 py-3 text-sm text-yellow-600 dark:text-yellow-400 font-medium">
-                      {((reportData.totalLate / (reportData.totalPresent + reportData.totalAbsent + reportData.totalLate)) * 100).toFixed(1)}%
-                    </td>
-                  </tr>
-                  <tr className="bg-white dark:bg-gray-800">
-                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">Absent</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{reportData.totalAbsent}</td>
-                    <td className="px-4 py-3 text-sm text-red-600 dark: text-red-400 font-medium">
-                      {((reportData.totalAbsent / (reportData.totalPresent + reportData.totalAbsent + reportData.totalLate)) * 100).toFixed(1)}%
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

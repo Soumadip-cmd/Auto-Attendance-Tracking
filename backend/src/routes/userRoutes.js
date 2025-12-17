@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const { protect, authorize } = require('../middleware/auth');
 const User = require('../models/User');
+const upload = require('../config/upload');
+const { uploadProfilePicture, deleteProfilePicture } = require('../controllers/userController');
 
 /**
  * @route   GET /api/v1/users
@@ -27,9 +29,9 @@ router.get('/', protect, authorize('admin'), async (req, res, next) => {
  * @desc    Get single user
  * @access  Private/Admin
  */
-router. get('/:id', protect, authorize('admin'), async (req, res, next) => {
+router.get('/:id', protect, authorize('admin'), async (req, res, next) => {
   try {
-    const user = await User.findById(req.params. id).select('-password');
+    const user = await User.findById(req.params.id).select('-password');
     
     if (!user) {
       return res.status(404).json({
@@ -66,11 +68,11 @@ router.post('/', protect, authorize('admin'), async (req, res, next) => {
 });
 
 /**
- * @route   PUT /api/v1/users/:id
+ * @route   PUT /api/v1/users/: id
  * @desc    Update user
  * @access  Private/Admin
  */
-router.put('/:id', protect, authorize('admin'), async (req, res, next) => {
+router. put('/:id', protect, authorize('admin'), async (req, res, next) => {
   try {
     const user = await User.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
@@ -129,10 +131,10 @@ router.get('/stats/overview', protect, authorize('admin'), async (req, res, next
     const activeUsers = await User.countDocuments({ isActive: true });
     const inactiveUsers = await User.countDocuments({ isActive: false });
     
-    const usersByRole = await User.aggregate([
+    const usersByRole = await User. aggregate([
       {
         $group: {
-          _id: '$role',
+          _id:  '$role',
           count: { $sum: 1 },
         },
       },
@@ -151,5 +153,19 @@ router.get('/stats/overview', protect, authorize('admin'), async (req, res, next
     next(error);
   }
 });
+
+/**
+ * @route   POST /api/v1/users/: id/upload-profile-picture
+ * @desc    Upload profile picture
+ * @access  Private
+ */
+router.post('/: id/upload-profile-picture', protect, upload.single('profilePicture'), uploadProfilePicture);
+
+/**
+ * @route   DELETE /api/v1/users/: id/profile-picture
+ * @desc    Delete profile picture
+ * @access  Private/Admin
+ */
+router.delete('/:id/profile-picture', protect, authorize('admin'), deleteProfilePicture);
 
 module.exports = router;
