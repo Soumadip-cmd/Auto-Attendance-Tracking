@@ -89,16 +89,85 @@ exports.register = asyncHandler(async (req, res) => {
  * @access  Public
  */
 exports.login = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, token: biometricToken, biometric } = req.body;
+
+  // Handle biometric login
+  if (biometric && biometricToken) {
+    try {
+      // Verify biometric token
+      const decoded = jwt.verify(biometricToken, process.env.JWT_SECRET);
+      
+      // Get user
+      const user = await User.findById(decoded.id);
+      
+      if (!user || !user.isActive) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid or expired session'
+        });
+      }
+
+      // Update last login
+      user.lastLogin = Date.now();
+      await user.save();
+
+      // Generate new tokens
+      const newToken = generateToken(user._id);
+      const refreshToken = generateRefreshToken(user._id);
+
+      // Store refresh token
+      const refreshTokenExpiry = 7 * 24 * 60 * 60 * 1000; // 7 days
+      await user.addRefreshToken(refreshToken, null, refreshTokenExpiry);
+
+      // Log successful biometric login
+      await Event.log({
+        eventType: 'user.login',
+        actor: user._id,
+        status: 'success',
+        severity: 'info',
+        details: { method: 'biometric' },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent')
+      });
+
+      return res.json({
+        success: true,
+        data: {
+          user: {
+            id: user._id,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            role: user.role,
+            consentGiven: user.consentGiven,
+            trackingEnabled: user.trackingEnabled
+          },
+          token: newToken,
+          refreshToken
+        }
+      });
+    } catch (error) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid or expired biometric session'
+      });
+    }
+  }
+
+  // Regular email/password login
+  const { email: loginEmail, password: loginPassword } = req.body;
+
+  // Regular email/password login
+  const { email: loginEmail, password: loginPassword } = req.body;
 
   // Check if user exists
-  const user = await User.findOne({ email }).select('+password');
+  const user = await User.findOne({ email: loginEmail || email }).select('+password');
   if (!user) {
     await Event.log({
       eventType: 'user.login',
       status: 'failure',
       severity: 'warning',
-      details: { email, reason: 'User not found' },
+      details: { email: loginEmail || email, reason: 'User not found' },
       ipAddress: req.ip,
       userAgent: req.get('user-agent')
     });
@@ -118,14 +187,14 @@ exports.login = asyncHandler(async (req, res) => {
   }
 
   // Check password
-  const isPasswordCorrect = await user.comparePassword(password);
+  const isPasswordCorrect = await user.comparePassword(loginPassword || password);
   if (!isPasswordCorrect) {
     await Event.log({
       eventType: 'user.login',
       actor: user._id,
       status: 'failure',
       severity: 'warning',
-      details: { email, reason: 'Invalid password' },
+      details: { email: loginEmail || email, reason: 'Invalid password' },
       ipAddress: req.ip,
       userAgent: req.get('user-agent')
     });
@@ -154,7 +223,7 @@ exports.login = asyncHandler(async (req, res) => {
     actor: user._id,
     status: 'success',
     severity: 'info',
-    details: { email },
+    details: { email: loginEmail || email, method: 'password' },
     ipAddress: req.ip,
     userAgent: req.get('user-agent')
   });

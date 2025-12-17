@@ -208,7 +208,6 @@ export default function HomeScreen() {
               <StatusBadge status={todayAttendance.status} size="small" />
             </View>
           )}
-          </View>
 
           <View style={styles.statusContent}>
             <View style={styles.statusRow}>
@@ -401,18 +400,58 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
+    flexWrap: 'wrap',
+  },
+  statusTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statusIcon: {
+    marginRight: 8,
+  },
+  dateContainer: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+  },
+  dateText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  statusBadgeContainer: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
   },
   statusTitle: {
     fontSize: 18,
     fontWeight: '600',
   },
   statusContent: {
+    marginTop: 8,
+  },
+  statusRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
+    paddingBottom: 16,
   },
   statusItem: {
     flex: 1,
     alignItems: 'center',
+  },
+  workScheduleHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 12,
+    gap: 6,
+  },
+  workScheduleText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   statusLabel: {
     fontSize: 12,

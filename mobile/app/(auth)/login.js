@@ -11,20 +11,33 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import * as LocalAuthentication from 'expo-local-authentication';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Input } from '../../src/components/common/Input';
 import { Button } from '../../src/components/common/Button';
 import { useAuth } from '../../src/hooks/useAuth';
 import { useTheme } from '../../src/hooks/useTheme';
+import { useBiometric } from '../../src/hooks/useBiometric';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { login, isLoading } = useAuth();
   const { theme } = useTheme();
+  const { isAvailable, isEnabled, biometricType, authenticate } = useBiometric();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({});
+  const [showBiometric, setShowBiometric] = useState(false);
+
+  // Check if biometric login is available on mount
+  React.useEffect(() => {
+    const checkBiometric = async () => {
+      const savedEmail = await AsyncStorage.getItem('biometric_email');
+      setShowBiometric(isAvailable && isEnabled && !!savedEmail);
+      if (savedEmail) setEmail(savedEmail);
+    };
+    checkBiometric();
+  }, [isAvailable, isEnabled]);
 
   const validate = () => {
     const newErrors = {};
@@ -51,6 +64,11 @@ export default function LoginScreen() {
     const result = await login({ email, password });
 
     if (result.success) {
+      // Save email for biometric login if enabled
+      if (isEnabled) {
+        await AsyncStorage.setItem('biometric_email', email);
+        await AsyncStorage.setItem('biometric_token', result.data?.token || '');
+      }
       router.replace('/(tabs)');
     } else {
       Alert.alert('Login Failed', result.error || 'Invalid credentials');
@@ -59,23 +77,30 @@ export default function LoginScreen() {
 
   const handleBiometricLogin = async () => {
     try {
-      const hasHardware = await LocalAuthentication.hasHardwareAsync();
-      const isEnrolled = await LocalAuthentication. isEnrolledAsync();
-
-      if (! hasHardware || !isEnrolled) {
-        Alert.alert('Biometric Not Available', 'Please use email and password to login');
-        return;
-      }
-
-      const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Login with biometrics',
-        fallbackLabel: 'Use password',
-      });
-
-      if (result.success) {
-        // Here you would typically retrieve stored credentials
-        // and login automatically
-        Alert.alert('Success', 'Biometric authentication successful');
+      const success = await authenticate(`Login to Attendance Tracker`);
+      
+      if (success) {
+        // Retrieve saved credentials
+        const savedToken = await AsyncStorage.getItem('biometric_token');
+        const savedEmail = await AsyncStorage.getItem('biometric_email');
+        
+        if (savedToken && savedEmail) {
+          // Verify token with backend
+          const result = await login({ token: savedToken, biometric: true });
+          
+          if (result.success) {
+            router.replace('/(tabs)');
+          } else {
+            Alert.alert(
+              'Session Expired',
+              'Please login again with your credentials.',
+              [{ text: 'OK', onPress: () => setShowBiometric(false) }]
+            );
+          }
+        } else {
+          Alert.alert('Error', 'No saved credentials found. Please login with email and password.');
+          setShowBiometric(false);
+        }
       }
     } catch (error) {
       console.error('Biometric error:', error);
@@ -143,20 +168,24 @@ export default function LoginScreen() {
             style={{ marginTop: 24 }}
           />
 
-          <View style={styles.divider}>
-            <View style={[styles.dividerLine, { backgroundColor: theme.colors. border }]} />
-            <Text style={[styles.dividerText, { color: theme.colors.textSecondary }]}>
-              OR
-            </Text>
-            <View style={[styles.dividerLine, { backgroundColor: theme.colors.border }]} />
-          </View>
+          {showBiometric && (
+            <>
+              <View style={styles.divider}>
+                <View style={[styles.dividerLine, { backgroundColor: theme.colors. border }]} />
+                <Text style={[styles.dividerText, { color: theme.colors.textSecondary }]}>
+                  OR
+                </Text>
+                <View style={[styles.dividerLine, { backgroundColor: theme.colors.border }]} />
+              </View>
 
-          <Button
-            title="Login with Biometrics"
-            onPress={handleBiometricLogin}
-            variant="outline"
-            icon={<Text>🔐</Text>}
-          />
+              <Button
+                title={`Login with ${biometricType || 'Biometric'}`}
+                onPress={handleBiometricLogin}
+                variant="outline"
+                icon={<Text style={{ fontSize: 20 }}>🔐</Text>}
+              />
+            </>
+          )}
         </View>
 
         <View style={styles.footer}>

@@ -78,11 +78,10 @@ export default function AttendanceScreen() {
       </View>
 
       <View style={styles.header}>
-
-      <View style={[styles.monthSelector, { backgroundColor: theme.colors. card }]}>
-        <TouchableOpacity onPress={handlePreviousMonth} style={styles.monthButton}>
-          <Ionicons name="chevron-back" size={24} color={theme.colors.text} />
-        </TouchableOpacity>
+        <View style={[styles.monthSelector, { backgroundColor: theme.colors. card }]}>
+          <TouchableOpacity onPress={handlePreviousMonth} style={styles.monthButton}>
+            <Ionicons name="chevron-back" size={24} color={theme.colors.text} />
+          </TouchableOpacity>
 
         <Text style={[styles. monthText, { color: theme. colors.text }]}>
           {format(selectedMonth, 'MMMM yyyy')}
@@ -140,6 +139,7 @@ export default function AttendanceScreen() {
           </View>
         </View>
       )}
+      </View>
     </View>
   );
 
@@ -190,6 +190,16 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 20,
     paddingTop: 60,
+  },
+  screenHeader: {
+    marginBottom: 20,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  screenTitle: {
+    fontSize: 24,
+    fontWeight: '700',
   },
   header: {
     marginBottom: 24,

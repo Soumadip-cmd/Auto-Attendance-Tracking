@@ -290,6 +290,16 @@ const styles = StyleSheet. create({
     padding: 20,
     paddingTop: 60,
   },
+  screenHeader: {
+    marginBottom: 20,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  screenTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+  },
   title: {
     fontSize: 28,
     fontWeight: '700',

@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/hooks/useAuth';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useNotifications } from '../../src/hooks/useNotifications';
+import { useBiometric } from '../../src/hooks/useBiometric';
 import { Avatar } from '../../src/components/common/Avatar';
 import { Card } from '../../src/components/common/Card';
 import { Button } from '../../src/components/common/Button';
@@ -22,6 +23,13 @@ export default function ProfileScreen() {
   const { user, logout, isLoading } = useAuth();
   const { theme, isDarkMode, toggleTheme } = useTheme();
   const { hasPermission:  hasNotificationPermission } = useNotifications();
+  const { 
+    isAvailable: isBiometricAvailable,
+    isEnabled: isBiometricEnabled,
+    biometricType,
+    enableBiometric,
+    disableBiometric
+  } = useBiometric();
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(hasNotificationPermission);
 
@@ -51,6 +59,29 @@ export default function ProfileScreen() {
     router.push('/profile/change-password');
   };
 
+  const handleBiometricToggle = async (value) => {
+    if (value) {
+      const success = await enableBiometric();
+      if (success) {
+        Alert.alert(
+          'Biometric Enabled',
+          `${biometricType} has been enabled for quick login. You'll be able to login using your biometric next time.`
+        );
+      } else {
+        Alert.alert(
+          'Authentication Failed',
+          'Please try again or use your password to login.'
+        );
+      }
+    } else {
+      await disableBiometric();
+      Alert.alert(
+        'Biometric Disabled',
+        'You will need to use your email and password to login.'
+      );
+    }
+  };
+
   const ProfileOption = ({ icon, label, value, onPress, showChevron = true }) => (
     <TouchableOpacity
       style={[styles.option, { backgroundColor: theme.colors. card }]}
@@ -75,17 +106,25 @@ export default function ProfileScreen() {
     </TouchableOpacity>
   );
 
-  const ToggleOption = ({ icon, label, value, onValueChange }) => (
-    <View style={[styles.option, { backgroundColor: theme.colors.card }]}>
+  const ToggleOption = ({ icon, label, subtitle, value, onValueChange, disabled = false }) => (
+    <View style={[styles.option, { backgroundColor: theme.colors.card, opacity: disabled ? 0.5 : 1 }]}>
       <View style={styles.optionLeft}>
         <View style={[styles.optionIcon, { backgroundColor: `${theme.colors.primary}20` }]}>
           <Ionicons name={icon} size={20} color={theme.colors.primary} />
         </View>
-        <Text style={[styles.optionLabel, { color: theme.colors. text }]}>{label}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.optionLabel, { color: theme.colors. text }]}>{label}</Text>
+          {subtitle && (
+            <Text style={[styles.optionSubtitle, { color: theme.colors.textSecondary, fontSize: 12, marginTop: 2 }]}>
+              {subtitle}
+            </Text>
+          )}
+        </View>
       </View>
       <Switch
         value={value}
         onValueChange={onValueChange}
+        disabled={disabled}
         trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
         thumbColor="#ffffff"
       />
@@ -190,6 +229,15 @@ export default function ProfileScreen() {
           />
 
           <ToggleOption
+            icon="finger-print-outline"
+            label="Biometric Login"
+            subtitle={biometricType ? `Use ${biometricType} to login` : 'Not available on this device'}
+            value={isBiometricEnabled}
+            disabled={!isBiometricAvailable}
+            onValueChange={handleBiometricToggle}
+          />
+
+          <ToggleOption
             icon="notifications-outline"
             label="Push Notifications"
             value={notificationsEnabled}
@@ -279,6 +327,16 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 20,
     paddingTop: 60,
+  },
+  screenHeader: {
+    marginBottom: 20,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  screenTitle: {
+    fontSize: 24,
+    fontWeight: '700',
   },
   profileCard: {
     marginBottom:  24,
