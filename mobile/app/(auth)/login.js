@@ -29,6 +29,7 @@ export default function LoginScreen() {
   const [errors, setErrors] = useState({});
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricType, setBiometricType] = useState('Biometric');
+  const [biometricLoading, setBiometricLoading] = useState(false);
 
   React.useEffect(() => {
     checkBiometric();
@@ -78,26 +79,37 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     if (!validate()) return;
 
+    console.log('🔐 Logging in with email/password...');
     const result = await login({ email, password });
 
     if (result.success) {
+      console.log('✅ Login successful, saving credentials for biometric...');
       // Save credentials for biometric login (encrypted in secure storage)
       await AsyncStorage.setItem('biometric_email', email);
       await AsyncStorage.setItem('biometric_password', password);
       await AsyncStorage.setItem('biometric_enabled', 'true');
+      console.log('✅ Biometric credentials saved:', email);
       
       router.replace('/(tabs)');
     } else {
+      console.log('❌ Login failed:', result.error);
       Alert.alert('Login Failed', result.error || 'Invalid credentials');
     }
   };
 
   const handleBiometricLogin = async () => {
     try {
+      setBiometricLoading(true);
+      console.log('🔐 Starting biometric login...');
       const savedEmail = await AsyncStorage.getItem('biometric_email');
       const savedPassword = await AsyncStorage.getItem('biometric_password');
 
+      console.log('📧 Saved email:', savedEmail);
+      console.log('🔑 Has password:', savedPassword ? 'Yes' : 'No');
+
       if (!savedEmail || !savedPassword) {
+        console.log('❌ No saved credentials found');
+        setBiometricLoading(false);
         Alert.alert(
           'Setup Required',
           'Please login with email and password first to enable biometric login.',
@@ -106,28 +118,45 @@ export default function LoginScreen() {
         return;
       }
 
+      console.log('👆 Requesting biometric authentication...');
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: `Login with ${biometricType}`,
         fallbackLabel: 'Use password',
         cancelLabel: 'Cancel',
       });
 
+      console.log('🔐 Biometric result:', result.success);
+
       if (result.success) {
+        console.log('✅ Biometric authenticated, logging in with saved credentials...');
         // Login with saved credentials
         const loginResult = await login({ email: savedEmail, password: savedPassword });
         
+        console.log('📊 Login result:', loginResult.success, loginResult.error);
+        
         if (loginResult.success) {
-          router.replace('/(tabs)');
+          console.log('🎉 Biometric login successful, navigating to home...');
+          // Small delay to ensure state is updated
+          setTimeout(() => {
+            router.replace('/(tabs)');
+            setBiometricLoading(false);
+          }, 100);
         } else {
+          console.log('❌ Login with saved credentials failed:', loginResult.error);
+          setBiometricLoading(false);
           Alert.alert(
             'Login Failed',
-            'Your saved credentials are invalid. Please login with email and password.',
+            loginResult.error || 'Your saved credentials are invalid. Please login with email and password.',
             [{ text: 'OK' }]
           );
         }
+      } else {
+        console.log('❌ Biometric authentication was cancelled or failed');
+        setBiometricLoading(false);
       }
     } catch (error) {
-      console.error('Biometric error:', error);
+      console.error('💥 Biometric error:', error);
+      setBiometricLoading(false);
       Alert.alert('Error', 'Biometric authentication failed. Please try again.');
     }
   };
@@ -158,23 +187,29 @@ export default function LoginScreen() {
           <TouchableOpacity
             style={[styles.biometricButton, { 
               backgroundColor: theme.colors.primary + '15',
-              borderColor: theme.colors.primary 
+              borderColor: theme.colors.primary,
+              opacity: biometricLoading ? 0.5 : 1
             }]}
             onPress={handleBiometricLogin}
+            disabled={biometricLoading || isLoading}
           >
             <View style={[styles.biometricIconContainer, { backgroundColor: theme.colors.primary }]}>
-              <Ionicons 
-                name={biometricType === 'Face ID' ? 'scan' : 'finger-print'} 
-                size={32} 
-                color="#ffffff" 
-              />
+              {biometricLoading ? (
+                <Ionicons name="hourglass" size={32} color="#ffffff" />
+              ) : (
+                <Ionicons 
+                  name={biometricType === 'Face ID' ? 'scan' : 'finger-print'} 
+                  size={32} 
+                  color="#ffffff" 
+                />
+              )}
             </View>
             <View style={styles.biometricTextContainer}>
               <Text style={[styles.biometricTitle, { color: theme.colors.text }]}>
-                Quick Login
+                {biometricLoading ? 'Logging in...' : 'Quick Login'}
               </Text>
               <Text style={[styles.biometricSubtitle, { color: theme.colors.textSecondary }]}>
-                Use {biometricType}
+                {biometricLoading ? 'Please wait' : `Use ${biometricType}`}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={24} color={theme.colors.primary} />
