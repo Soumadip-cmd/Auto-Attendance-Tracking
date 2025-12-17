@@ -16,12 +16,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { Input } from '../../src/components/common/Input';
 import { Button } from '../../src/components/common/Button';
-import { useAuth } from '../../src/hooks/useAuth';
+import { useApp } from '../../src/context/AppContext';
 import { useTheme } from '../../src/hooks/useTheme';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { login, isLoading } = useAuth();
+  const { login, authLoading } = useApp();
   const { theme } = useTheme();
 
   const [email, setEmail] = useState('');
@@ -89,8 +89,7 @@ export default function LoginScreen() {
       await AsyncStorage.setItem('biometric_password', password);
       await AsyncStorage.setItem('biometric_enabled', 'true');
       console.log('✅ Biometric credentials saved:', email);
-      
-      router.replace('/(tabs)');
+      // Navigation handled by _layout.js automatically
     } else {
       console.log('❌ Login failed:', result.error);
       Alert.alert('Login Failed', result.error || 'Invalid credentials');
@@ -135,12 +134,9 @@ export default function LoginScreen() {
         console.log('📊 Login result:', loginResult.success, loginResult.error);
         
         if (loginResult.success) {
-          console.log('🎉 Biometric login successful, navigating to home...');
-          // Small delay to ensure state is updated
-          setTimeout(() => {
-            router.replace('/(tabs)');
-            setBiometricLoading(false);
-          }, 100);
+          console.log('🎉 Biometric login successful! Navigation handled by layout...');
+          setBiometricLoading(false);
+          // Navigation handled by _layout.js automatically
         } else {
           console.log('❌ Login with saved credentials failed:', loginResult.error);
           setBiometricLoading(false);
@@ -191,7 +187,7 @@ export default function LoginScreen() {
               opacity: biometricLoading ? 0.5 : 1
             }]}
             onPress={handleBiometricLogin}
-            disabled={biometricLoading || isLoading}
+            disabled={biometricLoading || authLoading}
           >
             <View style={[styles.biometricIconContainer, { backgroundColor: theme.colors.primary }]}>
               {biometricLoading ? (
@@ -253,7 +249,7 @@ export default function LoginScreen() {
           <Button
             title="Login"
             onPress={handleLogin}
-            loading={isLoading}
+            loading={authLoading}
             style={{ marginTop: 24 }}
           />
         </View>

@@ -16,12 +16,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { Input } from '../../src/components/common/Input';
 import { Button } from '../../src/components/common/Button';
-import { useAuth } from '../../src/hooks/useAuth';
+import { useApp } from '../../src/context/AppContext';
 import { useTheme } from '../../src/hooks/useTheme';
 
 export default function RegisterScreen() {
   const router = useRouter();
-  const { register, isLoading } = useAuth();
+  const { register, authLoading } = useApp();
   const { theme } = useTheme();
 
   const [formData, setFormData] = useState({
@@ -226,7 +226,7 @@ export default function RegisterScreen() {
           <Button
             title="Create Account"
             onPress={handleRegister}
-            loading={isLoading}
+            loading={authLoading}
             style={{ marginTop: 24 }}
           />
 
