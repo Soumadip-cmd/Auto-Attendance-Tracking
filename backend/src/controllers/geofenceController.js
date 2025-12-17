@@ -70,9 +70,10 @@ exports.getGeofences = asyncHandler(async (req, res) => {
     .populate('createdBy', 'firstName lastName')
     .sort({ createdAt: -1 });
 
-  res.json({
+  res.status(200).json({
     success: true,
-    data: { geofences }
+    count: geofences.length,
+    data: geofences,
   });
 });
 

@@ -148,7 +148,7 @@ export default function HomeScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 90 }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -191,46 +191,54 @@ export default function HomeScreen() {
         {/* Today's Status Card */}
         <Card style={styles.statusCard} elevation="lg">
           <View style={styles.statusHeader}>
-            <Text style={[styles. statusTitle, { color: theme. colors.text }]}>
-              Today's Status
-            </Text>
-            {todayAttendance && (
+            <View style={styles.statusTitleContainer}>
+              <Ionicons name="calendar-outline" size={20} color={theme.colors.primary} style={styles.statusIcon} />
+              <Text style={[styles. statusTitle, { color: theme. colors.text }]}>
+                Today's Status
+              </Text>
+            </View>
+            <View style={styles.dateContainer}>
+              <Text style={[styles.dateText, { color: theme.colors.textSecondary }]}>
+                {format(new Date(), 'EEE, MMM dd')}
+              </Text>
+            </View>
+          </View>
+          {todayAttendance && (
+            <View style={styles.statusBadgeContainer}>
               <StatusBadge status={todayAttendance.status} size="small" />
-            )}
+            </View>
+          )}
           </View>
 
           <View style={styles.statusContent}>
-            <View style={styles.statusItem}>
-              <Ionicons name="calendar-outline" size={20} color={theme.colors.primary} />
-              <Text style={[styles.statusLabel, { color: theme.colors. textSecondary }]}>
-                Date
-              </Text>
-              <Text style={[styles.statusValue, { color: theme.colors. text }]}>
-                {format(new Date(), 'MMM dd, yyyy')}
-              </Text>
+            <View style={styles.statusRow}>
+              <View style={styles.statusItem}>
+                <Ionicons name="log-in-outline" size={18} color={theme.colors.success} />
+                <Text style={[styles.statusLabel, { color: theme.colors.textSecondary }]}>
+                  Check In
+                </Text>
+                <Text style={[styles.statusValue, { color: theme.colors. text }]}>
+                  {formatTime(todayAttendance?. checkIn?. timestamp)}
+                </Text>
+              </View>
+
+              <View style={styles.statusDivider} />
+
+              <View style={styles.statusItem}>
+                <Ionicons name="log-out-outline" size={18} color={theme.colors.error} />
+                <Text style={[styles.statusLabel, { color: theme.colors.textSecondary }]}>
+                  Check Out
+                </Text>
+                <Text style={[styles.statusValue, { color: theme.colors.text }]}>
+                  {formatTime(todayAttendance?.checkOut?.timestamp)}
+                </Text>
+              </View>
             </View>
-
-            <View style={styles.statusDivider} />
-
-            <View style={styles.statusItem}>
-              <Ionicons name="log-in-outline" size={20} color={theme.colors.success} />
-              <Text style={[styles.statusLabel, { color: theme.colors.textSecondary }]}>
-                Check In
-              </Text>
-              <Text style={[styles.statusValue, { color: theme.colors. text }]}>
-                {formatTime(todayAttendance?. checkIn?. timestamp)}
-              </Text>
-            </View>
-
-            <View style={styles.statusDivider} />
-
-            <View style={styles.statusItem}>
-              <Ionicons name="log-out-outline" size={20} color={theme.colors.error} />
-              <Text style={[styles.statusLabel, { color: theme.colors.textSecondary }]}>
-                Check Out
-              </Text>
-              <Text style={[styles.statusValue, { color: theme.colors.text }]}>
-                {formatTime(todayAttendance?.checkOut?.timestamp)}
+            
+            <View style={[styles.workScheduleHint, { backgroundColor: theme.colors.primary + '10', borderColor: theme.colors.primary + '30' }]}>
+              <Ionicons name="time-outline" size={16} color={theme.colors.primary} />
+              <Text style={[styles.workScheduleText, { color: theme.colors.primary }]}>
+                Work Hours: 9:00 AM - 6:00 PM
               </Text>
             </View>
           </View>

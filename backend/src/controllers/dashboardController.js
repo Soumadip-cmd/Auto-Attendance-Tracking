@@ -185,12 +185,13 @@ exports.getMonthlyTrend = async (req, res) => {
 exports.getRecentActivity = async (req, res) => {
   try {
     const recentAttendance = await Attendance.find()
-      .populate('employee', 'firstName lastName employeeId')
-      .sort({ checkIn: -1 })
+      .populate('user', 'firstName lastName employeeId')
+      .sort({ 'checkIn.time': -1 })
       .limit(10);
 
     const activities = recentAttendance.map(attendance => {
-      const timeDiff = Date.now() - new Date(attendance.checkIn).getTime();
+      const checkInTime = attendance.checkIn?.time || attendance.checkIn;
+      const timeDiff = Date.now() - new Date(checkInTime).getTime();
       const minutes = Math.floor(timeDiff / 60000);
       const hours = Math.floor(minutes / 60);
       const days = Math. floor(hours / 24);
@@ -203,12 +204,12 @@ exports.getRecentActivity = async (req, res) => {
 
       return {
         id: attendance._id,
-        employeeName: `${attendance.employee.firstName} ${attendance.employee.lastName}`,
-        employeeId: attendance.employee. employeeId,
-        action: attendance.checkOut ? 'checked out' : 'checked in',
+        employeeName: `${attendance.user.firstName} ${attendance.user.lastName}`,
+        employeeId: attendance.user. employeeId,
+        action: attendance.checkOut?.time ? 'checked out' : 'checked in',
         timeAgo,
         status: attendance.status,
-        timestamp: attendance.checkIn
+        timestamp: checkInTime
       };
     });
 

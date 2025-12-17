@@ -74,9 +74,15 @@ router.post('/', protect, authorize('admin'), async (req, res, next) => {
  */
 router. put('/:id', protect, authorize('admin'), async (req, res, next) => {
   try {
-    const user = await User.findByIdAndUpdate(req.params.id, req.body, {
+    // Remove password from update if not provided
+    const updateData = { ...req.body };
+    if (!updateData.password || updateData.password === '') {
+      delete updateData.password;
+    }
+    
+    const user = await User.findByIdAndUpdate(req.params.id, updateData, {
       new: true,
-      runValidators: true,
+      runValidators: false, // Skip validation for partial updates
     }).select('-password');
     
     if (!user) {

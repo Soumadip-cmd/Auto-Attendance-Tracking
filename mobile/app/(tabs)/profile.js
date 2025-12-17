@@ -95,9 +95,15 @@ export default function ProfileScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 90 }]}
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.screenHeader}>
+          <Text style={[styles.screenTitle, { color: theme.colors.text }]}>
+            👤 Profile
+          </Text>
+        </View>
+
         {/* Profile Header */}
         <Card style={styles.profileCard} elevation="md">
           <View style={styles.profileHeader}>

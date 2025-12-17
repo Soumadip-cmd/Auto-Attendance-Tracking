@@ -25,6 +25,7 @@ const Employees = () => {
   const [roleFilter, setRoleFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [pendingOnly, setPendingOnly] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState({ isOpen: false, employee: null });
@@ -120,7 +121,7 @@ const Employees = () => {
   };
 
   const handleDelete = async () => {
-    if (! deleteConfirm.employee) return;
+    if (!deleteConfirm.employee) return;
 
     try {
       await userAPI.delete(deleteConfirm.employee._id);
@@ -130,6 +131,28 @@ const Employees = () => {
     } catch (error) {
       console.error('Error deleting employee:', error);
       toast.error('Failed to delete employee');
+    }
+  };
+
+  const handleApprove = async (employeeId) => {
+    try {
+      await userAPI.update(employeeId, { isVerified: true });
+      toast.success('Employee approved successfully!');
+      fetchEmployees();
+    } catch (error) {
+      console.error('Error approving employee:', error);
+      toast.error('Failed to approve employee');
+    }
+  };
+
+  const handleReject = async (employeeId) => {
+    try {
+      await userAPI.delete(employeeId);
+      toast.success('Employee registration rejected!');
+      fetchEmployees();
+    } catch (error) {
+      console.error('Error rejecting employee:', error);
+      toast.error('Failed to reject employee');
     }
   };
 
@@ -168,16 +191,22 @@ const Employees = () => {
       employee.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       employee.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      employee.employeeId.toLowerCase().includes(searchTerm.toLowerCase());
+      (employee.employeeId && employee.employeeId.toLowerCase().includes(searchTerm.toLowerCase()));
     
     const matchesRole = roleFilter === 'all' || employee.role === roleFilter;
     const matchesDepartment = departmentFilter === 'all' || employee.department === departmentFilter;
     const matchesStatus = statusFilter === 'all' || 
       (statusFilter === 'active' && employee.isActive) ||
-      (statusFilter === 'inactive' && !employee.isActive);
+      (statusFilter === 'inactive' && !employee.isActive) ||
+      (statusFilter === 'pending' && !employee.isVerified);
     
-    return matchesSearch && matchesRole && matchesDepartment && matchesStatus;
+    const matchesPending = !pendingOnly || !employee.isVerified;
+    
+    return matchesSearch && matchesRole && matchesDepartment && matchesStatus && matchesPending;
   });
+  
+  // Count pending approvals
+  const pendingCount = employees.filter(e => !e.isVerified).length;
 
   // Get unique departments
   const departments = [...new Set(employees.map(e => e.department))].filter(Boolean);
@@ -197,6 +226,33 @@ const Employees = () => {
 
   return (
     <div className="space-y-6">
+      {/* Pending Approvals Banner */}
+      {pendingCount > 0 && (
+        <div className="card bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="bg-yellow-100 dark:bg-yellow-900/30 p-2 rounded-lg">
+                <UserPlus className="w-5 h-5 text-yellow-700 dark:text-yellow-400" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-yellow-900 dark:text-yellow-200">
+                  Pending Approvals
+                </h4>
+                <p className="text-sm text-yellow-700 dark:text-yellow-400">
+                  {pendingCount} {pendingCount === 1 ? 'employee' : 'employees'} waiting for approval
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setPendingOnly(!pendingOnly)}
+              className="btn-secondary text-sm"
+            >
+              {pendingOnly ? 'Show All' : 'View Pending'}
+            </button>
+          </div>
+        </div>
+      )}
+      
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <div className="card hover:shadow-lg transition-shadow">
@@ -291,6 +347,7 @@ const Employees = () => {
               <option value="all">All Status</option>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
+              <option value="pending">Pending Approval</option>
             </select>
           </div>
 
@@ -407,35 +464,63 @@ const Employees = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          employee.isActive
-                            ?  'bg-green-100 text-green-800 dark: bg-green-900/30 dark:text-green-400'
-                            : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                        }`}
-                      >
-                        {employee.isActive ? 'Active' : 'Inactive'}
-                      </span>
+                      <div className="space-y-1">
+                        <span
+                          className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            employee.isActive
+                              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                              : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                          }`}
+                        >
+                          {employee.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                        {!employee.isVerified && (
+                          <span className="block px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+                            Pending Approval
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {new Date(employee.createdAt).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleEdit(employee)}
-                          className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
-                          title="Edit"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => setDeleteConfirm({ isOpen:  true, employee })}
-                          className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {!employee.isVerified ? (
+                          <>
+                            <button
+                              onClick={() => handleApprove(employee._id)}
+                              className="px-3 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors flex items-center gap-1"
+                              title="Approve"
+                            >
+                              ✓ Approve
+                            </button>
+                            <button
+                              onClick={() => handleReject(employee._id)}
+                              className="px-3 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors flex items-center gap-1"
+                              title="Reject"
+                            >
+                              ✕ Reject
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => handleEdit(employee)}
+                              className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                              title="Edit"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => setDeleteConfirm({ isOpen: true, employee })}
+                              className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

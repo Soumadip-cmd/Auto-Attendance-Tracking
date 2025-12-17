@@ -4,6 +4,7 @@ import {
   Users,
   ClipboardList,
   BarChart3,
+  Clock,
   Settings,
   LogOut,
 } from 'lucide-react';
@@ -13,10 +14,11 @@ const Sidebar = () => {
   const { logout, user } = useAuth();
 
   const navItems = [
-    { icon:  LayoutDashboard, label:  'Dashboard', path: '/dashboard' },
+    { icon:  LayoutDashboard, label:  'Dashboard', path: '/' },
     { icon: Users, label: 'Employees', path: '/employees' },
     { icon: ClipboardList, label: 'Attendance', path: '/attendance' },
     { icon: BarChart3, label: 'Reports', path: '/reports' },
+    { icon: Clock, label: 'Work Schedule', path: '/work-schedule' },
     { icon:  Settings, label: 'Settings', path: '/settings' },
   ];
 

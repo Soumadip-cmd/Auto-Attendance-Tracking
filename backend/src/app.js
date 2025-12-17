@@ -20,6 +20,7 @@ const userRoutes = require('./routes/userRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes'); // ✅ ADD THIS
+const settingsRoutes = require('./routes/settingsRoutes');
 const healthRoutes = require('./routes/healthRoutes');
 
 // Initialize Express app
@@ -138,6 +139,7 @@ app.use(`/api/${API_VERSION}/users`, userRoutes);
 app.use(`/api/${API_VERSION}/attendance`, attendanceRoutes);
 app.use(`/api/${API_VERSION}/reports`, reportRoutes);
 app.use(`/api/${API_VERSION}/dashboard`, dashboardRoutes); // ✅ ADD THIS
+app.use(`/api/${API_VERSION}/settings`, settingsRoutes);
 
 // Root route
 app.get('/', (req, res) => {

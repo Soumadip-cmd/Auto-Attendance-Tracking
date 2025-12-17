@@ -70,10 +70,14 @@ export default function AttendanceScreen() {
   };
 
   const renderHeader = () => (
-    <View style={styles.header}>
-      <Text style={[styles.title, { color: theme.colors. text }]}>
-        Attendance History
-      </Text>
+    <View>
+      <View style={styles.screenHeader}>
+        <Text style={[styles.screenTitle, { color: theme.colors.text }]}>
+          📅 Attendance History
+        </Text>
+      </View>
+
+      <View style={styles.header}>
 
       <View style={[styles.monthSelector, { backgroundColor: theme.colors. card }]}>
         <TouchableOpacity onPress={handlePreviousMonth} style={styles.monthButton}>
@@ -165,7 +169,7 @@ export default function AttendanceScreen() {
         )}
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmptyState}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: 90 }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

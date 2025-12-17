@@ -9,6 +9,7 @@ import Employees from './pages/Employees';
 import Attendance from './pages/Attendance';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
+import WorkSchedule from './pages/WorkSchedule';
 
 // You may want to define ProtectedRoute here if needed
 function ProtectedRoute({ children }) {
@@ -60,6 +61,7 @@ function App() {
               <Route path="employees" element={<Employees />} />
               <Route path="attendance" element={<Attendance />} />
               <Route path="reports" element={<Reports />} />
+              <Route path="work-schedule" element={<WorkSchedule />} />
               <Route path="settings" element={<Settings />} />
             </Route>
             {/* Redirect any unknown route */}

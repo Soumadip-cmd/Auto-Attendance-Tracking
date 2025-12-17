@@ -86,7 +86,7 @@ export default function ReportsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 90 }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -96,9 +96,11 @@ export default function ReportsScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.title, { color: theme.colors.text }]}>
-          Reports & Analytics
-        </Text>
+        <View style={styles.screenHeader}>
+          <Text style={[styles.screenTitle, { color: theme.colors.text }]}>
+            📊 Reports & Analytics
+          </Text>
+        </View>
 
         <PeriodSelector />
 
