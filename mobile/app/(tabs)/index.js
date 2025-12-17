@@ -104,8 +104,11 @@ export default function HomeScreen() {
           text: 'Check In',
           onPress: async () => {
             const result = await checkIn();
-            if (! result.success) {
+            if (!result.success) {
               Alert.alert('Check-in Failed', result.error);
+            } else {
+              // Refresh to show updated times
+              await getTodayAttendance();
             }
           },
         },
@@ -126,6 +129,9 @@ export default function HomeScreen() {
             const result = await checkOut();
             if (!result.success) {
               Alert.alert('Check-out Failed', result.error);
+            } else {
+              // Refresh to show updated times
+              await getTodayAttendance();
             }
           },
         },

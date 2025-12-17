@@ -152,15 +152,25 @@ export default function ProfileScreen() {
               source={user?.avatar ?  { uri: user.avatar } :  null}
             />
             <View style={styles.profileInfo}>
-              <Text style={[styles. profileName, { color: theme.colors.text }]}>
+              <Text style={[styles.profileName, { color: theme.colors.text }]}>
                 {user?.firstName} {user?.lastName}
               </Text>
               <Text style={[styles.profileEmail, { color: theme.colors.textSecondary }]}>
                 {user?.email}
               </Text>
+              {user?.phoneNumber && (
+                <Text style={[styles.profileEmployeeId, { color: theme.colors.textSecondary }]}>
+                  📱 {user.phoneNumber}
+                </Text>
+              )}
               {user?.employeeId && (
                 <Text style={[styles.profileEmployeeId, { color: theme.colors.textSecondary }]}>
-                  {user. employeeId}
+                  🆔 {user.employeeId}
+                </Text>
+              )}
+              {user?.department && (
+                <Text style={[styles.profileEmployeeId, { color: theme.colors.textSecondary }]}>
+                  🏢 {user.department}
                 </Text>
               )}
               <View
@@ -173,7 +183,7 @@ export default function ProfileScreen() {
                 ]}
               >
                 <Text style={[styles.roleText, { color: theme.colors.primary }]}>
-                  {user?.role?. charAt(0).toUpperCase() + user?.role?.slice(1)}
+                  {user?.role?.charAt(0).toUpperCase() + user?.role?.slice(1)}
                 </Text>
               </View>
             </View>
@@ -209,7 +219,23 @@ export default function ProfileScreen() {
           <ProfileOption
             icon="card-outline"
             label="Employee ID"
-            value={user?. employeeId || 'Not Set'}
+            value={user?.employeeId || 'Not Set'}
+            onPress={() => {}}
+            showChevron={false}
+          />
+
+          <ProfileOption
+            icon="call-outline"
+            label="Phone Number"
+            value={user?.phoneNumber || 'Not Set'}
+            onPress={() => {}}
+            showChevron={false}
+          />
+
+          <ProfileOption
+            icon="business-outline"
+            label="Department"
+            value={user?.department || 'Not Set'}
             onPress={() => {}}
             showChevron={false}
           />
@@ -248,10 +274,9 @@ export default function ProfileScreen() {
           />
 
           <ProfileOption
-            icon="language-outline"
-            label="Language"
-            value="English"
-            onPress={() => {}}
+            icon="settings-outline"
+            label="More Settings"
+            onPress={() => router.push('/settings')}
           />
         </View>
 
