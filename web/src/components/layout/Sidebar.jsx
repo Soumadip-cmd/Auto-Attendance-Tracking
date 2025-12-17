@@ -5,6 +5,7 @@ import {
   ClipboardList,
   BarChart3,
   Clock,
+  MapPin,
   Settings,
   LogOut,
 } from 'lucide-react';
@@ -19,6 +20,7 @@ const Sidebar = () => {
     { icon: ClipboardList, label: 'Attendance', path: '/attendance' },
     { icon: BarChart3, label: 'Reports', path: '/reports' },
     { icon: Clock, label: 'Work Schedule', path: '/work-schedule' },
+    { icon: MapPin, label: 'Geofences', path: '/geofences' },
     { icon:  Settings, label: 'Settings', path: '/settings' },
   ];
 

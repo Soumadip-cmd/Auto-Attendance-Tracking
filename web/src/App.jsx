@@ -10,6 +10,7 @@ import Attendance from './pages/Attendance';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import WorkSchedule from './pages/WorkSchedule';
+import Geofences from './pages/Geofences';
 
 // You may want to define ProtectedRoute here if needed
 function ProtectedRoute({ children }) {
@@ -62,6 +63,7 @@ function App() {
               <Route path="attendance" element={<Attendance />} />
               <Route path="reports" element={<Reports />} />
               <Route path="work-schedule" element={<WorkSchedule />} />
+              <Route path="geofences" element={<Geofences />} />
               <Route path="settings" element={<Settings />} />
             </Route>
             {/* Redirect any unknown route */}
