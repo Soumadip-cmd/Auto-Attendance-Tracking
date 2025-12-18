@@ -46,11 +46,13 @@ const io = socketIO(server, {
 const corsOptions = {
   origin:  function (origin, callback) {
     // Allow requests with no origin (like mobile apps, Postman, etc.)
-    const allowedOrigins = [
-      'http://localhost:5173',
-      'http://localhost:3000',
-      'http://localhost:5000',
-    ];
+    const allowedOrigins = process.env.CORS_ORIGIN 
+      ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
+      : [
+          'http://localhost:5173',
+          'http://localhost:3000',
+          'http://localhost:5000',
+        ];
     
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);

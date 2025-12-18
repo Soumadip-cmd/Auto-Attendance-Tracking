@@ -7,10 +7,11 @@ const mongoose = require('mongoose');
 
 const PORT = process.env.PORT || 5000;
 
-// Start server
-server.listen(PORT, () => {
+// Start server - Listen on all network interfaces
+server.listen(PORT, '0.0.0.0', () => {
   logger.info(`🚀 Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
   logger.info(`📡 API available at http://localhost:${PORT}/api/${process.env.API_VERSION || 'v1'}`);
+  logger.info(`📡 Network API available at http://192.168.0.108:${PORT}/api/${process.env.API_VERSION || 'v1'}`);
   logger.info(`🔌 WebSocket server ready`);
   logger.info(`📊 Health check: http://localhost:${PORT}/api/${process.env.API_VERSION || 'v1'}/health`);
   
