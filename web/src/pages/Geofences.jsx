@@ -119,7 +119,11 @@ const Geofences = () => {
       handleCloseModal();
     } catch (error) {
       console.error('Geofence submit error:', error);
-      const errorMsg = error.response?.data?.errors?.[0]?.message || 
+      console.error('Error response:', error.response?.data);
+      if (error.response?.data?.errors) {
+        console.error('Validation errors:', JSON.stringify(error.response.data.errors, null, 2));
+      }
+      const errorMsg = error.response?.data?.errors?.map(e => `${e.field}: ${e.message}`).join(', ') || 
                        error.response?.data?.message || 
                        'Failed to save geofence';
       toast.error(errorMsg);
