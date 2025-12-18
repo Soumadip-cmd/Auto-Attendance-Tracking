@@ -1,0 +1,147 @@
+graph TB
+    %% External Entities
+    MobileApp[Mobile App<br/>iOS/Android]
+    WebApp[Web Application<br/>Admin Dashboard]
+    User[User/Employee]
+    Admin[Administrator]
+    Manager[Manager]
+
+    %% Main Processes
+    Auth[Authentication<br/>Process]
+    CheckIn[Check-In<br/>Process]
+    CheckOut[Check-Out<br/>Process]
+    LocationTrack[Location Tracking<br/>Process]
+    GeofenceMonitor[Geofence Monitoring<br/>Process]
+    ReportGen[Report Generation<br/>Process]
+    Dashboard[Dashboard<br/>Analytics Process]
+    UserMgmt[User Management<br/>Process]
+
+    %% Data Stores
+    UserDB[(User<br/>Database)]
+    AttendanceDB[(Attendance<br/>Database)]
+    LocationDB[(Location<br/>Database)]
+    GeofenceDB[(Geofence<br/>Database)]
+    DeviceDB[(Device<br/>Database)]
+    EventDB[(Event Log<br/>Database)]
+    Cache[(Redis<br/>Cache)]
+
+    %% Background Services
+    EmailSvc[Email Service]
+    NotifSvc[Notification Service]
+    AnalyticsSvc[Analytics Service]
+    ExportSvc[Export Service]
+
+    %% Authentication Flow
+    User -->|Login Credentials| MobileApp
+    Admin -->|Login Credentials| WebApp
+    MobileApp -->|Auth Request| Auth
+    WebApp -->|Auth Request| Auth
+    Auth -->|Validate User| UserDB
+    UserDB -->|User Data| Auth
+    Auth -->|JWT Token| MobileApp
+    Auth -->|JWT Token| WebApp
+    Auth -->|Log Event| EventDB
+
+    %% Check-In Flow
+    User -->|Check-In Action| MobileApp
+    MobileApp -->|Location + Device Info| CheckIn
+    CheckIn -->|Verify Device| DeviceDB
+    CheckIn -->|Check Geofence| GeofenceMonitor
+    GeofenceMonitor -->|Query Geofences| GeofenceDB
+    GeofenceDB -->|Matching Geofences| GeofenceMonitor
+    GeofenceMonitor -->|Validation Result| CheckIn
+    CheckIn -->|Create/Update Record| AttendanceDB
+    CheckIn -->|Save Location| LocationDB
+    CheckIn -->|Log Event| EventDB
+    CheckIn -->|Success Response| MobileApp
+    CheckIn -->|Send Notification| NotifSvc
+    CheckIn -->|Cache Stats| Cache
+
+    %% Check-Out Flow
+    User -->|Check-Out Action| MobileApp
+    MobileApp -->|Location + Time| CheckOut
+    CheckOut -->|Fetch Check-In| AttendanceDB
+    AttendanceDB -->|Attendance Record| CheckOut
+    CheckOut -->|Calculate Hours| CheckOut
+    CheckOut -->|Update Record| AttendanceDB
+    CheckOut -->|Save Location| LocationDB
+    CheckOut -->|Log Event| EventDB
+    CheckOut -->|Success Response| MobileApp
+    CheckOut -->|Update Cache| Cache
+
+    %% Location Tracking Flow
+    MobileApp -->|GPS Coordinates| LocationTrack
+    LocationTrack -->|Validate Location| LocationTrack
+    LocationTrack -->|Store Location| LocationDB
+    LocationTrack -->|Check Boundaries| GeofenceMonitor
+    GeofenceMonitor -->|Geofence Event| EventDB
+    LocationTrack -->|Track Analytics| AnalyticsSvc
+
+    %% Geofence Monitoring
+    GeofenceMonitor -->|Entry/Exit Events| NotifSvc
+    GeofenceMonitor -->|Violation Detection| EmailSvc
+    GeofenceMonitor -->|Analytics Data| AnalyticsSvc
+
+    %% Dashboard Flow
+    Manager -->|View Dashboard| WebApp
+    Admin -->|View Dashboard| WebApp
+    WebApp -->|Request Stats| Dashboard
+    Dashboard -->|Check Cache| Cache
+    Cache -.->|Cache Hit| Dashboard
+    Dashboard -->|Query Data| AttendanceDB
+    Dashboard -->|Query Data| UserDB
+    Dashboard -->|Query Data| LocationDB
+    AttendanceDB -->|Aggregated Data| Dashboard
+    UserDB -->|User Stats| Dashboard
+    LocationDB -->|Location Stats| Dashboard
+    Dashboard -->|Update Cache| Cache
+    Dashboard -->|Display Data| WebApp
+    Dashboard -->|Log Activity| EventDB
+
+    %% User Management Flow
+    Admin -->|Manage Users| WebApp
+    WebApp -->|CRUD Operations| UserMgmt
+    UserMgmt -->|Query/Update| UserDB
+    UserMgmt -->|Update Devices| DeviceDB
+    UserMgmt -->|Send Welcome Email| EmailSvc
+    UserMgmt -->|Log Changes| EventDB
+    UserDB -->|User List| WebApp
+
+    %% Report Generation Flow
+    Manager -->|Request Report| WebApp
+    Admin -->|Request Report| WebApp
+    WebApp -->|Report Parameters| ReportGen
+    ReportGen -->|Query Attendance| AttendanceDB
+    ReportGen -->|Query Users| UserDB
+    ReportGen -->|Query Locations| LocationDB
+    AttendanceDB -->|Attendance Data| ReportGen
+    UserDB -->|User Data| ReportGen
+    LocationDB -->|Location Data| ReportGen
+    ReportGen -->|Format Data| ExportSvc
+    ExportSvc -->|Generate File| ReportGen
+    ReportGen -->|Download Link| WebApp
+    ReportGen -->|Email Report| EmailSvc
+    ReportGen -->|Log Export| EventDB
+
+    %% Background Analytics
+    AnalyticsSvc -->|Analyze Patterns| AttendanceDB
+    AnalyticsSvc -->|Store Insights| Cache
+    AnalyticsSvc -->|Generate Alerts| NotifSvc
+
+    %% Notification Services
+    NotifSvc -->|Push Notifications| MobileApp
+    NotifSvc -->|Browser Notifications| WebApp
+    EmailSvc -->|Send Emails| Admin
+    EmailSvc -->|Send Emails| Manager
+    EmailSvc -->|Send Emails| User
+
+    %% Styling
+    classDef external fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    classDef process fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    classDef datastore fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef service fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+
+    class User,Admin,Manager,MobileApp,WebApp external
+    class Auth,CheckIn,CheckOut,LocationTrack,GeofenceMonitor,ReportGen,Dashboard,UserMgmt process
+    class UserDB,AttendanceDB,LocationDB,GeofenceDB,DeviceDB,EventDB,Cache datastore
+    class EmailSvc,NotifSvc,AnalyticsSvc,ExportSvc service

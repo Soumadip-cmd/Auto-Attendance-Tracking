@@ -1,0 +1,138 @@
+erDiagram
+    USER ||--o{ ATTENDANCE : "has"
+    USER ||--o{ DEVICE : "owns"
+    USER ||--o{ LOCATION : "tracks"
+    USER ||--o{ EVENT : "generates"
+    USER ||--o{ EVENT : "approves as"
+    
+    ATTENDANCE }o--|| USER : "belongs to"
+    ATTENDANCE }o--o| GEOFENCE : "within"
+    ATTENDANCE }o--|| DEVICE : "recorded by"
+    ATTENDANCE }o--o| USER : "approved by"
+    
+    LOCATION }o--|| USER : "belongs to"
+    LOCATION }o--|| DEVICE : "from"
+    LOCATION }o--o| GEOFENCE : "within"
+    
+    DEVICE }o--|| USER : "belongs to"
+    
+    EVENT }o--|| USER : "actor"
+    EVENT }o--o| DEVICE : "from device"
+    EVENT }o--o| ATTENDANCE : "references"
+    EVENT }o--o| GEOFENCE : "references"
+    
+    USER {
+        ObjectId _id PK
+        String email UK "unique, required"
+        String password "required, hashed"
+        String firstName "required"
+        String lastName "required"
+        String role "admin/manager/staff"
+        String employeeId UK "unique"
+        String department
+        String phoneNumber
+        String profileImage
+        Boolean isActive "default: true"
+        Boolean trackingEnabled "default: false"
+        Boolean consentGiven "default: false"
+        Date lastLogin
+        Date createdAt
+        Date updatedAt
+    }
+    
+    ATTENDANCE {
+        ObjectId _id PK
+        ObjectId user FK "required, indexed"
+        Date date "required, indexed"
+        DateTime checkInTime
+        Point checkInLocation "GeoJSON"
+        ObjectId checkInGeofence FK
+        String checkInMethod "manual/automatic/geofence"
+        ObjectId checkInDevice FK
+        DateTime checkOutTime
+        Point checkOutLocation "GeoJSON"
+        ObjectId checkOutGeofence FK
+        String checkOutMethod
+        ObjectId checkOutDevice FK
+        Number workingHours
+        Number breakHours
+        String status "checked-in/checked-out/absent/on-leave"
+        String notes
+        ObjectId approvedBy FK
+        Date approvedAt
+        Date createdAt
+        Date updatedAt
+    }
+    
+    DEVICE {
+        ObjectId _id PK
+        ObjectId user FK "required"
+        String deviceId "required, unique"
+        String deviceName
+        String deviceType "ios/android/web"
+        String osVersion
+        String appVersion
+        String pushToken
+        Boolean isActive "default: true"
+        Date lastActive
+        String locationPermission "granted/denied/not-determined"
+        Boolean backgroundLocationEnabled "default: false"
+        Date createdAt
+        Date updatedAt
+    }
+    
+    GEOFENCE {
+        ObjectId _id PK
+        String name "required"
+        String description
+        String type "campus/building/department/custom"
+        Point center "required, GeoJSON"
+        Number radius "required, meters"
+        String addressStreet
+        String addressCity
+        String addressState
+        String addressCountry
+        String addressPostalCode
+        Boolean workingHoursEnabled "default: false"
+        Time workingHoursStart
+        Time workingHoursEnd
+        Array workingDays
+        Boolean isActive "default: true"
+        ObjectId createdBy FK
+        Date createdAt
+        Date updatedAt
+    }
+    
+    LOCATION {
+        ObjectId _id PK
+        ObjectId user FK "required, indexed"
+        ObjectId device FK "required"
+        Point location "required, GeoJSON"
+        Number accuracy "required"
+        Number altitude
+        Number altitudeAccuracy
+        Number heading
+        Number speed
+        DateTime timestamp "required"
+        String trackingType "foreground/background/geofence"
+        Boolean isBackgroundLocation "default: false"
+        ObjectId geofence FK
+        String activityType "stationary/walking/running/driving"
+        Number batteryLevel
+        Date createdAt
+    }
+    
+    EVENT {
+        ObjectId _id PK
+        String eventType "required, indexed"
+        ObjectId actor FK "user who performed action"
+        String resourceType "attendance/user/geofence/etc"
+        ObjectId resourceId "referenced resource"
+        String severity "info/warning/error/critical"
+        Object details "event-specific data"
+        ObjectId device FK
+        String ipAddress
+        String userAgent
+        String sessionId
+        DateTime timestamp "default: now"
+    }

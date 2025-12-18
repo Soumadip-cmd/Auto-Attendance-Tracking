@@ -1,0 +1,287 @@
+classDiagram
+    %% Controllers Layer
+    class AuthController {
+        +register(req, res)
+        +login(req, res)
+        +logout(req, res)
+        +forgotPassword(req, res)
+        +resetPassword(req, res)
+        +updatePassword(req, res)
+        +verifyToken(req, res)
+    }
+
+    class AttendanceController {
+        +checkIn(req, res)
+        +checkOut(req, res)
+        +getTodayAttendance(req, res)
+        +getUserAttendance(req, res)
+        +getAllAttendance(req, res)
+        +updateAttendance(req, res)
+        +deleteAttendance(req, res)
+        +getAttendanceStats(req, res)
+    }
+
+    class UserController {
+        +getProfile(req, res)
+        +updateProfile(req, res)
+        +uploadProfilePicture(req, res)
+        +getAllUsers(req, res)
+        +getUserById(req, res)
+        +updateUser(req, res)
+        +deleteUser(req, res)
+        +createUser(req, res)
+    }
+
+    class GeofenceController {
+        +createGeofence(req, res)
+        +getAllGeofences(req, res)
+        +getGeofenceById(req, res)
+        +updateGeofence(req, res)
+        +deleteGeofence(req, res)
+        +checkUserInGeofence(req, res)
+    }
+
+    class LocationController {
+        +recordLocation(req, res)
+        +getUserLocations(req, res)
+        +getLocationHistory(req, res)
+        +deleteUserLocations(req, res)
+    }
+
+    class DashboardController {
+        +getDashboardStats(req, res)
+        +getAttendanceOverview(req, res)
+        +getDepartmentStats(req, res)
+        +getTodayOverview(req, res)
+    }
+
+    class ReportController {
+        +generateReport(req, res)
+        +exportReport(req, res)
+        +getReportTypes(req, res)
+        +scheduleReport(req, res)
+    }
+
+    %% Services Layer
+    class AuthService {
+        +registerUser(userData)
+        +authenticateUser(email, password)
+        +generateToken(userId)
+        +verifyToken(token)
+        +hashPassword(password)
+        +comparePassword(password, hash)
+    }
+
+    class AttendanceService {
+        +processCheckIn(userId, location, device)
+        +processCheckOut(userId, location, device)
+        +calculateWorkingHours(attendance)
+        +getAttendanceByDateRange(userId, startDate, endDate)
+        +getAttendanceStats(userId)
+        +detectAnomalies(attendance)
+    }
+
+    class GeofenceService {
+        +createGeofence(data)
+        +checkPointInGeofence(point, geofence)
+        +findGeofencesContainingPoint(point)
+        +validateGeofenceRules(geofence)
+        +notifyGeofenceEvent(event)
+    }
+
+    class LocationService {
+        +recordLocation(userId, deviceId, coordinates)
+        +getLocationHistory(userId, dateRange)
+        +validateLocation(location)
+        +calculateDistance(point1, point2)
+        +detectLocationTampering(locations)
+    }
+
+    class EmailService {
+        +sendEmail(to, subject, content)
+        +sendPasswordResetEmail(user, token)
+        +sendWelcomeEmail(user)
+        +sendAttendanceAlert(user, details)
+    }
+
+    class ExportService {
+        +exportToExcel(data, format)
+        +exportToPDF(data, template)
+        +exportToCSV(data)
+        +generateReport(reportType, filters)
+    }
+
+    class CacheService {
+        +get(key)
+        +set(key, value, ttl)
+        +delete(key)
+        +clear(pattern)
+    }
+
+    class AnalyticsService {
+        +trackEvent(eventType, data)
+        +getAttendanceAnalytics(filters)
+        +getUserBehaviorAnalytics(userId)
+        +generateInsights(data)
+    }
+
+    %% Models Layer
+    class User {
+        +String email
+        +String password
+        +String firstName
+        +String lastName
+        +String role
+        +String employeeId
+        +String department
+        +String phoneNumber
+        +String profileImage
+        +Boolean isActive
+        +Boolean trackingEnabled
+        +Boolean consentGiven
+        +Date createdAt
+        +comparePassword(password)
+        +generateAuthToken()
+        +getPublicProfile()
+    }
+
+    class Attendance {
+        +ObjectId user
+        +Date date
+        +Object checkIn
+        +Object checkOut
+        +Number workingHours
+        +Number breakHours
+        +String status
+        +ObjectId approvedBy
+        +Date createdAt
+        +calculateWorkingHours()
+        +isLate()
+        +isEarlyLeave()
+    }
+
+    class Device {
+        +ObjectId user
+        +String deviceId
+        +String deviceName
+        +String deviceType
+        +String osVersion
+        +String appVersion
+        +String pushToken
+        +Boolean isActive
+        +Date lastActive
+        +String locationPermission
+        +Boolean backgroundLocationEnabled
+        +updateLastActive()
+        +deactivate()
+    }
+
+    class Geofence {
+        +String name
+        +String description
+        +String type
+        +Object center
+        +Number radius
+        +Object address
+        +Object workingHours
+        +Boolean isActive
+        +Date createdAt
+        +containsPoint(point)
+        +isWithinWorkingHours()
+        +getDistance(point)
+    }
+
+    class Location {
+        +ObjectId user
+        +ObjectId device
+        +Object location
+        +Number accuracy
+        +Number altitude
+        +Date timestamp
+        +String trackingType
+        +Boolean isBackgroundLocation
+        +ObjectId geofence
+        +Date createdAt
+        +validateAccuracy()
+        +isValid()
+    }
+
+    class Event {
+        +String eventType
+        +ObjectId actor
+        +Object resource
+        +String severity
+        +Object details
+        +ObjectId device
+        +String ipAddress
+        +String userAgent
+        +Date timestamp
+        +log(eventData)
+        +getEventsByType(type)
+    }
+
+    %% Middleware
+    class AuthMiddleware {
+        +protect(req, res, next)
+        +authorize(...roles)
+        +verifyToken(token)
+        +checkPermission(permission)
+    }
+
+    class ValidationMiddleware {
+        +validateBody(schema)
+        +validateParams(schema)
+        +validateQuery(schema)
+        +sanitizeInput(data)
+    }
+
+    class RateLimiter {
+        +limitRequests(options)
+        +checkLimit(key)
+        +resetLimit(key)
+    }
+
+    class ErrorHandler {
+        +handleError(err, req, res, next)
+        +asyncHandler(fn)
+        +notFound(req, res, next)
+    }
+
+    %% Relationships
+    AuthController --> AuthService : uses
+    AttendanceController --> AttendanceService : uses
+    UserController --> User : manages
+    GeofenceController --> GeofenceService : uses
+    LocationController --> LocationService : uses
+    ReportController --> ExportService : uses
+    DashboardController --> AnalyticsService : uses
+
+    AttendanceService --> Attendance : operates on
+    AttendanceService --> Location : queries
+    AttendanceService --> Geofence : validates with
+    
+    GeofenceService --> Geofence : manages
+    LocationService --> Location : manages
+    AuthService --> User : authenticates
+    
+    User "1" --> "*" Attendance : has
+    User "1" --> "*" Device : owns
+    User "1" --> "*" Location : tracks
+    User "1" --> "*" Event : generates
+    
+    Attendance "*" --> "1" User : belongs to
+    Attendance "*" --> "0..1" Geofence : within
+    Attendance "*" --> "1" Device : recorded by
+    
+    Location "*" --> "1" User : belongs to
+    Location "*" --> "1" Device : from
+    Location "*" --> "0..1" Geofence : within
+    
+    Device "*" --> "1" User : belongs to
+    
+    Event "*" --> "1" User : actor
+    Event "*" --> "0..1" Device : from
+    
+    AttendanceService --> EmailService : notifies via
+    AttendanceService --> CacheService : caches with
+    GeofenceService --> AnalyticsService : tracks with
