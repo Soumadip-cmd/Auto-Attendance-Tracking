@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "aeb3b86b-1769-4206-af80-534bc34773dd"
+      }
+    },
+    "android": {
+      "package": "com.care_freelixe.autoattendancetracking"
+    }
+  }
+}
