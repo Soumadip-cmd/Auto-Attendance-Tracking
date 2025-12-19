@@ -35,8 +35,14 @@ const Reports = () => {
 
   // Filters
   const [reportType, setReportType] = useState('daily');
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [startDate, setStartDate] = useState(() => {
+    // Initialize with today's date
+    return new Date().toISOString().split('T')[0];
+  });
+  const [endDate, setEndDate] = useState(() => {
+    // Initialize with today's date
+    return new Date().toISOString().split('T')[0];
+  });
   const [selectedEmployee, setSelectedEmployee] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -56,7 +62,8 @@ const Reports = () => {
   }, [setPageTitle]);
 
   useEffect(() => {
-    if (reportType) {
+    if (reportType && startDate) {
+      console.log('📊 Generating report:', { reportType, startDate, endDate });
       generateReport();
     }
   }, [reportType, startDate, endDate, selectedEmployee, selectedDepartment]);
@@ -78,6 +85,7 @@ const Reports = () => {
   const generateReport = async () => {
     try {
       setLoading(true);
+      console.log('📊 Generating report:', reportType, 'for', startDate);
       let response;
 
       switch (reportType) {
@@ -96,20 +104,32 @@ const Reports = () => {
             startDate,
             endDate,
             employee: selectedEmployee,
-            department:  selectedDepartment,
+            department: selectedDepartment,
           });
           break;
         default: 
           response = await reportAPI.getDaily(startDate);
       }
 
-      const data = Array.isArray(response.data?. data) ? response.data.data : [];
+      console.log('📊 Report response:', response.data);
+
+      // Handle both nested and direct data formats
+      const data = response.data?.data || [];
+      console.log(`✅ Report data count: ${data.length}`);
+      
       setReportData(data);
       calculateStats(data);
     } catch (error) {
-      console.error('Error generating report:', error);
+      console.error('❌ Error generating report:', error);
       toast.error('Failed to generate report');
       setReportData([]);
+      setStats({
+        totalRecords: 0,
+        totalPresent: 0,
+        totalAbsent: 0,
+        totalLate: 0,
+        averageAttendance: 0,
+      });
     } finally {
       setLoading(false);
     }
@@ -243,7 +263,7 @@ const Reports = () => {
               {reportType === 'daily' ? 'Date' : 'Start Date'}
             </label>
             <div className="relative">
-              <Calendar className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Calendar className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="date"
                 className="pl-10 input"
@@ -258,14 +278,22 @@ const Reports = () => {
             <div>
               <label className="label">End Date</label>
               <div className="relative">
-                <Calendar className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Calendar className="w-5 h-5 text-gray-400 absolute left-3 top-3 pointer-events-none" />
                 <input
                   type="date"
-                  className="pl-10 input"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
+                  className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 w-full"
+                  value={startDate}
+                  max={new Date().toISOString().split('T')[0]}
+                  onChange={(e) => setStartDate(e.target.value)}
                 />
               </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                {startDate && new Date(startDate + 'T00:00:00').toLocaleDateString('en-GB', { 
+                  day: '2-digit', 
+                  month: '2-digit', 
+                  year: 'numeric' 
+                })}
+              </p>
             </div>
           )}
 
@@ -311,7 +339,7 @@ const Reports = () => {
         {/* Action Buttons */}
         <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
           <div className="relative flex-1 min-w-[200px]">
-            <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               placeholder="Search reports..."

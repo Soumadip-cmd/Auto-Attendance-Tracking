@@ -96,7 +96,8 @@ export const attendanceAPI = {
   getById: (id) => api.get(`/attendance/${id}`),
   getByDate: (date) => {
     console.log('📅 Fetching attendance for date:', date);
-    return api.get('/attendance/history', { params: { date } });
+    // Use dedicated admin endpoint for date queries
+    return api.get(`/attendance/date/${date}`);
   },
   checkIn: (data) => {
     console.log('✅ Check-in:', data);

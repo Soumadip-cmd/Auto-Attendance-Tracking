@@ -5,14 +5,17 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
+    "icon": "./src/assets/immigration.png",
     "splash": {
+      "image": "./src/assets/immigration.png",
       "resizeMode": "contain",
-      "backgroundColor": "#6366f1"
+      "backgroundColor": "#ffffff"
     },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier":  "com.yourcompany.attendancetracker",
       "deploymentTarget": "15.1",
+      "icon": "./src/assets/immigration.png",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Location access for attendance tracking.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Background location access.",
@@ -21,6 +24,7 @@
     },
     "android": {
       "package": "com.yourcompany.attendancetracker",
+      "icon": "./src/assets/immigration.png",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
@@ -29,6 +33,7 @@
         "USE_BIOMETRIC"
       ],
       "adaptiveIcon": {
+        "foregroundImage": "./src/assets/immigration.png",
         "backgroundColor": "#6366f1"
       }
     },

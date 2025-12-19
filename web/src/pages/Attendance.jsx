@@ -22,7 +22,10 @@ const Attendance = () => {
     late: 0,
     total: 0,
   });
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(() => {
+    // Initialize with today's date
+    return new Date().toISOString().split('T')[0];
+  });
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showMarkAttendanceModal, setShowMarkAttendanceModal] = useState(false);
@@ -30,32 +33,56 @@ const Attendance = () => {
 
   useEffect(() => {
     setPageTitle('Attendance Management');
-    fetchData();
-  }, [setPageTitle, selectedDate]);
+    // Set today's date on initial load
+    const today = new Date().toISOString().split('T')[0];
+    setSelectedDate(today);
+  }, [setPageTitle]);
+
+  useEffect(() => {
+    if (selectedDate) {
+      fetchData();
+    }
+  }, [selectedDate]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
+      console.log('📅 Fetching attendance for:', selectedDate);
+      
       const [attendanceRes, employeesRes] = await Promise.all([
         attendanceAPI.getByDate(selectedDate),
         userAPI.getAll(),
       ]);
 
+      console.log('📊 Attendance response:', attendanceRes.data);
+      console.log('👥 Employees response:', employeesRes.data);
+
       const records = attendanceRes.data.data || [];
-      const allEmployees = employeesRes. data.data || [];
+      const allEmployees = employeesRes.data.data || [];
+
+      console.log(`✅ Found ${records.length} attendance records`);
+      console.log(`👥 Found ${allEmployees.length} employees`);
 
       setAttendanceRecords(records);
       setEmployees(allEmployees);
 
-      // Calculate stats
-      const present = records.filter(r => r.checkIn?.time).length;
-      const late = records.filter(r => r.isLate).length;
-      const total = allEmployees.filter(e => e.isActive).length;
-      const absent = total - present;
+      // Calculate stats based on status field
+      const presentCount = records.filter(r => r.status === 'present').length;
+      const lateCount = records.filter(r => r.status === 'late').length;
+      const checkedInCount = records.filter(r => r.checkIn?.time).length;
+      const total = allEmployees.filter(e => e.isActive !== false).length;
+      const absentCount = total - checkedInCount;
 
-      setStats({ present, late, absent, total });
+      console.log('📊 Stats:', { presentCount, lateCount, checkedInCount, total, absentCount });
+
+      setStats({ 
+        present: presentCount, 
+        late: lateCount, 
+        absent: absentCount, 
+        total 
+      });
     } catch (error) {
-      console.error('Error fetching attendance data:', error);
+      console.error('❌ Error fetching attendance data:', error);
       toast.error('Failed to load attendance data');
     } finally {
       setLoading(false);
@@ -219,19 +246,21 @@ const Attendance = () => {
         <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
           <div className="flex flex-col sm:flex-row gap-4 flex-1 w-full">
             {/* Date Picker */}
-            <div className="relative">
-              <Calendar className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="pl-10 input max-w-xs"
-              />
+            <div className="w-full sm:w-auto">
+              <div className="relative">
+                <Calendar className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 w-full sm:w-auto min-w-[180px]"
+                />
+              </div>
             </div>
 
             {/* Search */}
             <div className="relative flex-1 max-w-md">
-              <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 placeholder="Search employees..."

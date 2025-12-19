@@ -187,11 +187,11 @@ const schemas = {
     longitude: Joi.number().min(-180).max(180).optional(),
     radius: Joi.number().min(10).max(10000).optional(),
     address: Joi.object({
-      street: Joi.string().optional(),
-      city: Joi.string().optional(),
-      state: Joi.string().optional(),
-      country: Joi.string().optional(),
-      postalCode: Joi.string().optional()
+      street: Joi.string().allow('').optional(),
+      city: Joi.string().allow('').optional(),
+      state: Joi.string().allow('').optional(),
+      country: Joi.string().allow('').optional(),
+      postalCode: Joi.string().allow('').optional()
     }).optional(),
     workingHours: Joi.object({
       enabled: Joi.boolean().optional(),

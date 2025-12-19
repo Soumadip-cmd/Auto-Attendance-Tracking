@@ -42,19 +42,26 @@ const geofenceSchema = new mongoose.Schema({
     country: String,
     postalCode: String
   },
-  // Working hours
+  // Working hours with schedule support
   workingHours: {
     enabled: {
       type: Boolean,
-      default: false
+      default: true
     },
     schedule: [{
       day: {
         type: String,
-        enum: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+        enum: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
+        required: true
       },
-      startTime: String, // HH:mm format
-      endTime: String // HH:mm format
+      startTime: {
+        type: String, // HH:mm format
+        required: true
+      },
+      endTime: {
+        type: String, // HH:mm format
+        required: true
+      }
     }]
   },
   // Alert Configuration

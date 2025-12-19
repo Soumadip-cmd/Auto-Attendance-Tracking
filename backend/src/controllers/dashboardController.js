@@ -14,12 +14,13 @@ exports.getDashboardStats = async (req, res) => {
 
     // Today's attendance
     const todayAttendance = await Attendance.find({
-      checkIn: { $gte: today, $lt: tomorrow }
-    }).populate('employee');
+      date: { $gte: today, $lt: tomorrow }
+    }).populate('user', 'firstName lastName employeeId');
 
-    const presentToday = todayAttendance. filter(a => a.status === 'present').length;
-    const lateToday = todayAttendance.filter(a => a. status === 'late').length;
-    const absentToday = totalEmployees - todayAttendance.length;
+    const presentToday = todayAttendance.filter(a => a.status === 'present').length;
+    const lateToday = todayAttendance.filter(a => a.status === 'late').length;
+    const checkedInToday = todayAttendance.filter(a => a.checkIn?.time).length;
+    const absentToday = totalEmployees - checkedInToday;
 
     // Calculate percentages
     const presentPercentage = totalEmployees > 0 
@@ -33,6 +34,10 @@ exports.getDashboardStats = async (req, res) => {
     const absentPercentage = totalEmployees > 0 
       ? ((absentToday / totalEmployees) * 100).toFixed(1) 
       : 0;
+    
+    const attendanceRate = totalEmployees > 0 
+      ? (((presentToday + lateToday) / totalEmployees) * 100).toFixed(1) 
+      : 0;
 
     res.json({
       success: true,
@@ -41,10 +46,11 @@ exports.getDashboardStats = async (req, res) => {
         presentToday,
         lateToday,
         absentToday,
+        checkedInToday,
         presentPercentage,
         latePercentage,
         absentPercentage,
-        attendanceRate: presentPercentage
+        attendanceRate
       }
     });
   } catch (error) {
@@ -74,16 +80,18 @@ exports.getWeeklyAttendance = async (req, res) => {
       const dayEnd = new Date(dayStart);
       dayEnd.setDate(dayEnd.getDate() + 1);
 
-      const dayAttendance = await Attendance. find({
-        checkIn: { $gte: dayStart, $lt: dayEnd }
+      const dayAttendance = await Attendance.find({
+        date: { $gte: dayStart, $lt: dayEnd }
       });
 
-      const present = dayAttendance.filter(a => a.status === 'present' || a.status === 'late').length;
+      const present = dayAttendance.filter(a => a.status === 'present').length;
+      const late = dayAttendance.filter(a => a.status === 'late').length;
       const absent = dayAttendance.filter(a => a.status === 'absent').length;
 
       weeklyData.push({
         day: days[dayStart.getDay()],
         present,
+        late,
         absent,
         date: dayStart.toISOString().split('T')[0]
       });
@@ -189,29 +197,31 @@ exports.getRecentActivity = async (req, res) => {
       .sort({ 'checkIn.time': -1 })
       .limit(10);
 
-    const activities = recentAttendance.map(attendance => {
-      const checkInTime = attendance.checkIn?.time || attendance.checkIn;
-      const timeDiff = Date.now() - new Date(checkInTime).getTime();
-      const minutes = Math.floor(timeDiff / 60000);
-      const hours = Math.floor(minutes / 60);
-      const days = Math. floor(hours / 24);
+    const activities = recentAttendance
+      .filter(attendance => attendance.user) // Filter out records with null users
+      .map(attendance => {
+        const checkInTime = attendance.checkIn?.time || attendance.checkIn;
+        const timeDiff = Date.now() - new Date(checkInTime).getTime();
+        const minutes = Math.floor(timeDiff / 60000);
+        const hours = Math.floor(minutes / 60);
+        const days = Math.floor(hours / 24);
 
-      let timeAgo;
-      if (days > 0) timeAgo = `${days} day${days > 1 ? 's' : ''} ago`;
-      else if (hours > 0) timeAgo = `${hours} hour${hours > 1 ? 's' : ''} ago`;
-      else if (minutes > 0) timeAgo = `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
-      else timeAgo = 'Just now';
+        let timeAgo;
+        if (days > 0) timeAgo = `${days} day${days > 1 ? 's' : ''} ago`;
+        else if (hours > 0) timeAgo = `${hours} hour${hours > 1 ? 's' : ''} ago`;
+        else if (minutes > 0) timeAgo = `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+        else timeAgo = 'Just now';
 
-      return {
-        id: attendance._id,
-        employeeName: `${attendance.user.firstName} ${attendance.user.lastName}`,
-        employeeId: attendance.user. employeeId,
-        action: attendance.checkOut?.time ? 'checked out' : 'checked in',
-        timeAgo,
-        status: attendance.status,
-        timestamp: checkInTime
-      };
-    });
+        return {
+          id: attendance._id,
+          employeeName: `${attendance.user.firstName} ${attendance.user.lastName}`,
+          employeeId: attendance.user.employeeId,
+          action: attendance.checkOut?.time ? 'checked out' : 'checked in',
+          timeAgo,
+          status: attendance.status,
+          timestamp: checkInTime
+        };
+      });
 
     res.json({
       success: true,

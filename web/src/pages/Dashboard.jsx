@@ -372,38 +372,43 @@ const Dashboard = () => {
                 >
                   <div
                     className={`p-2 rounded-lg ${
-                      activity.type === 'check-in'
+                      activity.action?.includes('checked in')
                         ? 'bg-green-100 dark:bg-green-900/30'
-                        : activity.type === 'check-out'
+                        : activity.action?.includes('checked out')
                         ? 'bg-blue-100 dark:bg-blue-900/30'
                         : 'bg-yellow-100 dark:bg-yellow-900/30'
                     }`}
                   >
-                    {activity.type === 'check-in' ?  (
+                    {activity.action?.includes('checked in') ? (
                       <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                    ) : activity.type === 'check-out' ? (
+                    ) : activity.action?.includes('checked out') ? (
                       <XCircle className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                     ) : (
                       <Clock className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
                     )}
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      {activity.employee?.firstName} {activity.employee?.lastName}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {activity.employeeName}
+                      </p>
+                      {activity.status === 'late' && (
+                        <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+                          Late
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-gray-600 dark:text-gray-400">
                       {activity.action}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                      {activity.timestamp
-                        ?  new Date(activity.timestamp).toLocaleString()
-                        :  'Just now'}
+                      {activity.timeAgo || 'Just now'}
                     </p>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="h-64 flex items-center justify-center text-gray-500 dark: text-gray-400">
+              <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400">
                 <div className="text-center">
                   <Activity className="w-12 h-12 mx-auto mb-2 opacity-50" />
                   <p>No recent activity</p>

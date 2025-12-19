@@ -53,6 +53,25 @@ router.get('/monthly/:month/:year', getMonthlyReport);
  */
 router.get('/export', exportReportData);
 
+/**
+ * @route   POST /api/v1/reports/custom
+ * @desc    Generate custom report with filters
+ * @access  Private/Admin/Manager
+ */
+router.post('/custom', async (req, res, next) => {
+  try {
+    const { startDate, endDate, employee, department } = req.body;
+    
+    console.log('📊 Custom report request:', { startDate, endDate, employee, department });
+    
+    // Use generate report with these filters
+    req.body.type = 'custom';
+    return generateReport(req, res, next);
+  } catch (error) {
+    next(error);
+  }
+});
+
 // ============================================
 // LEGACY ROUTES (Keep for backward compatibility)
 // ============================================

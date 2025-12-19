@@ -6,8 +6,9 @@ const WS_URL_FROM_ENV = Constants.expoConfig?.extra?.WS_URL || process.env.EXPO_
 
 const ENV = {
   dev: {
-    API_URL: API_URL_FROM_ENV || 'http://192.168.31.102:5000/api/v1',
-    WS_URL: WS_URL_FROM_ENV || 'http://192.168.31.102:5000',
+    // Use environment variable or fall back to current network IP
+    API_URL: API_URL_FROM_ENV || 'http://192.168.0.108:5000/api/v1',
+    WS_URL: WS_URL_FROM_ENV || 'http://192.168.0.108:5000',
   },
   staging: {
     API_URL: 'https://staging-api.yourapp.com/api/v1',

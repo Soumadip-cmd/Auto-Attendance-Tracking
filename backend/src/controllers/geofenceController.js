@@ -166,7 +166,7 @@ exports.deleteGeofence = asyncHandler(async (req, res) => {
     });
   }
 
-  await geofence.deleteOne();
+  await Geofence.findByIdAndDelete(req.params.id);
 
   await Event.log({
     eventType: 'geofence.delete',
