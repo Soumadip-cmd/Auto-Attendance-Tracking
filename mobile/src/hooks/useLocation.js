@@ -53,11 +53,14 @@ export const useLocation = () => {
     }
   }, []);
 
-  const startTracking = useCallback(async () => {
+  const startTracking = useCallback(async (onLocationUpdate) => {
     try {
       setError(null);
       await locationService.startTracking((newLocation) => {
         setLocation(newLocation);
+        if (onLocationUpdate) {
+          onLocationUpdate(newLocation);
+        }
       });
       setIsTracking(true);
     } catch (err) {

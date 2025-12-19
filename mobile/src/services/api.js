@@ -126,4 +126,26 @@ export const notificationAPI = {
   getUnreadCount: () => api.get('/notifications/unread-count'),
 };
 
+export const userAPI = {
+  getAll: () => api.get('/users'),
+  getById: (id) => api.get(`/users/${id}`),
+  update: (id, data) => api.put(`/users/${id}`, data),
+  delete: (id) => api.delete(`/users/${id}`),
+  uploadProfilePicture: (formData) => api.post('/users/profile-picture', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
+};
+
+export const dashboardAPI = {
+  getStats: () => api.get('/dashboard'),
+  getAdminStats: () => api.get('/dashboard/admin'),
+  getRecentActivity: () => api.get('/dashboard/recent-activity'),
+};
+
+export const reportAPI = {
+  generate: (params) => api.post('/reports/generate', params),
+  getById: (id) => api.get(`/reports/${id}`),
+  download: (id) => api.get(`/reports/${id}/download`, { responseType: 'blob' }),
+};
+
 export default api;

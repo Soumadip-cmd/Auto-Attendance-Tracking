@@ -153,9 +153,9 @@ router.post('/check-in', protect, async (req, res, next) => {
     });
     
     // If attendance exists, check if they've already checked in
-    if (existingAttendance && existingAttendance.checkIn) {
+    if (existingAttendance && existingAttendance.checkIn && existingAttendance.checkIn.time) {
       // If they haven't checked out yet, they can't check in again
-      if (!existingAttendance.checkOut) {
+      if (!existingAttendance.checkOut || !existingAttendance.checkOut.time) {
         return res.status(400).json({
           success: false,
           message: 'You have already checked in today. Please check out first.',
@@ -171,21 +171,30 @@ router.post('/check-in', protect, async (req, res, next) => {
       });
     }
     
+    // Determine if employee is late
+    const now = new Date();
+    const checkInTime = now.getHours() * 60 + now.getMinutes(); // minutes since midnight
+    const lateThreshold = 9 * 60 + 15; // 9:15 AM in minutes (configurable)
+    
+    const status = checkInTime > lateThreshold ? 'late' : 'present';
+    
     // Create new attendance record
     const attendance = await Attendance.create({
       user: req.user._id,
       date: currentDate,
       checkIn: {
         time: new Date(),
-        location: {
+        location: latitude && longitude ? {
           type: 'Point',
           coordinates: [longitude, latitude],
-        },
+        } : undefined,
         method: 'manual',
       },
-      status: 'present', // Will be updated based on time/geofence
+      status: status,
       notes: notes || '',
     });
+    
+    await attendance.populate('user', 'firstName lastName employeeId email');
     
     res.status(201).json({
       success: true,
@@ -308,6 +317,94 @@ router.get('/stats/dashboard', protect, authorize('admin'), async (req, res, nex
 });
 
 /**
+ * @route   POST /api/v1/attendance
+ * @desc    Manually create attendance record (for admins)
+ * @access  Private/Admin
+ */
+router.post('/', protect, authorize('admin'), async (req, res, next) => {
+  try {
+    const { employee, checkIn, checkOut, status, location } = req.body;
+    
+    if (!employee) {
+      return res.status(400).json({
+        success: false,
+        message: 'Employee is required',
+      });
+    }
+    
+    if (!checkIn) {
+      return res.status(400).json({
+        success: false,
+        message: 'Check-in time is required',
+      });
+    }
+    
+    // Get the date (without time) from checkIn
+    const checkInDate = new Date(checkIn);
+    const dateOnly = new Date(checkInDate);
+    dateOnly.setHours(0, 0, 0, 0);
+    
+    // Check if attendance already exists for this employee on this date
+    const existingAttendance = await Attendance.findOne({
+      user: employee,
+      date: dateOnly,
+    });
+    
+    if (existingAttendance) {
+      return res.status(400).json({
+        success: false,
+        message: 'Attendance already exists for this employee on this date',
+      });
+    }
+    
+    // Create attendance record with proper structure
+    const attendanceData = {
+      user: employee,
+      date: dateOnly,
+      status: status || 'present',
+    };
+    
+    // For absent employees, don't set checkIn/checkOut times
+    if (status === 'absent') {
+      // Absent - no check-in or check-out times needed
+      attendanceData.checkIn = {};
+      attendanceData.checkOut = {};
+    } else {
+      // Present or Late - set check-in time
+      attendanceData.checkIn = {
+        time: new Date(checkIn),
+        method: 'manual',
+      };
+      
+      if (checkOut) {
+        attendanceData.checkOut = {
+          time: new Date(checkOut),
+          method: 'manual',
+        };
+      }
+      
+      if (location) {
+        attendanceData.checkIn.location = {
+          type: 'Point',
+          coordinates: [location.longitude || 0, location.latitude || 0],
+        };
+      }
+    }
+    
+    const attendance = await Attendance.create(attendanceData);
+    
+    await attendance.populate('user', 'firstName lastName employeeId email');
+    
+    res.status(201).json({
+      success: true,
+      data: attendance,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * @route   GET /api/v1/attendance
  * @desc    Get all attendance records (with optional date filter)
  * @access  Private/Admin
@@ -339,6 +436,94 @@ router.get('/', protect, authorize('admin'), async (req, res, next) => {
       success: true,
       count: attendance.length,
       data: attendance,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @route   PUT /api/v1/attendance/:id
+ * @desc    Update attendance record
+ * @access  Private/Admin
+ */
+router.put('/:id', protect, authorize('admin'), async (req, res, next) => {
+  try {
+    const { checkIn, checkOut, status, location } = req.body;
+    
+    let attendance = await Attendance.findById(req.params.id);
+    
+    if (!attendance) {
+      return res.status(404).json({
+        success: false,
+        message: 'Attendance record not found',
+      });
+    }
+    
+    // Update fields if provided
+    if (checkIn) {
+      const checkInDate = new Date(checkIn);
+      const dateOnly = new Date(checkInDate);
+      dateOnly.setHours(0, 0, 0, 0);
+      
+      attendance.date = dateOnly;
+      attendance.checkIn.time = new Date(checkIn);
+    }
+    
+    if (checkOut) {
+      if (!attendance.checkOut) {
+        attendance.checkOut = {};
+      }
+      attendance.checkOut.time = new Date(checkOut);
+      attendance.checkOut.method = 'manual';
+    }
+    
+    if (status) {
+      attendance.status = status;
+    }
+    
+    if (location) {
+      if (!attendance.checkIn.location) {
+        attendance.checkIn.location = {};
+      }
+      attendance.checkIn.location.type = 'Point';
+      attendance.checkIn.location.coordinates = [location.longitude || 0, location.latitude || 0];
+    }
+    
+    await attendance.save();
+    await attendance.populate('user', 'firstName lastName employeeId email');
+    
+    res.status(200).json({
+      success: true,
+      data: attendance,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @route   DELETE /api/v1/attendance/:id
+ * @desc    Delete attendance record
+ * @access  Private/Admin
+ */
+router.delete('/:id', protect, authorize('admin'), async (req, res, next) => {
+  try {
+    const attendance = await Attendance.findById(req.params.id);
+    
+    if (!attendance) {
+      return res.status(404).json({
+        success: false,
+        message: 'Attendance record not found',
+      });
+    }
+    
+    await attendance.deleteOne();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Attendance record deleted successfully',
+      data: {},
     });
   } catch (error) {
     next(error);

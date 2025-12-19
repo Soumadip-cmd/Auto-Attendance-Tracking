@@ -2,15 +2,19 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Platform } from 'react-native';
 import { useTheme } from '../../src/hooks/useTheme';
+import { useAuth } from '../../src/hooks/useAuth';
 
 export default function TabLayout() {
   const { theme } = useTheme();
+  const { user } = useAuth();
+  
+  const isAdmin = user?.role === 'admin';
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: theme.colors. primary,
+        tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.textSecondary,
         tabBarStyle: {
           backgroundColor: theme.colors.card,
@@ -27,8 +31,8 @@ export default function TabLayout() {
           shadowRadius: 3,
         },
         tabBarLabelStyle: {
-          fontSize:  12,
-          fontWeight:  '600',
+          fontSize: 12,
+          fontWeight: '600',
           marginBottom: Platform.OS === 'ios' ? 0 : 5,
         },
         tabBarIconStyle: {
@@ -57,9 +61,32 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
+        name="map"
+        options={{
+          title: 'Map',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="map" size={size} color={color} />
+          ),
+        }}
+      />
+
+      {isAdmin && (
+        <Tabs.Screen
+          name="admin"
+          options={{
+            title: 'Admin',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="shield" size={size} color={color} />
+            ),
+          }}
+        />
+      )}
+
+      <Tabs.Screen
         name="reports"
         options={{
           title: 'Reports',
+          href: isAdmin ? null : undefined,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="stats-chart" size={size} color={color} />
           ),

@@ -114,7 +114,9 @@ const Attendance = () => {
 
   const formatTime = (dateString) => {
     if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleTimeString('en-US', {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'N/A';
+    return date.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
     });
@@ -122,7 +124,11 @@ const Attendance = () => {
 
   const calculateDuration = (checkIn, checkOut) => {
     if (!checkIn || !checkOut) return 'N/A';
-    const diff = new Date(checkOut) - new Date(checkIn);
+    const start = new Date(checkIn);
+    const end = new Date(checkOut);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return 'N/A';
+    const diff = end - start;
+    if (diff < 0) return 'N/A';
     const hours = Math.floor(diff / 3600000);
     const minutes = Math.floor((diff % 3600000) / 60000);
     return `${hours}h ${minutes}m`;
@@ -326,7 +332,7 @@ const Attendance = () => {
                       <div className="flex items-center gap-2">
                         <Clock className="w-4 h-4 text-gray-400" />
                         <span className="text-sm text-gray-900 dark:text-white">
-                          {formatTime(record.checkIn?.time)}
+                          {record.status === 'absent' ? 'N/A' : formatTime(record.checkIn?.time)}
                         </span>
                       </div>
                     </td>
@@ -334,13 +340,13 @@ const Attendance = () => {
                       <div className="flex items-center gap-2">
                         <Clock className="w-4 h-4 text-gray-400" />
                         <span className="text-sm text-gray-900 dark:text-white">
-                          {formatTime(record.checkOut?.time)}
+                          {record.status === 'absent' ? 'N/A' : formatTime(record.checkOut?.time)}
                         </span>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-sm text-gray-900 dark:text-white">
-                        {calculateDuration(record.checkIn?.time, record.checkOut?.time)}
+                        {record.status === 'absent' ? 'N/A' : calculateDuration(record.checkIn?.time, record.checkOut?.time)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -422,22 +428,31 @@ const MarkAttendanceModal = ({ employees, selectedDate, existingRecords, onClose
     setLoading(true);
 
     try {
-      const checkInDate = new Date(`${selectedDate}T${checkInTime}`);
-      const checkOutDate = status === 'present' || status === 'late' 
-        ? new Date(`${selectedDate}T${checkOutTime}`) 
-        : null;
-
       const data = {
         employee: selectedEmployee,
-        checkIn: checkInDate. toISOString(),
-        checkOut: checkOutDate?.toISOString(),
         status,
-        location: {
+      };
+
+      // Only add checkIn/checkOut for non-absent employees
+      if (status !== 'absent') {
+        const checkInDate = new Date(`${selectedDate}T${checkInTime}`);
+        data.checkIn = checkInDate.toISOString();
+        
+        if (status === 'present' || status === 'late') {
+          const checkOutDate = new Date(`${selectedDate}T${checkOutTime}`);
+          data.checkOut = checkOutDate.toISOString();
+        }
+        
+        data.location = {
           latitude: 0,
           longitude: 0,
           address: 'Manually marked',
-        },
-      };
+        };
+      } else {
+        // For absent employees, use a placeholder time on the selected date
+        const absentDate = new Date(`${selectedDate}T00:00:00`);
+        data.checkIn = absentDate.toISOString();
+      }
 
       await attendanceAPI.create(data);
       toast.success('Attendance marked successfully! ');
@@ -497,7 +512,7 @@ const MarkAttendanceModal = ({ employees, selectedDate, existingRecords, onClose
             </select>
           </div>
 
-          {(status === 'present' || status === 'late') && (
+          {status !== 'absent' && (
             <>
               <div className="grid grid-cols-2 gap-4">
                 <div>
