@@ -45,8 +45,10 @@ class WebSocketService {
         console.log('🔌 Connecting to WebSocket...');
       }
     } catch (error) {
-      console.error('Error connecting to WebSocket:', error);
-      throw error;
+      // WebSocket is optional - don't block app if it fails
+      if (__DEV__) {
+        console.warn('WebSocket connection failed (non-critical):', error.message);
+      }
     }
   }
 
@@ -85,7 +87,10 @@ class WebSocketService {
 
     this.socket.on('connect_error', (error) => {
       this.reconnectAttempts++;
-      console.error('WebSocket connection error:', error);
+      // Only log in development, don't spam production
+      if (__DEV__ && this.reconnectAttempts === 1) {
+        console.warn('WebSocket connection failed (non-critical):', error.message);
+      }
       this.emitToListeners('error', error);
     });
 

@@ -326,19 +326,19 @@ export default function SettingsScreen() {
           <SettingOption
             icon="document-text-outline"
             label="Terms of Service"
-            onPress={() => Alert.alert('Coming Soon', 'Terms of service coming soon')}
+            onPress={() => router.push('/info/terms')}
           />
 
           <SettingOption
             icon="shield-outline"
             label="Privacy Policy"
-            onPress={() => Alert.alert('Coming Soon', 'Privacy policy coming soon')}
+            onPress={() => router.push('/info/privacy-policy')}
           />
 
           <SettingOption
             icon="help-circle-outline"
             label="Help & Support"
-            onPress={() => Alert.alert('Coming Soon', 'Help center coming soon')}
+            onPress={() => router.push('/info/help')}
           />
         </View>
 

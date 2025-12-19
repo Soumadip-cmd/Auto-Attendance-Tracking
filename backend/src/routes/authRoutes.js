@@ -10,6 +10,7 @@ router.post('/login', authController. login);
 router.post('/refresh', authController.refresh);
 router.post('/logout', protect, authController.logout);
 router.get('/me', protect, authController.getMe);
+router.put('/profile', protect, authController.updateProfile);
 router.put('/privacy', protect, authController.updatePrivacy);
 router.put('/password', protect, authController.updatePassword);
 

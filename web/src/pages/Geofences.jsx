@@ -310,7 +310,9 @@ const Geofences = () => {
 
               {geofence.address && (
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-                  {geofence.address}
+                  {typeof geofence.address === 'string' 
+                    ? geofence.address 
+                    : `${geofence.address.street || ''}, ${geofence.address.city || ''}, ${geofence.address.state || ''} ${geofence.address.postalCode || ''}, ${geofence.address.country || ''}`.replace(/,\s*,/g, ',').trim()}
                 </p>
               )}
 
