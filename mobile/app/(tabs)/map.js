@@ -21,30 +21,6 @@ import { format } from 'date-fns';
 
 const { width, height } = Dimensions.get('window');
 
-// Calculate distance between two coordinates (Haversine formula)
-const calculateDistance = (lat1, lon1, lat2, lon2) => {
-  // If coordinates are identical or extremely close, return 0
-  if (Math.abs(lat1 - lat2) < 0.0000001 && Math.abs(lon1 - lon2) < 0.0000001) {
-    return 0;
-  }
-  
-  const R = 6371e3; // Earth's radius in meters
-  const φ1 = (lat1 * Math.PI) / 180;
-  const φ2 = (lat2 * Math.PI) / 180;
-  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
-
-  const a =
-    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  const distance = R * c; // Distance in meters
-  
-  // Round to nearest meter, treat < 5m as 0 (GPS accuracy threshold)
-  return distance < 5 ? 0 : Math.round(distance);
-};
-
 export default function MapScreen() {
   const { location, getCurrentLocation, hasPermission, requestPermissions } = useLocation();
   const { theme } = useTheme();
@@ -52,7 +28,6 @@ export default function MapScreen() {
 
   const [geofences, setGeofences] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [distance, setDistance] = useState(null);
   const [selectedGeofence, setSelectedGeofence] = useState(null);
   const [roadDistance, setRoadDistance] = useState(null);
   const [address, setAddress] = useState(null);
@@ -63,18 +38,8 @@ export default function MapScreen() {
   }, []);
 
   useEffect(() => {
-    // Calculate distances when location or geofence changes
+    // Fetch Google Maps data when location or geofence changes
     if (location && selectedGeofence) {
-      // Haversine (straight-line) distance
-      const dist = calculateDistance(
-        location.latitude,
-        location.longitude,
-        selectedGeofence.center.coordinates[1],
-        selectedGeofence.center.coordinates[0]
-      );
-      setDistance(dist);
-
-      // Google Maps road distance
       fetchRoadDistance();
       fetchAddress();
     }
@@ -192,16 +157,9 @@ export default function MapScreen() {
     longitudeDelta: 0.01,
   } : null;
 
-  const formatDistance = (meters) => {
-    if (meters === null) return 'N/A';
-    if (meters === 0) return 'At Location';
-    if (meters < 1000) {
-      return `${meters} m`;
-    }
-    return `${(meters / 1000).toFixed(2)} km`;
-  };
-
-  const isInsideGeofence = distance !== null && selectedGeofence && distance <= selectedGeofence.radius;
+  // Check if inside geofence using Google Maps distance
+  const isInsideGeofence = roadDistance && selectedGeofence && roadDistance.distance <= selectedGeofence.radius;
+  
   return (
     <View style={styles.container}>
       {/* Location Info Header */}
@@ -336,47 +294,43 @@ export default function MapScreen() {
           </View>
           
           <View style={styles.distanceContent}>
-            <Text style={[styles.distanceValue, { 
-              color: isInsideGeofence ? theme.colors.success : theme.colors.error 
-            }]}>
-              {formatDistance(distance)}
-            </Text>
-            
-            <View style={styles.distanceDetails}>
-              <View style={styles.detailRow}>
-                <Ionicons name="location" size={16} color={theme.colors.textSecondary} />
-                <Text style={[styles.detailText, { color: theme.colors.textSecondary }]}>
-                  Geofence Radius: {selectedGeofence ? `${selectedGeofence.radius}m` : 'N/A'}
+            {loadingMaps ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={theme.colors.primary} />
+                <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
+                  Calculating distance via Google Maps...
                 </Text>
               </View>
-              
-              {/* Google Maps Road Distance */}
-              {loadingMaps && (
-                <View style={styles.detailRow}>
-                  <ActivityIndicator size="small" color={theme.colors.primary} />
-                  <Text style={[styles.detailText, { color: theme.colors.textSecondary }]}>
-                    Loading road distance...
-                  </Text>
+            ) : roadDistance ? (
+              <>
+                <Text style={[styles.distanceValue, { 
+                  color: isInsideGeofence ? theme.colors.success : theme.colors.error 
+                }]}>
+                  {roadDistance.distanceText}
+                </Text>
+                
+                <View style={styles.distanceDetails}>
+                  <View style={styles.detailRow}>
+                    <Ionicons name="time" size={16} color={theme.colors.textSecondary} />
+                    <Text style={[styles.detailText, { color: theme.colors.textSecondary }]}>
+                      Walking Time: {roadDistance.durationText}
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.detailRow}>
+                    <Ionicons name="location" size={16} color={theme.colors.textSecondary} />
+                    <Text style={[styles.detailText, { color: theme.colors.textSecondary }]}>
+                      Geofence Radius: {selectedGeofence ? `${selectedGeofence.radius}m` : 'N/A'}
+                    </Text>
+                  </View>
                 </View>
-              )}
-              
-              {roadDistance && (
-                <View style={styles.detailRow}>
-                  <Ionicons name="car" size={16} color={theme.colors.primary} />
-                  <Text style={[styles.detailText, { color: theme.colors.primary, fontWeight: '600' }]}>
-                    Road Distance: {roadDistance.distanceText}
-                  </Text>
-                </View>
-              )}
-              
-              {roadDistance && (
-                <View style={styles.detailRow}>
-                  <Ionicons name="time" size={16} color={theme.colors.textSecondary} />
-                  <Text style={[styles.detailText, { color: theme.colors.textSecondary }]}>
-                    Walking Time: {roadDistance.durationText}
-                  </Text>
-                </View>
-              )}
+              </>
+            ) : (
+              <Text style={[styles.detailText, { color: theme.colors.textSecondary, textAlign: 'center' }]}>
+                Enable Google Maps billing to see distance
+              </Text>
+            )
+          }
               
               {/* Address */}
               {address && (
@@ -399,7 +353,6 @@ export default function MapScreen() {
                   {isInsideGeofence ? 'Inside Geofence' : 'Outside Geofence'}
                 </Text>
               </View>
-            </View>
           </View>
         </Card>
       </View>
