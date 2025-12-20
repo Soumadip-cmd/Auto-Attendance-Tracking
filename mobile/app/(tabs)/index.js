@@ -45,20 +45,47 @@ export default function HomeScreen() {
   const [allGeofences, setAllGeofences] = useState([]);
 
   useEffect(() => {
-    initializeScreen();
-    loadGeofences();
-    setupWebSocketListeners();
-    startGeofenceMonitoring();
-
-    // Update geofence status periodically
-    const statusInterval = setInterval(updateGeofenceStatus, 15000); // Every 15 seconds for better real-time updates
+    initializeApp();
 
     // Cleanup on unmount
     return () => {
       geofenceService.stopMonitoring();
-      clearInterval(statusInterval);
     };
   }, []);
+
+  const initializeApp = async () => {
+    await initializeScreen();
+    
+    // Load geofences FIRST before monitoring
+    await loadGeofences();
+    
+    setupWebSocketListeners();
+    
+    // Request permissions first
+    if (!hasPermission) {
+      await requestPermissions();
+    }
+    
+    // Start location tracking
+    await getCurrentLocation();
+    
+    // Start geofence monitoring AFTER loading geofences
+    await startGeofenceMonitoring();
+    
+    // Do initial geofence check and auto check-in if needed
+    setTimeout(async () => {
+      await updateGeofenceStatus();
+      await checkAndAutoCheckIn();
+    }, 2000); // Wait 2 seconds for location to stabilize
+
+    // Update geofence status periodically
+    const statusInterval = setInterval(async () => {
+      await updateGeofenceStatus();
+      await checkAndAutoCheckIn();
+    }, 15000); // Every 15 seconds
+
+    return statusInterval;
+  };
 
   const startGeofenceMonitoring = async () => {
     try {
@@ -77,8 +104,17 @@ export default function HomeScreen() {
       const geofences = await geofenceService.loadGeofences();
       setAllGeofences(geofences);
       console.log('📍 Loaded geofences for working hours display:', geofences.length);
+      if (geofences.length > 0) {
+        console.log('🏢 First geofence details:', {
+          name: geofences[0].name,
+          workingHours: geofences[0].workingHours,
+          radius: geofences[0].radius
+        });
+      }
+      return geofences;
     } catch (error) {
       console.error('❌ Error loading geofences:', error);
+      return [];
     }
   };
 
@@ -91,8 +127,31 @@ export default function HomeScreen() {
         workingHours: status.geofence?.workingHours
       });
       setGeofenceStatus(status);
+      return status;
     } catch (error) {
       console.error('❌ Error updating geofence status:', error);
+      return null;
+    }
+  };
+
+  const checkAndAutoCheckIn = async () => {
+    try {
+      // Don't auto check-in if already checked in
+      if (isCheckedIn) {
+        return;
+      }
+
+      const status = geofenceStatus || await updateGeofenceStatus();
+      
+      if (status && status.inGeofence && status.geofence) {
+        console.log('✅ User is inside geofence, checking if auto check-in needed');
+        
+        // Let geofenceService handle the auto check-in logic
+        // It will check working hours and handle the check-in
+        await geofenceService.handleGeofenceEntry(status.geofence, status.location);
+      }
+    } catch (error) {
+      console.error('❌ Error in auto check-in check:', error);
     }
   };
 
@@ -127,6 +186,8 @@ export default function HomeScreen() {
     setRefreshing(true);
     await getTodayAttendance();
     await getStats({ period: 'month' });
+    await loadGeofences(); // Reload geofences to get updated working hours
+    await updateGeofenceStatus(); // Update current geofence status
     setRefreshing(false);
   };
 

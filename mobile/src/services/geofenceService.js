@@ -3,12 +3,29 @@ import locationService from './locationService';
 import notificationService from './notificationService';
 import { useAttendanceStore } from '../store/attendanceStore';
 
+// Helper function to calculate distance between two coordinates
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371e3; // Earth radius in meters
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+          Math.cos(φ1) * Math.cos(φ2) *
+          Math.sin(Δλ/2) * Math.sin(Δλ/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+  return R * c; // Distance in meters
+};
+
 class GeofenceService {
   constructor() {
     this.geofences = [];
     this.currentGeofence = null;
     this.isMonitoring = false;
     this.monitoringInterval = null;
+    this.geofenceReloadInterval = null;
     this.lastCheckTime = null;
   }
 
@@ -20,6 +37,14 @@ class GeofenceService {
       const response = await geofenceAPI.getAll();
       this.geofences = response?.data || [];
       console.log(`📍 Loaded ${this.geofences.length} geofences`);
+      
+      // Show geofence locations for debugging
+      if (this.geofences.length > 0) {
+        this.geofences.forEach(gf => {
+          console.log(`🏢 Geofence: ${gf.name} at ${gf.center.coordinates[1]}, ${gf.center.coordinates[0]}, radius: ${gf.radius}m`);
+        });
+      }
+      
       return this.geofences;
     } catch (error) {
       console.error('❌ Error loading geofences:', error);
@@ -34,6 +59,12 @@ class GeofenceService {
     try {
       const location = await locationService.getCurrentLocation();
       
+      console.log('📍 Checking location:', {
+        lat: location.latitude,
+        lng: location.longitude,
+        accuracy: location.accuracy
+      });
+      
       const response = await geofenceAPI.checkLocation({
         latitude: location.latitude,
         longitude: location.longitude,
@@ -43,6 +74,31 @@ class GeofenceService {
       const geofences = response?.data?.geofences || [];
       const previousGeofence = this.currentGeofence;
       this.currentGeofence = geofences[0] || null;
+      
+      // Calculate distance to all geofences for debugging
+      if (this.geofences.length > 0 && !inGeofence) {
+        console.log('📏 Distance to geofences:');
+        this.geofences.forEach(gf => {
+          const distance = calculateDistance(
+            location.latitude,
+            location.longitude,
+            gf.center.coordinates[1],
+            gf.center.coordinates[0]
+          );
+          console.log(`  ${gf.name}: ${distance.toFixed(2)}m away (radius: ${gf.radius}m) ${distance <= gf.radius ? '✅ INSIDE' : '❌ OUTSIDE'}`);
+        });
+      }
+      
+      console.log('🎯 Geofence check result:', {
+        inGeofence,
+        geofenceFound: geofences.length,
+        geofenceName: this.currentGeofence?.name,
+        geofenceCenter: this.currentGeofence?.center ? 
+          `${this.currentGeofence.center.latitude}, ${this.currentGeofence.center.longitude}` : 'N/A',
+        geofenceRadius: this.currentGeofence?.radius,
+        yourLocation: `${location.latitude}, ${location.longitude}`,
+        workingHours: this.currentGeofence?.workingHours
+      });
 
       // Handle geofence entry
       if (inGeofence && !previousGeofence) {
@@ -78,25 +134,24 @@ class GeofenceService {
 
       // Auto check-in if not already checked in
       if (!todayAttendance || !todayAttendance.checkIn?.time) {
-        // Check if within working hours
-        const isWorkingHours = this.isWithinWorkingHours(geofence);
+        console.log('✅ Auto check-in triggered - user inside geofence');
 
-        if (isWorkingHours) {
-          console.log('✅ Auto check-in triggered');
+        // Trigger check-in (backend will handle working hours and late detection)
+        const result = await attendanceStore.checkIn(
+          `Auto check-in at ${geofence.name}`
+        );
 
-          // Trigger check-in
-          const result = await attendanceStore.checkIn(
-            `Auto check-in at ${geofence.name}`
+        if (result.success) {
+          await notificationService.scheduleNotification(
+            '✅ Auto Check-in Successful',
+            `You were automatically checked in at ${geofence.name}`,
+            { type: 'auto_checkin', geofenceId: geofence._id }
           );
-
-          if (result.success) {
-            await notificationService.scheduleNotification(
-              '✅ Auto Check-in Successful',
-              `You were automatically checked in at ${geofence.name}`,
-              { type: 'auto_checkin', geofenceId: geofence._id }
-            );
-          }
+        } else {
+          console.error('❌ Auto check-in failed:', result.error);
         }
+      } else {
+        console.log('ℹ️ Already checked in today, skipping auto check-in');
       }
 
       // Show entry notification
@@ -250,6 +305,12 @@ class GeofenceService {
       await this.checkCurrentLocation();
     }, intervalMs);
 
+    // Reload geofences every 5 minutes to get updates from admin panel
+    this.geofenceReloadInterval = setInterval(async () => {
+      console.log('🔄 Reloading geofences to check for updates...');
+      await this.loadGeofences();
+    }, 300000); // 5 minutes
+
     this.isMonitoring = true;
     console.log('✅ Geofence monitoring started (checking every 10 seconds)');
   }
@@ -261,6 +322,11 @@ class GeofenceService {
     if (this.monitoringInterval) {
       clearInterval(this.monitoringInterval);
       this.monitoringInterval = null;
+    }
+
+    if (this.geofenceReloadInterval) {
+      clearInterval(this.geofenceReloadInterval);
+      this.geofenceReloadInterval = null;
     }
 
     this.isMonitoring = false;

@@ -1,15 +1,44 @@
 const rateLimit = require('express-rate-limit');
 
-// Rate limiter for API routes
+// General rate limiter for API routes
 const rateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 200, // Increased limit for development - 200 requests per minute
   message: {
     success: false,
     message: 'Too many requests from this IP, please try again later.',
   },
-  standardHeaders:  true, // Return rate limit info in the `RateLimit-*` headers
-  legacyHeaders:  false, // Disable the `X-RateLimit-*` headers
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
-module.exports = rateLimiter;
+// Auth rate limiter (stricter for security)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // 20 login attempts per 15 minutes
+  message: {
+    success: false,
+    message: 'Too many login attempts, please try again later.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// More permissive rate limiter for location tracking (very frequent updates)
+const locationLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 500, // Much higher limit for location updates
+  message: {
+    success: false,
+    message: 'Too many location requests, please try again later.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+module.exports = {
+  rateLimiter,
+  authLimiter,
+  locationLimiter
+};
+
