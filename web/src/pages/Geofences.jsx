@@ -47,6 +47,17 @@ const Geofences = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Client-side validation
+    const radiusValue = parseInt(formData.radius);
+    if (radiusValue < 1) {
+      toast.error('Radius must be at least 1 meter');
+      return;
+    }
+    if (radiusValue > 10000) {
+      toast.error('Radius cannot exceed 10,000 meters');
+      return;
+    }
+    
     try {
       // Prepare data with proper types matching backend schema
       const geofenceData = {
@@ -464,10 +475,12 @@ const Geofences = () => {
                     value={formData.radius}
                     onChange={(e) => setFormData({ ...formData, radius: parseInt(e.target.value) })}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    min="10"
+                    min="1"
+                    max="10000"
                     required
+                    title="Minimum radius is 1 meter"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Recommended: 50-200 meters</p>
+                  <p className="text-xs text-gray-500 mt-1">Minimum: 1 meter | Recommended: 50-200 meters</p>
                 </div>
 
                 <div>

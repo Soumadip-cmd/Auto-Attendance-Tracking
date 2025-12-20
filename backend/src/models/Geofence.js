@@ -31,7 +31,7 @@ const geofenceSchema = new mongoose.Schema({
   radius: {
     type: Number,
     required: [true, 'Radius is required'],
-    min: [10, 'Radius must be at least 10 meters'],
+    min: [1, 'Radius must be at least 1 meter'],
     max: [10000, 'Radius cannot exceed 10km']
   },
   // Address information

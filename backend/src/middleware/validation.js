@@ -151,7 +151,7 @@ const schemas = {
     type: Joi.string().valid('campus', 'building', 'department', 'custom').default('campus'),
     latitude: Joi.number().min(-90).max(90).required(),
     longitude: Joi.number().min(-180).max(180).required(),
-    radius: Joi.number().min(10).max(10000).required(),
+    radius: Joi.number().min(1).max(10000).required(),
     address: Joi.object({
       street: Joi.string().allow('').optional(),
       city: Joi.string().allow('').optional(),
@@ -185,7 +185,7 @@ const schemas = {
     type: Joi.string().valid('campus', 'building', 'department', 'custom').optional(),
     latitude: Joi.number().min(-90).max(90).optional(),
     longitude: Joi.number().min(-180).max(180).optional(),
-    radius: Joi.number().min(10).max(10000).optional(),
+    radius: Joi.number().min(1).max(10000).optional(),
     address: Joi.object({
       street: Joi.string().allow('').optional(),
       city: Joi.string().allow('').optional(),
