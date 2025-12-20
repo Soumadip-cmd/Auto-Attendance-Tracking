@@ -1,21 +1,21 @@
 {
   "expo": {
-    "name": "Attendance Tracker",
-    "slug": "attendance-tracker",
+    "name": "GeoAttend",
+    "slug": "geoattend",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "icon": "./src/assets/immigration.png",
+    "icon": "./src/assets/app-icon.png",
     "splash": {
-      "image": "./src/assets/immigration.png",
+      "image": "./src/assets/app-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier":  "com.yourcompany.attendancetracker",
+      "bundleIdentifier":  "com.yourcompany.geoattend",
       "deploymentTarget": "15.1",
-      "icon": "./src/assets/immigration.png",
+      "icon": "./src/assets/app-icon.png",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Location access for attendance tracking.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Background location access.",
