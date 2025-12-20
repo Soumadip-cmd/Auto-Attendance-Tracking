@@ -3,6 +3,64 @@ const router = express.Router();
 const { protect, authorize } = require('../middleware/auth');
 const Attendance = require('../models/Attendance');
 
+// Helper function to calculate distance between two coordinates (Haversine formula)
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371e3; // Earth's radius in meters
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c; // Distance in meters
+}
+
+/**
+ * @route   GET /api/v1/attendance/date/:date
+ * @desc    Get all attendance records for a specific date (Admin only)
+ * @access  Private/Admin
+ */
+router.get('/date/:date', protect, authorize('admin'), async (req, res, next) => {
+  try {
+    const { date } = req.params;
+    
+    const queryDate = new Date(date);
+    queryDate.setHours(0, 0, 0, 0);
+    const nextDay = new Date(queryDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+    
+    console.log('📅 Admin fetching attendance for:', date);
+    console.log('📅 Query:', { date: { $gte: queryDate, $lt: nextDay } });
+    
+    const attendance = await Attendance.find({
+      date: { $gte: queryDate, $lt: nextDay }
+    })
+    .populate('user', 'firstName lastName email employeeId department isActive')
+    .sort({ 'checkIn.time': -1 });
+    
+    console.log(`✅ Found ${attendance.length} records`);
+    
+    res.status(200).json({
+      success: true,
+      count: attendance.length,
+      data: attendance.map(att => {
+        const obj = att.toObject();
+        return {
+          ...obj,
+          employee: obj.user  // Add employee alias for frontend
+        };
+      })
+    });
+  } catch (error) {
+    console.error('❌ Error fetching attendance by date:', error);
+    next(error);
+  }
+});
+
 /**
  * @route   GET /api/v1/attendance/today
  * @desc    Get today's attendance for current user
@@ -48,6 +106,8 @@ router.get('/history', protect, async (req, res, next) => {
       nextDay.setDate(nextDay.getDate() + 1);
       
       query.date = { $gte: queryDate, $lt: nextDay };
+      console.log('📅 Admin querying attendance for date:', date);
+      console.log('📅 Query range:', queryDate, 'to', nextDay);
     } else {
       // For regular user history
       query.user = req.user._id;
@@ -67,15 +127,29 @@ router.get('/history', protect, async (req, res, next) => {
       .sort({ [sortField]: sortDirection })
       .limit(100);
     
+    console.log(`✅ Found ${attendance.length} attendance records`);
+    if (attendance.length > 0) {
+      console.log('📋 Sample record:', {
+        id: attendance[0]._id,
+        user: attendance[0].user?.firstName,
+        date: attendance[0].date,
+        status: attendance[0].status
+      });
+    }
+    
     res.status(200).json({
       success: true,
       count: attendance.length,
-      data: attendance.map(att => ({
-        ...att.toObject(),
-        employee: att.user  // Map 'user' to 'employee' for frontend compatibility
-      })),
+      data: attendance.map(att => {
+        const obj = att.toObject();
+        return {
+          ...obj,
+          employee: obj.user || obj.employee  // Map 'user' to 'employee' for frontend compatibility
+        };
+      }),
     });
   } catch (error) {
+    console.error('❌ Attendance history error:', error);
     next(error);
   }
 });
@@ -153,9 +227,9 @@ router.post('/check-in', protect, async (req, res, next) => {
     });
     
     // If attendance exists, check if they've already checked in
-    if (existingAttendance && existingAttendance.checkIn) {
+    if (existingAttendance && existingAttendance.checkIn && existingAttendance.checkIn.time) {
       // If they haven't checked out yet, they can't check in again
-      if (!existingAttendance.checkOut) {
+      if (!existingAttendance.checkOut || !existingAttendance.checkOut.time) {
         return res.status(400).json({
           success: false,
           message: 'You have already checked in today. Please check out first.',
@@ -171,21 +245,85 @@ router.post('/check-in', protect, async (req, res, next) => {
       });
     }
     
+    // Find geofence at this location to get expected check-in time
+    const Geofence = require('../models/Geofence');
+    let geofence = null;
+    let status = 'present';
+    
+    if (latitude && longitude) {
+      const geofences = await Geofence.find({
+        isActive: true,
+        center: {
+          $near: {
+            $geometry: {
+              type: 'Point',
+              coordinates: [longitude, latitude]
+            },
+            $maxDistance: 10000 // Search within 10km
+          }
+        }
+      });
+      
+      // Find the geofence that contains this point
+      for (const gf of geofences) {
+        const distance = calculateDistance(
+          latitude, 
+          longitude, 
+          gf.center.coordinates[1], 
+          gf.center.coordinates[0]
+        );
+        if (distance <= gf.radius) {
+          geofence = gf;
+          break;
+        }
+      }
+    }
+    
+    // Determine if employee is late based on geofence or default time
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    
+    let lateThreshold = 9 * 60 + 15; // Default: 9:15 AM
+    let expectedMinutes = 9 * 60; // Default: 9:00 AM
+    
+    if (geofence && geofence.checkInTime && geofence.checkInTime.expectedTime) {
+      // Parse geofence expected time (HH:mm format)
+      const [hours, minutes] = geofence.checkInTime.expectedTime.split(':').map(Number);
+      expectedMinutes = hours * 60 + minutes;
+      const gracePeriod = geofence.checkInTime.gracePeriodMinutes || 15;
+      lateThreshold = expectedMinutes + gracePeriod;
+    }
+    
+    status = currentMinutes > lateThreshold ? 'late' : 'present';
+    const isLate = currentMinutes > lateThreshold;
+    const lateBy = isLate ? Math.max(0, currentMinutes - expectedMinutes) : 0;
+    
     // Create new attendance record
     const attendance = await Attendance.create({
       user: req.user._id,
       date: currentDate,
       checkIn: {
         time: new Date(),
-        location: {
+        location: latitude && longitude ? {
           type: 'Point',
           coordinates: [longitude, latitude],
-        },
+        } : undefined,
         method: 'manual',
+        geofence: geofence?._id,
       },
-      status: 'present', // Will be updated based on time/geofence
+      status: status,
+      isLate: isLate,
+      lateBy: lateBy,
       notes: notes || '',
+      expectedHours: geofence?.workingHours ? 
+        (() => {
+          const [startHours, startMinutes] = geofence.workingHours.start.split(':').map(Number);
+          const [endHours, endMinutes] = geofence.workingHours.end.split(':').map(Number);
+          return (endHours * 60 + endMinutes - startHours * 60 - startMinutes) / 60;
+        })() : 9,
     });
+    
+    await attendance.populate('user', 'firstName lastName employeeId email');
     
     res.status(201).json({
       success: true,
@@ -224,6 +362,38 @@ router.post('/check-out', protect, async (req, res, next) => {
       });
     }
     
+    // Find geofence to get working hours
+    const Geofence = require('../models/Geofence');
+    let geofence = null;
+    
+    if (latitude && longitude) {
+      const geofences = await Geofence.find({
+        isActive: true,
+        center: {
+          $near: {
+            $geometry: {
+              type: 'Point',
+              coordinates: [longitude, latitude]
+            },
+            $maxDistance: 10000
+          }
+        }
+      });
+      
+      for (const gf of geofences) {
+        const distance = calculateDistance(
+          latitude,
+          longitude,
+          gf.center.coordinates[1],
+          gf.center.coordinates[0]
+        );
+        if (distance <= gf.radius) {
+          geofence = gf;
+          break;
+        }
+      }
+    }
+    
     // Update attendance with check-out info
     attendance.checkOut = {
       time: new Date(),
@@ -232,7 +402,37 @@ router.post('/check-out', protect, async (req, res, next) => {
         coordinates: [longitude, latitude],
       },
       method: 'manual',
+      geofence: geofence?._id,
     };
+    
+    // Calculate duration and working hours
+    if (attendance.checkIn?.time) {
+      const checkInTime = new Date(attendance.checkIn.time);
+      const checkOutTime = new Date(attendance.checkOut.time);
+      const durationMs = checkOutTime - checkInTime;
+      const durationHours = durationMs / (1000 * 60 * 60);
+      
+      attendance.duration = Math.round(durationMs / (1000 * 60)); // minutes
+      attendance.actualHours = Math.round(durationHours * 100) / 100; // hours with 2 decimals
+      
+      // Calculate expected working hours from geofence or use default
+      let expectedHours = 9; // Default 9 hours
+      
+      if (geofence?.workingHours) {
+        const [startHours, startMinutes] = geofence.workingHours.start.split(':').map(Number);
+        const [endHours, endMinutes] = geofence.workingHours.end.split(':').map(Number);
+        expectedHours = (endHours * 60 + endMinutes - startHours * 60 - startMinutes) / 60;
+      }
+      
+      attendance.expectedHours = expectedHours;
+      
+      // Update status if checked out early or completed full day
+      if (attendance.status === 'present' || attendance.status === 'late') {
+        if (durationHours < expectedHours * 0.5) {
+          attendance.status = 'half-day';
+        }
+      }
+    }
     
     if (notes) {
       attendance.notes = attendance.notes ? `${attendance.notes}; ${notes}` : notes;
@@ -308,6 +508,94 @@ router.get('/stats/dashboard', protect, authorize('admin'), async (req, res, nex
 });
 
 /**
+ * @route   POST /api/v1/attendance
+ * @desc    Manually create attendance record (for admins)
+ * @access  Private/Admin
+ */
+router.post('/', protect, authorize('admin'), async (req, res, next) => {
+  try {
+    const { employee, checkIn, checkOut, status, location } = req.body;
+    
+    if (!employee) {
+      return res.status(400).json({
+        success: false,
+        message: 'Employee is required',
+      });
+    }
+    
+    if (!checkIn) {
+      return res.status(400).json({
+        success: false,
+        message: 'Check-in time is required',
+      });
+    }
+    
+    // Get the date (without time) from checkIn
+    const checkInDate = new Date(checkIn);
+    const dateOnly = new Date(checkInDate);
+    dateOnly.setHours(0, 0, 0, 0);
+    
+    // Check if attendance already exists for this employee on this date
+    const existingAttendance = await Attendance.findOne({
+      user: employee,
+      date: dateOnly,
+    });
+    
+    if (existingAttendance) {
+      return res.status(400).json({
+        success: false,
+        message: 'Attendance already exists for this employee on this date',
+      });
+    }
+    
+    // Create attendance record with proper structure
+    const attendanceData = {
+      user: employee,
+      date: dateOnly,
+      status: status || 'present',
+    };
+    
+    // For absent employees, don't set checkIn/checkOut times
+    if (status === 'absent') {
+      // Absent - no check-in or check-out times needed
+      attendanceData.checkIn = {};
+      attendanceData.checkOut = {};
+    } else {
+      // Present or Late - set check-in time
+      attendanceData.checkIn = {
+        time: new Date(checkIn),
+        method: 'manual',
+      };
+      
+      if (checkOut) {
+        attendanceData.checkOut = {
+          time: new Date(checkOut),
+          method: 'manual',
+        };
+      }
+      
+      if (location) {
+        attendanceData.checkIn.location = {
+          type: 'Point',
+          coordinates: [location.longitude || 0, location.latitude || 0],
+        };
+      }
+    }
+    
+    const attendance = await Attendance.create(attendanceData);
+    
+    await attendance.populate('user', 'firstName lastName employeeId email');
+    
+    res.status(201).json({
+      success: true,
+      data: attendance,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * @route   GET /api/v1/attendance
  * @desc    Get all attendance records (with optional date filter)
  * @access  Private/Admin
@@ -339,6 +627,94 @@ router.get('/', protect, authorize('admin'), async (req, res, next) => {
       success: true,
       count: attendance.length,
       data: attendance,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @route   PUT /api/v1/attendance/:id
+ * @desc    Update attendance record
+ * @access  Private/Admin
+ */
+router.put('/:id', protect, authorize('admin'), async (req, res, next) => {
+  try {
+    const { checkIn, checkOut, status, location } = req.body;
+    
+    let attendance = await Attendance.findById(req.params.id);
+    
+    if (!attendance) {
+      return res.status(404).json({
+        success: false,
+        message: 'Attendance record not found',
+      });
+    }
+    
+    // Update fields if provided
+    if (checkIn) {
+      const checkInDate = new Date(checkIn);
+      const dateOnly = new Date(checkInDate);
+      dateOnly.setHours(0, 0, 0, 0);
+      
+      attendance.date = dateOnly;
+      attendance.checkIn.time = new Date(checkIn);
+    }
+    
+    if (checkOut) {
+      if (!attendance.checkOut) {
+        attendance.checkOut = {};
+      }
+      attendance.checkOut.time = new Date(checkOut);
+      attendance.checkOut.method = 'manual';
+    }
+    
+    if (status) {
+      attendance.status = status;
+    }
+    
+    if (location) {
+      if (!attendance.checkIn.location) {
+        attendance.checkIn.location = {};
+      }
+      attendance.checkIn.location.type = 'Point';
+      attendance.checkIn.location.coordinates = [location.longitude || 0, location.latitude || 0];
+    }
+    
+    await attendance.save();
+    await attendance.populate('user', 'firstName lastName employeeId email');
+    
+    res.status(200).json({
+      success: true,
+      data: attendance,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @route   DELETE /api/v1/attendance/:id
+ * @desc    Delete attendance record
+ * @access  Private/Admin
+ */
+router.delete('/:id', protect, authorize('admin'), async (req, res, next) => {
+  try {
+    const attendance = await Attendance.findById(req.params.id);
+    
+    if (!attendance) {
+      return res.status(404).json({
+        success: false,
+        message: 'Attendance record not found',
+      });
+    }
+    
+    await attendance.deleteOne();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Attendance record deleted successfully',
+      data: {},
     });
   } catch (error) {
     next(error);

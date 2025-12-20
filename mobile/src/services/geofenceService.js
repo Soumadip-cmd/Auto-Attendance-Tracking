@@ -184,23 +184,33 @@ class GeofenceService {
    * Check if current time is within geofence working hours
    */
   isWithinWorkingHours(geofence) {
-    if (!geofence.workingHours?.enabled) {
+    if (!geofence.workingHours) {
       return false;
     }
 
     const now = new Date();
-    const dayOfWeek = now.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
     const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 
-    const schedule = geofence.workingHours.schedule?.find(
-      (s) => s.day.toLowerCase() === dayOfWeek
-    );
+    // New schema: enabled + schedule array
+    if (geofence.workingHours.enabled && geofence.workingHours.schedule) {
+      const dayOfWeek = now.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+      const schedule = geofence.workingHours.schedule?.find(
+        (s) => s.day.toLowerCase() === dayOfWeek
+      );
 
-    if (!schedule) {
-      return false;
+      if (!schedule) {
+        return false;
+      }
+
+      return currentTime >= schedule.startTime && currentTime <= schedule.endTime;
+    }
+    
+    // Old schema: start + end
+    if (geofence.workingHours.start && geofence.workingHours.end) {
+      return currentTime >= geofence.workingHours.start && currentTime <= geofence.workingHours.end;
     }
 
-    return currentTime >= schedule.startTime && currentTime <= schedule.endTime;
+    return false;
   }
 
   /**

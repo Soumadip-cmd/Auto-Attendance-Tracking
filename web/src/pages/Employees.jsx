@@ -12,6 +12,8 @@ import {
   Trash2,
   X,
   UserPlus,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { TableSkeleton, StatsCardSkeleton } from '../components/common/Skeleton';
 import { exportEmployeesToExcel } from '../utils/exportUtils';
@@ -29,6 +31,7 @@ const Employees = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState({ isOpen: false, employee: null });
+  const [showPassword, setShowPassword] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -597,15 +600,29 @@ const Employees = () => {
                 {! editingEmployee && (
                   <div>
                     <label className="label">Password *</label>
-                    <input
-                      type="password"
-                      required={!editingEmployee}
-                      className="input"
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      minLength={8}
-                      placeholder="Min.  8 characters"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required={!editingEmployee}
+                        className="input pr-12"
+                        value={formData.password}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        minLength={8}
+                        placeholder="Min. 8 characters"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors p-1"
+                        tabIndex={-1}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="w-5 h-5" />
+                        ) : (
+                          <Eye className="w-5 h-5" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 )}
 

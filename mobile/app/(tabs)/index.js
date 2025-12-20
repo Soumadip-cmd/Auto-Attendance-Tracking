@@ -42,9 +42,11 @@ export default function HomeScreen() {
 
   const [refreshing, setRefreshing] = useState(false);
   const [geofenceStatus, setGeofenceStatus] = useState(null);
+  const [allGeofences, setAllGeofences] = useState([]);
 
   useEffect(() => {
     initializeScreen();
+    loadGeofences();
     setupWebSocketListeners();
     startGeofenceMonitoring();
 
@@ -70,9 +72,24 @@ export default function HomeScreen() {
     }
   };
 
+  const loadGeofences = async () => {
+    try {
+      const geofences = await geofenceService.loadGeofences();
+      setAllGeofences(geofences);
+      console.log('📍 Loaded geofences for working hours display:', geofences.length);
+    } catch (error) {
+      console.error('❌ Error loading geofences:', error);
+    }
+  };
+
   const updateGeofenceStatus = async () => {
     try {
       const status = await geofenceService.checkCurrentLocation();
+      console.log('🏢 Geofence status updated:', {
+        inGeofence: status.inGeofence,
+        geofenceName: status.geofence?.name,
+        workingHours: status.geofence?.workingHours
+      });
       setGeofenceStatus(status);
     } catch (error) {
       console.error('❌ Error updating geofence status:', error);
@@ -192,26 +209,32 @@ export default function HomeScreen() {
   };
 
   const getWorkingHoursText = (workingHours) => {
-    if (!workingHours?.enabled || !workingHours?.schedule?.length) {
-      return '9:00 AM - 6:00 PM';
-    }
+    // Support both new schema (enabled + schedule) and old schema (start + end)
+    if (workingHours?.enabled && workingHours?.schedule?.length) {
+      // New schema with schedule array
+      const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+      const todaySchedule = workingHours.schedule.find(s => s.day === today);
 
-    const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-    const todaySchedule = workingHours.schedule.find(s => s.day === today);
-
-    if (!todaySchedule) {
+      if (todaySchedule) {
+        return `${formatTimeString(todaySchedule.startTime)} - ${formatTimeString(todaySchedule.endTime)}`;
+      }
       return 'No schedule for today';
+    } else if (workingHours?.start && workingHours?.end) {
+      // Old schema with simple start/end
+      return `${formatTimeString(workingHours.start)} - ${formatTimeString(workingHours.end)}`;
     }
+    
+    // Default fallback
+    return '9:00 AM - 6:00 PM';
+  };
 
-    const formatTime = (time) => {
-      const [hours, minutes] = time.split(':');
-      const hour = parseInt(hours);
-      const ampm = hour >= 12 ? 'PM' : 'AM';
-      const hour12 = hour % 12 || 12;
-      return `${hour12}:${minutes} ${ampm}`;
-    };
-
-    return `${formatTime(todaySchedule.startTime)} - ${formatTime(todaySchedule.endTime)}`;
+  const formatTimeString = (time) => {
+    if (!time) return '';
+    const [hours, minutes] = time.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minutes} ${ampm}`;
   };
 
   return (
@@ -317,9 +340,18 @@ export default function HomeScreen() {
             <View style={[styles.workScheduleHint, { backgroundColor: theme.colors.primary + '10', borderColor: theme.colors.primary + '30' }]}>
               <Ionicons name="time-outline" size={16} color={theme.colors.primary} />
               <Text style={[styles.workScheduleText, { color: theme.colors.primary }]}>
-                Work Hours: {geofenceStatus?.geofence?.workingHours?.enabled 
-                  ? getWorkingHoursText(geofenceStatus.geofence.workingHours)
-                  : '9:00 AM - 6:00 PM'}
+                Work Hours: {(() => {
+                  // First try current geofence if inside
+                  if (geofenceStatus?.geofence?.workingHours) {
+                    return getWorkingHoursText(geofenceStatus.geofence.workingHours);
+                  }
+                  // Then try first available geofence
+                  if (allGeofences.length > 0 && allGeofences[0].workingHours) {
+                    return getWorkingHoursText(allGeofences[0].workingHours);
+                  }
+                  // Default fallback
+                  return '9:00 AM - 6:00 PM';
+                })()}
               </Text>
             </View>
           </View>

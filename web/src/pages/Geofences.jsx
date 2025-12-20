@@ -17,8 +17,9 @@ const Geofences = () => {
     radius: 100,
     address: '',
     workingHours: {
-      start: '09:00',
-      end: '18:00',
+      enabled: true,
+      startTime: '09:00',
+      endTime: '18:00',
     },
     alerts: {
       onEntry: true,
@@ -57,41 +58,19 @@ const Geofences = () => {
         radius: parseInt(formData.radius),
         // Address as object (backend expects object structure)
         address: formData.address ? {
-          street: formData.address,
-          city: '',
-          state: '',
-          country: '',
-          postalCode: ''
+          street: formData.address
         } : undefined,
-        // Working hours matching backend schema
+        // Working hours with schedule for all weekdays
         workingHours: {
-          enabled: true,
+          enabled: formData.workingHours.enabled,
           schedule: [
-            {
-              day: 'monday',
-              startTime: formData.workingHours.start,
-              endTime: formData.workingHours.end
-            },
-            {
-              day: 'tuesday',
-              startTime: formData.workingHours.start,
-              endTime: formData.workingHours.end
-            },
-            {
-              day: 'wednesday',
-              startTime: formData.workingHours.start,
-              endTime: formData.workingHours.end
-            },
-            {
-              day: 'thursday',
-              startTime: formData.workingHours.start,
-              endTime: formData.workingHours.end
-            },
-            {
-              day: 'friday',
-              startTime: formData.workingHours.start,
-              endTime: formData.workingHours.end
-            }
+            { day: 'monday', startTime: formData.workingHours.startTime, endTime: formData.workingHours.endTime },
+            { day: 'tuesday', startTime: formData.workingHours.startTime, endTime: formData.workingHours.endTime },
+            { day: 'wednesday', startTime: formData.workingHours.startTime, endTime: formData.workingHours.endTime },
+            { day: 'thursday', startTime: formData.workingHours.startTime, endTime: formData.workingHours.endTime },
+            { day: 'friday', startTime: formData.workingHours.startTime, endTime: formData.workingHours.endTime },
+            { day: 'saturday', startTime: formData.workingHours.startTime, endTime: formData.workingHours.endTime },
+            { day: 'sunday', startTime: formData.workingHours.startTime, endTime: formData.workingHours.endTime }
           ]
         },
         // Alerts matching backend schema
@@ -154,6 +133,27 @@ const Geofences = () => {
 
   const handleEdit = (geofence) => {
     setEditingGeofence(geofence);
+    
+    // Extract working hours from schedule (use first day's schedule as default)
+    let workingHours = { enabled: true, startTime: '09:00', endTime: '18:00' };
+    if (geofence.workingHours) {
+      if (geofence.workingHours.schedule && geofence.workingHours.schedule.length > 0) {
+        // New schema: get from first schedule entry
+        workingHours = {
+          enabled: geofence.workingHours.enabled !== false,
+          startTime: geofence.workingHours.schedule[0].startTime,
+          endTime: geofence.workingHours.schedule[0].endTime
+        };
+      } else if (geofence.workingHours.start && geofence.workingHours.end) {
+        // Old schema compatibility
+        workingHours = {
+          enabled: true,
+          startTime: geofence.workingHours.start,
+          endTime: geofence.workingHours.end
+        };
+      }
+    }
+    
     setFormData({
       name: geofence.name,
       description: geofence.description || '',
@@ -161,8 +161,8 @@ const Geofences = () => {
       latitude: geofence.center.coordinates[1],
       longitude: geofence.center.coordinates[0],
       radius: geofence.radius,
-      address: geofence.address || '',
-      workingHours: geofence.workingHours || { start: '09:00', end: '18:00' },
+      address: typeof geofence.address === 'string' ? geofence.address : geofence.address?.street || '',
+      workingHours,
       alerts: geofence.alerts || { onEntry: true, onExit: true },
       color: geofence.color || '#6366f1',
       isActive: geofence.isActive !== false,
@@ -181,7 +181,7 @@ const Geofences = () => {
       longitude: '',
       radius: 100,
       address: '',
-      workingHours: { start: '09:00', end: '18:00' },
+      workingHours: { enabled: true, startTime: '09:00', endTime: '18:00' },
       alerts: { onEntry: true, onExit: true },
       color: '#6366f1',
       isActive: true,
@@ -296,7 +296,11 @@ const Geofences = () => {
                   <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                     <Clock className="w-4 h-4" />
                     <span>
-                      {geofence.workingHours.start} - {geofence.workingHours.end}
+                      {geofence.workingHours.schedule && geofence.workingHours.schedule.length > 0
+                        ? `${geofence.workingHours.schedule[0].startTime} - ${geofence.workingHours.schedule[0].endTime}`
+                        : geofence.workingHours.start && geofence.workingHours.end
+                        ? `${geofence.workingHours.start} - ${geofence.workingHours.end}`
+                        : '9:00 - 18:00'}
                     </span>
                   </div>
                 )}
@@ -310,7 +314,9 @@ const Geofences = () => {
 
               {geofence.address && (
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-                  {geofence.address}
+                  {typeof geofence.address === 'string' 
+                    ? geofence.address 
+                    : `${geofence.address.street || ''}, ${geofence.address.city || ''}, ${geofence.address.state || ''} ${geofence.address.postalCode || ''}, ${geofence.address.country || ''}`.replace(/,\s*,/g, ',').trim()}
                 </p>
               )}
 
@@ -488,15 +494,16 @@ const Geofences = () => {
                     </label>
                     <input
                       type="time"
-                      value={formData.workingHours.start}
+                      value={formData.workingHours.startTime}
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          workingHours: { ...formData.workingHours, start: e.target.value },
+                          workingHours: { ...formData.workingHours, startTime: e.target.value },
                         })
                       }
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
+                    <p className="text-xs text-gray-500 mt-1">Work day starts (applies to all days)</p>
                   </div>
 
                   <div>
@@ -505,15 +512,16 @@ const Geofences = () => {
                     </label>
                     <input
                       type="time"
-                      value={formData.workingHours.end}
+                      value={formData.workingHours.endTime}
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          workingHours: { ...formData.workingHours, end: e.target.value },
+                          workingHours: { ...formData.workingHours, endTime: e.target.value },
                         })
                       }
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
+                    <p className="text-xs text-gray-500 mt-1">Work day ends (applies to all days)</p>
                   </div>
                 </div>
               </div>

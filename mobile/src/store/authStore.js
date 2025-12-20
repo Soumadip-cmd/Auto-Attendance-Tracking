@@ -34,8 +34,8 @@ export const useAuthStore = create((set, get) => ({
           isLoading: false,
         });
 
-        // Connect to WebSocket
-        await websocketService.connect();
+        // Connect to WebSocket (non-blocking)
+        websocketService.connect().catch(() => {});
         
         return true;
       } else {
@@ -73,8 +73,8 @@ export const useAuthStore = create((set, get) => ({
         error: null,
       });
 
-      // Connect to WebSocket
-      await websocketService.connect();
+      // Connect to WebSocket (non-blocking)
+      websocketService.connect().catch(() => {});
 
       return { success: true, user, data: { token, refreshToken } };
     } catch (error) {
@@ -110,8 +110,8 @@ export const useAuthStore = create((set, get) => ({
         error: null,
       });
 
-      // Connect to WebSocket
-      await websocketService.connect();
+      // Connect to WebSocket (non-blocking)
+      websocketService.connect().catch(() => {});
 
       return { success: true, user, data: { token, refreshToken } };
     } catch (error) {

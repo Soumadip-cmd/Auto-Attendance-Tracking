@@ -344,6 +344,32 @@ exports.getMe = asyncHandler(async (req, res) => {
 });
 
 /**
+ * @desc    Update user profile
+ * @route   PUT /api/v1/auth/profile
+ * @access  Private
+ */
+exports.updateProfile = asyncHandler(async (req, res) => {
+  const { firstName, lastName, phoneNumber, department } = req.body;
+
+  const updateData = {};
+  if (firstName !== undefined) updateData.firstName = firstName;
+  if (lastName !== undefined) updateData.lastName = lastName;
+  if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber;
+  if (department !== undefined) updateData.department = department;
+
+  const user = await User.findByIdAndUpdate(
+    req.user._id,
+    updateData,
+    { new: true, runValidators: true }
+  ).select('-password');
+
+  res.json({
+    success: true,
+    data: { user }
+  });
+});
+
+/**
  * @desc    Update user consent and privacy settings
  * @route   PUT /api/v1/auth/privacy
  * @access  Private

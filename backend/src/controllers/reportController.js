@@ -77,32 +77,41 @@ exports.getDailyReport = async (req, res) => {
       });
     }
 
+    console.log('📊 Generating daily report for:', date);
+
     const targetDate = new Date(date);
     targetDate.setHours(0, 0, 0, 0);
     const nextDay = new Date(targetDate);
     nextDay.setDate(nextDay.getDate() + 1);
 
     const attendanceRecords = await Attendance.find({
-      checkIn: { $gte: targetDate, $lt: nextDay }
-    }).populate('employee', 'firstName lastName employeeId department');
+      date: { $gte: targetDate, $lt: nextDay }
+    }).populate('user', 'firstName lastName employeeId department');
 
-    const totalEmployees = await User.countDocuments({ role: { $ne:  'admin' } });
+    console.log(`✅ Found ${attendanceRecords.length} attendance records`);
+
+    // Transform records to include employee field
+    const formattedRecords = attendanceRecords.map(record => ({
+      ...record.toObject(),
+      employee: record.user,
+      name: record.user ? `${record.user.firstName} ${record.user.lastName}` : 'N/A',
+      department: record.user?.department || 'N/A',
+      checkIn: record.checkIn?.time,
+      checkOut: record.checkOut?.time
+    }));
+
+    const totalEmployees = await User.countDocuments({ role: { $ne: 'admin' }, isActive: true });
 
     const present = attendanceRecords.filter(a => a.status === 'present').length;
     const late = attendanceRecords.filter(a => a.status === 'late').length;
-    const absent = totalEmployees - attendanceRecords. length;
+    const checkedIn = attendanceRecords.filter(a => a.checkIn?.time).length;
+    const absent = totalEmployees - checkedIn;
+
+    console.log('📊 Stats:', { present, late, absent, totalEmployees });
 
     res.json({
       success: true,
-      data: {
-        date,
-        totalEmployees,
-        present,
-        late,
-        absent,
-        attendanceRate: totalEmployees > 0 ? ((present / totalEmployees) * 100).toFixed(1) : 0,
-        records: attendanceRecords
-      }
+      data: formattedRecords
     });
   } catch (error) {
     console.error('Daily report error:', error);
@@ -131,18 +140,18 @@ exports.getWeeklyReport = async (req, res) => {
     const end = new Date(endDate);
     end.setHours(23, 59, 59, 999);
 
-    const attendanceRecords = await Attendance. find({
-      checkIn: { $gte: start, $lte: end }
-    }).populate('employee', 'firstName lastName employeeId department');
+    const attendanceRecords = await Attendance.find({
+      date: { $gte: start, $lte: end }
+    }).populate('user', 'firstName lastName employeeId department');
 
-    const totalEmployees = await User.countDocuments({ role: { $ne:  'admin' } });
+    const totalEmployees = await User.countDocuments({ role: { $ne: 'admin' }, isActive: true });
 
     // Group by day
     const dailyStats = {};
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
     attendanceRecords.forEach(record => {
-      const day = new Date(record.checkIn).toISOString().split('T')[0];
+      const day = new Date(record.date).toISOString().split('T')[0];
       if (!dailyStats[day]) {
         dailyStats[day] = { present: 0, late: 0, absent: 0 };
       }
@@ -151,15 +160,19 @@ exports.getWeeklyReport = async (req, res) => {
       else if (record.status === 'absent') dailyStats[day].absent++;
     });
 
+    // Format records for frontend
+    const formattedRecords = attendanceRecords.map(record => ({
+      ...record.toObject(),
+      employee: record.user,
+      name: record.user ? `${record.user.firstName} ${record.user.lastName}` : 'N/A',
+      department: record.user?.department || 'N/A',
+      checkIn: record.checkIn?.time,
+      checkOut: record.checkOut?.time
+    }));
+
     res.json({
       success: true,
-      data: {
-        period: `${startDate} to ${endDate}`,
-        totalEmployees,
-        dailyStats,
-        totalRecords: attendanceRecords.length,
-        records: attendanceRecords
-      }
+      data: formattedRecords
     });
   } catch (error) {
     console.error('Weekly report error:', error);
@@ -187,19 +200,19 @@ exports.getMonthlyReport = async (req, res) => {
     const endDate = new Date(year, month, 0, 23, 59, 59, 999);
 
     const attendanceRecords = await Attendance.find({
-      checkIn: { $gte: startDate, $lte: endDate }
-    }).populate('employee', 'firstName lastName employeeId department');
+      date: { $gte: startDate, $lte: endDate }
+    }).populate('user', 'firstName lastName employeeId department');
 
-    const totalEmployees = await User.countDocuments({ role: { $ne: 'admin' } });
+    const totalEmployees = await User.countDocuments({ role: { $ne: 'admin' }, isActive: true });
 
-    const totalPresent = attendanceRecords. filter(a => a.status === 'present').length;
-    const totalLate = attendanceRecords.filter(a => a. status === 'late').length;
+    const totalPresent = attendanceRecords.filter(a => a.status === 'present').length;
+    const totalLate = attendanceRecords.filter(a => a.status === 'late').length;
     const totalAbsent = attendanceRecords.filter(a => a.status === 'absent').length;
 
     // Department-wise breakdown
     const departmentStats = {};
     attendanceRecords.forEach(record => {
-      const dept = record.employee?. department || 'Unknown';
+      const dept = record.user?.department || 'Unknown';
       if (!departmentStats[dept]) {
         departmentStats[dept] = { present: 0, late: 0, absent: 0 };
       }
@@ -211,21 +224,19 @@ exports.getMonthlyReport = async (req, res) => {
     const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
                        'July', 'August', 'September', 'October', 'November', 'December'];
 
+    // Format records for frontend
+    const formattedRecords = attendanceRecords.map(record => ({
+      ...record.toObject(),
+      employee: record.user,
+      name: record.user ? `${record.user.firstName} ${record.user.lastName}` : 'N/A',
+      department: record.user?.department || 'N/A',
+      checkIn: record.checkIn?.time,
+      checkOut: record.checkOut?.time
+    }));
+
     res.json({
       success: true,
-      data: {
-        month:  monthNames[month - 1],
-        year,
-        totalEmployees,
-        totalPresent,
-        totalLate,
-        totalAbsent,
-        avgAttendance: totalEmployees > 0 
-          ? ((totalPresent / totalEmployees) * 100).toFixed(1) 
-          : 0,
-        departmentStats,
-        records: attendanceRecords
-      }
+      data: formattedRecords
     });
   } catch (error) {
     console.error('Monthly report error:', error);
@@ -254,19 +265,20 @@ exports.exportReportData = async (req, res) => {
     const end = new Date(endDate);
     end.setHours(23, 59, 59, 999);
 
-    const attendanceRecords = await Attendance. find({
-      checkIn: { $gte: start, $lte: end }
-    }).populate('employee', 'firstName lastName employeeId department email');
+    const attendanceRecords = await Attendance.find({
+      date: { $gte: start, $lte: end }
+    }).populate('user', 'firstName lastName employeeId department email');
 
     // Format data for export
     const exportData = attendanceRecords.map(record => ({
-      'Employee ID': record.employee?. employeeId || 'N/A',
-      'First Name': record.employee?.firstName || 'N/A',
-      'Last Name': record.employee?. lastName || 'N/A',
-      'Department': record.employee?.department || 'N/A',
-      'Check In': record.checkIn ?  new Date(record.checkIn).toLocaleString() : 'N/A',
-      'Check Out':  record.checkOut ? new Date(record.checkOut).toLocaleString() : 'N/A',
-      'Status': record. status,
+      'Employee ID': record.user?.employeeId || 'N/A',
+      'First Name': record.user?.firstName || 'N/A',
+      'Last Name': record.user?.lastName || 'N/A',
+      'Department': record.user?.department || 'N/A',
+      'Date': record.date ? new Date(record.date).toLocaleDateString() : 'N/A',
+      'Check In': record.checkIn?.time ? new Date(record.checkIn.time).toLocaleString() : 'N/A',
+      'Check Out': record.checkOut?.time ? new Date(record.checkOut.time).toLocaleString() : 'N/A',
+      'Status': record.status,
       'Location': record.location?. address || 'N/A',
       'Duration': record.checkIn && record.checkOut 
         ? `${Math.floor((new Date(record.checkOut) - new Date(record.checkIn)) / 60000)} minutes`

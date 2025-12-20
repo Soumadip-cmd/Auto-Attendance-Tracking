@@ -22,7 +22,10 @@ const Attendance = () => {
     late: 0,
     total: 0,
   });
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(() => {
+    // Initialize with today's date
+    return new Date().toISOString().split('T')[0];
+  });
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showMarkAttendanceModal, setShowMarkAttendanceModal] = useState(false);
@@ -30,32 +33,56 @@ const Attendance = () => {
 
   useEffect(() => {
     setPageTitle('Attendance Management');
-    fetchData();
-  }, [setPageTitle, selectedDate]);
+    // Set today's date on initial load
+    const today = new Date().toISOString().split('T')[0];
+    setSelectedDate(today);
+  }, [setPageTitle]);
+
+  useEffect(() => {
+    if (selectedDate) {
+      fetchData();
+    }
+  }, [selectedDate]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
+      console.log('📅 Fetching attendance for:', selectedDate);
+      
       const [attendanceRes, employeesRes] = await Promise.all([
         attendanceAPI.getByDate(selectedDate),
         userAPI.getAll(),
       ]);
 
+      console.log('📊 Attendance response:', attendanceRes.data);
+      console.log('👥 Employees response:', employeesRes.data);
+
       const records = attendanceRes.data.data || [];
-      const allEmployees = employeesRes. data.data || [];
+      const allEmployees = employeesRes.data.data || [];
+
+      console.log(`✅ Found ${records.length} attendance records`);
+      console.log(`👥 Found ${allEmployees.length} employees`);
 
       setAttendanceRecords(records);
       setEmployees(allEmployees);
 
-      // Calculate stats
-      const present = records.filter(r => r.checkIn?.time).length;
-      const late = records.filter(r => r.isLate).length;
-      const total = allEmployees.filter(e => e.isActive).length;
-      const absent = total - present;
+      // Calculate stats based on status field
+      const presentCount = records.filter(r => r.status === 'present').length;
+      const lateCount = records.filter(r => r.status === 'late').length;
+      const checkedInCount = records.filter(r => r.checkIn?.time).length;
+      const total = allEmployees.filter(e => e.isActive !== false).length;
+      const absentCount = total - checkedInCount;
 
-      setStats({ present, late, absent, total });
+      console.log('📊 Stats:', { presentCount, lateCount, checkedInCount, total, absentCount });
+
+      setStats({ 
+        present: presentCount, 
+        late: lateCount, 
+        absent: absentCount, 
+        total 
+      });
     } catch (error) {
-      console.error('Error fetching attendance data:', error);
+      console.error('❌ Error fetching attendance data:', error);
       toast.error('Failed to load attendance data');
     } finally {
       setLoading(false);
@@ -114,7 +141,9 @@ const Attendance = () => {
 
   const formatTime = (dateString) => {
     if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleTimeString('en-US', {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'N/A';
+    return date.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
     });
@@ -122,7 +151,11 @@ const Attendance = () => {
 
   const calculateDuration = (checkIn, checkOut) => {
     if (!checkIn || !checkOut) return 'N/A';
-    const diff = new Date(checkOut) - new Date(checkIn);
+    const start = new Date(checkIn);
+    const end = new Date(checkOut);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return 'N/A';
+    const diff = end - start;
+    if (diff < 0) return 'N/A';
     const hours = Math.floor(diff / 3600000);
     const minutes = Math.floor((diff % 3600000) / 60000);
     return `${hours}h ${minutes}m`;
@@ -213,19 +246,21 @@ const Attendance = () => {
         <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
           <div className="flex flex-col sm:flex-row gap-4 flex-1 w-full">
             {/* Date Picker */}
-            <div className="relative">
-              <Calendar className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="pl-10 input max-w-xs"
-              />
+            <div className="w-full sm:w-auto">
+              <div className="relative">
+                <Calendar className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 w-full sm:w-auto min-w-[180px]"
+                />
+              </div>
             </div>
 
             {/* Search */}
             <div className="relative flex-1 max-w-md">
-              <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 placeholder="Search employees..."
@@ -326,7 +361,7 @@ const Attendance = () => {
                       <div className="flex items-center gap-2">
                         <Clock className="w-4 h-4 text-gray-400" />
                         <span className="text-sm text-gray-900 dark:text-white">
-                          {formatTime(record.checkIn?.time)}
+                          {record.status === 'absent' ? 'N/A' : formatTime(record.checkIn?.time)}
                         </span>
                       </div>
                     </td>
@@ -334,13 +369,13 @@ const Attendance = () => {
                       <div className="flex items-center gap-2">
                         <Clock className="w-4 h-4 text-gray-400" />
                         <span className="text-sm text-gray-900 dark:text-white">
-                          {formatTime(record.checkOut?.time)}
+                          {record.status === 'absent' ? 'N/A' : formatTime(record.checkOut?.time)}
                         </span>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-sm text-gray-900 dark:text-white">
-                        {calculateDuration(record.checkIn?.time, record.checkOut?.time)}
+                        {record.status === 'absent' ? 'N/A' : calculateDuration(record.checkIn?.time, record.checkOut?.time)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -422,22 +457,31 @@ const MarkAttendanceModal = ({ employees, selectedDate, existingRecords, onClose
     setLoading(true);
 
     try {
-      const checkInDate = new Date(`${selectedDate}T${checkInTime}`);
-      const checkOutDate = status === 'present' || status === 'late' 
-        ? new Date(`${selectedDate}T${checkOutTime}`) 
-        : null;
-
       const data = {
         employee: selectedEmployee,
-        checkIn: checkInDate. toISOString(),
-        checkOut: checkOutDate?.toISOString(),
         status,
-        location: {
+      };
+
+      // Only add checkIn/checkOut for non-absent employees
+      if (status !== 'absent') {
+        const checkInDate = new Date(`${selectedDate}T${checkInTime}`);
+        data.checkIn = checkInDate.toISOString();
+        
+        if (status === 'present' || status === 'late') {
+          const checkOutDate = new Date(`${selectedDate}T${checkOutTime}`);
+          data.checkOut = checkOutDate.toISOString();
+        }
+        
+        data.location = {
           latitude: 0,
           longitude: 0,
           address: 'Manually marked',
-        },
-      };
+        };
+      } else {
+        // For absent employees, use a placeholder time on the selected date
+        const absentDate = new Date(`${selectedDate}T00:00:00`);
+        data.checkIn = absentDate.toISOString();
+      }
 
       await attendanceAPI.create(data);
       toast.success('Attendance marked successfully! ');
@@ -497,7 +541,7 @@ const MarkAttendanceModal = ({ employees, selectedDate, existingRecords, onClose
             </select>
           </div>
 
-          {(status === 'present' || status === 'late') && (
+          {status !== 'absent' && (
             <>
               <div className="grid grid-cols-2 gap-4">
                 <div>
