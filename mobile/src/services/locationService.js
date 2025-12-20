@@ -96,9 +96,9 @@ class LocationService {
 
       this.locationSubscription = await Location.watchPositionAsync(
         {
-          accuracy: Location.Accuracy[APP_CONFIG.LOCATION_ACCURACY. toUpperCase()],
-          distanceInterval: APP_CONFIG.LOCATION_DISTANCE_FILTER,
-          timeInterval: 5000, // 5 seconds
+          accuracy: Location.Accuracy.High,
+          distanceInterval: 5, // Update every 5 meters
+          timeInterval: 3000, // 3 seconds for smoother tracking
         },
         (location) => {
           this.currentLocation = {

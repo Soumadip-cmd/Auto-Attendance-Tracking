@@ -113,7 +113,7 @@ class GeofenceService {
   }
 
   /**
-   * Handle geofence exit - Check for violations
+   * Handle geofence exit - Auto check-out
    */
   async handleGeofenceExit(geofence, location) {
     try {
@@ -127,17 +127,32 @@ class GeofenceService {
       const isCheckedIn = todayAttendance?.checkIn?.time && !todayAttendance?.checkOut?.time;
 
       if (isCheckedIn) {
+        // AUTO CHECK-OUT when leaving geofence
+        console.log('✅ Auto check-out triggered');
+        
+        const result = await attendanceStore.checkOut(
+          `Auto check-out from ${geofence.name}`
+        );
+
+        if (result.success) {
+          await notificationService.scheduleNotification(
+            '🚪 Auto Check-out',
+            `You were automatically checked out from ${geofence.name}`,
+            { type: 'auto_checkout', geofenceId: geofence._id }
+          );
+        }
+        
         // Check if within working hours (early departure)
         const isWorkingHours = this.isWithinWorkingHours(geofence);
 
         if (isWorkingHours) {
-          // Violation: Left work area before check-out time
+          // Violation: Left work area before work hours ended
           console.warn('⚠️ VIOLATION: Early departure detected');
 
           // Send violation alert
           await notificationService.scheduleNotification(
             '⚠️ Early Departure Alert',
-            `You left ${geofence.name} before completing your work hours. This will be marked as a fault.`,
+            `You left ${geofence.name} before completing your work hours.`,
             { type: 'geofence_violation', severity: 'high', geofenceId: geofence._id }
           );
 
@@ -216,7 +231,7 @@ class GeofenceService {
   /**
    * Start monitoring geofences
    */
-  async startMonitoring(intervalMs = 60000) { // Check every 60 seconds
+  async startMonitoring(intervalMs = 10000) { // Check every 10 seconds for better real-time detection
     if (this.isMonitoring) {
       console.warn('⚠️ Geofence monitoring already started');
       return;
@@ -236,7 +251,7 @@ class GeofenceService {
     }, intervalMs);
 
     this.isMonitoring = true;
-    console.log('✅ Geofence monitoring started');
+    console.log('✅ Geofence monitoring started (checking every 10 seconds)');
   }
 
   /**

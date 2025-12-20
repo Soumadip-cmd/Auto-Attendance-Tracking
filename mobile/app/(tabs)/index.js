@@ -51,7 +51,7 @@ export default function HomeScreen() {
     startGeofenceMonitoring();
 
     // Update geofence status periodically
-    const statusInterval = setInterval(updateGeofenceStatus, 30000); // Every 30 seconds
+    const statusInterval = setInterval(updateGeofenceStatus, 15000); // Every 15 seconds for better real-time updates
 
     // Cleanup on unmount
     return () => {
@@ -63,9 +63,9 @@ export default function HomeScreen() {
   const startGeofenceMonitoring = async () => {
     try {
       if (hasPermission) {
-        await geofenceService.startMonitoring(60000); // Check every 60 seconds
+        await geofenceService.startMonitoring(10000); // Check every 10 seconds for real-time detection
         await updateGeofenceStatus(); // Initial status check
-        console.log('✅ Geofence monitoring started');
+        console.log('✅ Geofence monitoring started (10 second intervals)');
       }
     } catch (error) {
       console.error('❌ Error starting geofence monitoring:', error);

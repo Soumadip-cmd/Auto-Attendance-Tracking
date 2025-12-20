@@ -109,8 +109,8 @@ export const attendanceAPI = {
 };
 
 export const locationAPI = {
-  track: (data) => api.post('/location/track', data),
-  getHistory: (params) => api.get('/location/history', { params }),
+  track: (data) => api.post('/locations', data),
+  getHistory: (params) => api.get('/locations/history', { params }),
 };
 
 export const geofenceAPI = {
