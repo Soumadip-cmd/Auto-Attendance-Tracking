@@ -58,6 +58,7 @@ export default {
     extra: {
       API_URL: process.env.API_URL || "http://192.168.0.108:5000/api/v1",
       WS_URL: process.env.WS_URL || "http://192.168.0.108:5000",
+      GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY,
       eas: {
         projectId: "c4a1d50a-2bae-4cb0-a413-6e98a5b9eafa"
       }

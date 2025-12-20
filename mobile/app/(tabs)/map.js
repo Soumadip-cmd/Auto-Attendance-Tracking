@@ -7,12 +7,14 @@ import {
   Alert,
   ScrollView,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import MapView, { Marker, Polyline, Circle, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocation } from '../../src/hooks/useLocation';
 import { useTheme } from '../../src/hooks/useTheme';
 import { locationAPI, geofenceAPI } from '../../src/services/api';
+import googleMapsService from '../../src/services/googleMapsService';
 import { Loading } from '../../src/components/common/Loading';
 import { Card } from '../../src/components/common/Card';
 import { format } from 'date-fns';
@@ -52,14 +54,18 @@ export default function MapScreen() {
   const [loading, setLoading] = useState(true);
   const [distance, setDistance] = useState(null);
   const [selectedGeofence, setSelectedGeofence] = useState(null);
+  const [roadDistance, setRoadDistance] = useState(null);
+  const [address, setAddress] = useState(null);
+  const [loadingMaps, setLoadingMaps] = useState(false);
 
   useEffect(() => {
     initializeMap();
   }, []);
 
   useEffect(() => {
-    // Calculate distance when location or geofence changes
+    // Calculate distances when location or geofence changes
     if (location && selectedGeofence) {
+      // Haversine (straight-line) distance
       const dist = calculateDistance(
         location.latitude,
         location.longitude,
@@ -67,8 +73,40 @@ export default function MapScreen() {
         selectedGeofence.center.coordinates[0]
       );
       setDistance(dist);
+
+      // Google Maps road distance
+      fetchRoadDistance();
+      fetchAddress();
     }
   }, [location, selectedGeofence]);
+
+  const fetchRoadDistance = async () => {
+    if (!location || !selectedGeofence) return;
+    
+    setLoadingMaps(true);
+    const result = await googleMapsService.getDistance(
+      { latitude: location.latitude, longitude: location.longitude },
+      { latitude: selectedGeofence.center.coordinates[1], longitude: selectedGeofence.center.coordinates[0] }
+    );
+    
+    if (result.status === 'OK') {
+      setRoadDistance(result);
+    }
+    setLoadingMaps(false);
+  };
+
+  const fetchAddress = async () => {
+    if (!selectedGeofence) return;
+    
+    const result = await googleMapsService.getAddressFromCoordinates(
+      selectedGeofence.center.coordinates[1],
+      selectedGeofence.center.coordinates[0]
+    );
+    
+    if (result.status === 'OK') {
+      setAddress(result.address);
+    }
+  };
 
   const initializeMap = async () => {
     try {
@@ -311,6 +349,44 @@ export default function MapScreen() {
                   Geofence Radius: {selectedGeofence ? `${selectedGeofence.radius}m` : 'N/A'}
                 </Text>
               </View>
+              
+              {/* Google Maps Road Distance */}
+              {loadingMaps && (
+                <View style={styles.detailRow}>
+                  <ActivityIndicator size="small" color={theme.colors.primary} />
+                  <Text style={[styles.detailText, { color: theme.colors.textSecondary }]}>
+                    Loading road distance...
+                  </Text>
+                </View>
+              )}
+              
+              {roadDistance && (
+                <View style={styles.detailRow}>
+                  <Ionicons name="car" size={16} color={theme.colors.primary} />
+                  <Text style={[styles.detailText, { color: theme.colors.primary, fontWeight: '600' }]}>
+                    Road Distance: {roadDistance.distanceText}
+                  </Text>
+                </View>
+              )}
+              
+              {roadDistance && (
+                <View style={styles.detailRow}>
+                  <Ionicons name="time" size={16} color={theme.colors.textSecondary} />
+                  <Text style={[styles.detailText, { color: theme.colors.textSecondary }]}>
+                    Walking Time: {roadDistance.durationText}
+                  </Text>
+                </View>
+              )}
+              
+              {/* Address */}
+              {address && (
+                <View style={[styles.detailRow, { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: theme.colors.border }]}>
+                  <Ionicons name="business" size={16} color={theme.colors.textSecondary} />
+                  <Text style={[styles.detailText, { color: theme.colors.textSecondary, flex: 1 }]} numberOfLines={2}>
+                    {address.formattedAddress}
+                  </Text>
+                </View>
+              )}
               
               <View style={styles.statusBadge}>
                 <View style={[
