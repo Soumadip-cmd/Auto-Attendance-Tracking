@@ -72,16 +72,34 @@ export default function MapScreen() {
 
   const initializeMap = async () => {
     try {
+      console.log('🗺️ ========== MAP INITIALIZING ==========');
+      
       if (!hasPermission) {
+        console.log('📍 No permission - requesting...');
         await requestPermissions();
+      } else {
+        console.log('✅ Location permission already granted');
       }
       
-      await getCurrentLocation();
+      console.log('📍 Getting current location...');
+      const currentLocation = await getCurrentLocation();
+      
+      console.log('📍 ========== LOCATION DETAILS ==========');
+      console.log('📍 Full Location Object:', JSON.stringify(currentLocation, null, 2));
+      console.log('  ├─ Latitude:', currentLocation?.coords?.latitude);
+      console.log('  ├─ Longitude:', currentLocation?.coords?.longitude);
+      console.log('  ├─ Accuracy:', currentLocation?.coords?.accuracy, 'meters');
+      console.log('  ├─ Altitude:', currentLocation?.coords?.altitude);
+      console.log('  ├─ Speed:', currentLocation?.coords?.speed);
+      console.log('  ├─ Heading:', currentLocation?.coords?.heading);
+      console.log('  └─ Timestamp:', currentLocation?.timestamp);
+      console.log('========================================');
+      
       await loadGeofences();
       
       setLoading(false);
     } catch (error) {
-      console.error('Error initializing map:', error);
+      console.error('❌ Error initializing map:', error);
       Alert.alert('Error', 'Failed to initialize map');
       setLoading(false);
     }

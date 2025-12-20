@@ -18,22 +18,27 @@ class LocationService {
    */
   async requestPermissions() {
     try {
+      console.log('📍 Requesting location permissions...');
+      
       // Request foreground permissions
-      const { status:  foregroundStatus } = await Location. requestForegroundPermissionsAsync();
+      const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
+      console.log('  ├─ Foreground permission:', foregroundStatus);
       
       if (foregroundStatus !== 'granted') {
+        console.error('❌ Foreground location permission denied');
         throw new Error('Foreground location permission denied');
       }
 
       // Request background permissions (optional)
       const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
+      console.log('  └─ Background permission:', backgroundStatus);
       
       return {
         foreground: foregroundStatus === 'granted',
         background: backgroundStatus === 'granted',
       };
     } catch (error) {
-      console.error('Error requesting location permissions:', error);
+      console.error('❌ Error requesting location permissions:', error);
       throw error;
     }
   }
@@ -54,12 +59,16 @@ class LocationService {
       const hasPermission = await this.hasPermissions();
       
       if (!hasPermission) {
+        console.error('❌ Location permission not granted');
         throw new Error('Location permission not granted');
       }
 
+      console.log('📍 Getting current location with HIGH accuracy...');
       const location = await Location.getCurrentPositionAsync({
-        accuracy: Location. Accuracy.High,
+        accuracy: Location.Accuracy.High,
       });
+
+      console.log('📍 Raw Location Object:', JSON.stringify(location, null, 2));
 
       this.currentLocation = {
         latitude: location.coords.latitude,
@@ -69,11 +78,21 @@ class LocationService {
         heading: location.coords.heading,
         speed: location.coords.speed,
         timestamp: location.timestamp,
+        coords: location.coords, // Keep full coords object
       };
+
+      console.log('✅ Location obtained:');
+      console.log('  ├─ Latitude:', this.currentLocation.latitude);
+      console.log('  ├─ Longitude:', this.currentLocation.longitude);
+      console.log('  ├─ Accuracy:', this.currentLocation.accuracy, 'm');
+      console.log('  ├─ Altitude:', this.currentLocation.altitude);
+      console.log('  ├─ Speed:', this.currentLocation.speed);
+      console.log('  ├─ Heading:', this.currentLocation.heading);
+      console.log('  └─ Timestamp:', new Date(this.currentLocation.timestamp).toLocaleString());
 
       return this.currentLocation;
     } catch (error) {
-      console.error('Error getting current location:', error);
+      console.error('❌ Error getting current location:', error);
       throw error;
     }
   }

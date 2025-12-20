@@ -95,13 +95,20 @@ const Geofences = () => {
         isActive: formData.isActive,
       };
 
-      console.log('Submitting geofence:', geofenceData);
+      console.log('\n� SAVING TO DATABASE:', {
+        latitude: geofenceData.latitude,
+        longitude: geofenceData.longitude,
+        willBeSavedAs: [geofenceData.longitude, geofenceData.latitude],
+        fullObject: geofenceData
+      });
 
       if (editingGeofence) {
-        await api.put(`/geofences/${editingGeofence._id}`, geofenceData);
+        const response = await api.put(`/geofences/${editingGeofence._id}`, geofenceData);
+        console.log('✅ Database response:', response.data);
         toast.success('Geofence updated successfully');
       } else {
-        await api.post('/geofences', geofenceData);
+        const response = await api.post('/geofences', geofenceData);
+        console.log('✅ Database response:', response.data);
         toast.success('Geofence created successfully');
       }
       
@@ -203,18 +210,26 @@ const Geofences = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
+          console.log('\n📍 getCurrentLocation() RETURNED:', position);
+          
+          const lat = position.coords.latitude.toFixed(6);
+          const lon = position.coords.longitude.toFixed(6);
+          
           setFormData({
             ...formData,
-            latitude: position.coords.latitude.toFixed(6),
-            longitude: position.coords.longitude.toFixed(6),
+            latitude: lat,
+            longitude: lon,
           });
+          
           toast.success('Location captured!');
         },
-        () => {
+        (error) => {
+          console.error('❌ Geolocation error:', error);
           toast.error('Unable to get location');
         }
       );
     } else {
+      console.error('❌ Geolocation not supported');
       toast.error('Geolocation not supported');
     }
   };
