@@ -21,6 +21,7 @@ const attendanceRoutes = require('./routes/attendanceRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes'); // ✅ ADD THIS
 const geofenceRoutes = require('./routes/geofenceRoutes');
+const locationRoutes = require('./routes/locationRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
 const healthRoutes = require('./routes/healthRoutes');
 
@@ -143,6 +144,7 @@ app.use(`/api/${API_VERSION}/attendance`, attendanceRoutes);
 app.use(`/api/${API_VERSION}/reports`, reportRoutes);
 app.use(`/api/${API_VERSION}/dashboard`, dashboardRoutes); // ✅ ADD THIS
 app.use(`/api/${API_VERSION}/geofences`, geofenceRoutes);
+app.use(`/api/${API_VERSION}/locations`, locationRoutes);
 app.use(`/api/${API_VERSION}/settings`, settingsRoutes);
 
 // Root route
