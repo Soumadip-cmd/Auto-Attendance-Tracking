@@ -298,6 +298,39 @@ router.post('/check-in', protect, async (req, res, next) => {
     const isLate = currentMinutes > lateThreshold;
     const lateBy = isLate ? Math.max(0, currentMinutes - expectedMinutes) : 0;
     
+    // Calculate expected hours
+    let expectedHours = 9; // default 9 hours
+    if (geofence && geofence.workingHours) {
+      try {
+        let startTime = '09:00';
+        let endTime = '18:00';
+        
+        // New schema with schedule
+        if (geofence.workingHours.enabled && Array.isArray(geofence.workingHours.schedule) && geofence.workingHours.schedule.length > 0) {
+          const schedule = geofence.workingHours.schedule[0]; // Use first schedule as default
+          if (schedule.startTime && typeof schedule.startTime === 'string') startTime = schedule.startTime;
+          if (schedule.endTime && typeof schedule.endTime === 'string') endTime = schedule.endTime;
+        }
+        // Old schema
+        else if (geofence.workingHours.start && geofence.workingHours.end) {
+          startTime = geofence.workingHours.start;
+          endTime = geofence.workingHours.end;
+        }
+        
+        // Calculate hours if both times are valid
+        if (startTime.includes(':') && endTime.includes(':')) {
+          const [startHours, startMinutes] = startTime.split(':').map(Number);
+          const [endHours, endMinutes] = endTime.split(':').map(Number);
+          if (!isNaN(startHours) && !isNaN(startMinutes) && !isNaN(endHours) && !isNaN(endMinutes)) {
+            expectedHours = (endHours * 60 + endMinutes - startHours * 60 - startMinutes) / 60;
+          }
+        }
+      } catch (error) {
+        console.error('Error calculating expected hours:', error);
+        // Keep default 9 hours
+      }
+    }
+    
     // Create new attendance record
     const attendance = await Attendance.create({
       user: req.user._id,
@@ -315,12 +348,7 @@ router.post('/check-in', protect, async (req, res, next) => {
       isLate: isLate,
       lateBy: lateBy,
       notes: notes || '',
-      expectedHours: geofence?.workingHours ? 
-        (() => {
-          const [startHours, startMinutes] = geofence.workingHours.start.split(':').map(Number);
-          const [endHours, endMinutes] = geofence.workingHours.end.split(':').map(Number);
-          return (endHours * 60 + endMinutes - startHours * 60 - startMinutes) / 60;
-        })() : 9,
+      expectedHours: expectedHours,
     });
     
     await attendance.populate('user', 'firstName lastName employeeId email');
@@ -418,10 +446,37 @@ router.post('/check-out', protect, async (req, res, next) => {
       // Calculate expected working hours from geofence or use default
       let expectedHours = 9; // Default 9 hours
       
-      if (geofence?.workingHours) {
-        const [startHours, startMinutes] = geofence.workingHours.start.split(':').map(Number);
-        const [endHours, endMinutes] = geofence.workingHours.end.split(':').map(Number);
-        expectedHours = (endHours * 60 + endMinutes - startHours * 60 - startMinutes) / 60;
+      if (geofence && geofence.workingHours) {
+        try {
+          let startTime = '09:00';
+          let endTime = '18:00';
+          
+          // New schema with schedule
+          if (geofence.workingHours.enabled && Array.isArray(geofence.workingHours.schedule) && geofence.workingHours.schedule.length > 0) {
+            const schedule = geofence.workingHours.schedule[0];
+            if (schedule.startTime && typeof schedule.startTime === 'string') startTime = schedule.startTime;
+            if (schedule.endTime && typeof schedule.endTime === 'string') endTime = schedule.endTime;
+          }
+          // Old schema
+          else if (geofence.workingHours.start && geofence.workingHours.end && 
+                   typeof geofence.workingHours.start === 'string' && 
+                   typeof geofence.workingHours.end === 'string') {
+            startTime = geofence.workingHours.start;
+            endTime = geofence.workingHours.end;
+          }
+          
+          // Calculate hours
+          if (startTime.includes(':') && endTime.includes(':')) {
+            const [startHours, startMinutes] = startTime.split(':').map(Number);
+            const [endHours, endMinutes] = endTime.split(':').map(Number);
+            if (!isNaN(startHours) && !isNaN(startMinutes) && !isNaN(endHours) && !isNaN(endMinutes)) {
+              expectedHours = (endHours * 60 + endMinutes - startHours * 60 - startMinutes) / 60;
+            }
+          }
+        } catch (error) {
+          console.error('Error calculating expected hours:', error);
+          // Keep default 9 hours
+        }
       }
       
       attendance.expectedHours = expectedHours;

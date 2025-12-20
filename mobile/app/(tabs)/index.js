@@ -7,6 +7,7 @@ import {
   RefreshControl,
   TouchableOpacity,
   Alert,
+  Switch,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +23,7 @@ import { CheckInButton } from '../../src/components/attendance/CheckInButton';
 import { StatsCard } from '../../src/components/attendance/StatsCard';
 import { StatusBadge } from '../../src/components/attendance/StatusBadge';
 import geofenceService from '../../src/services/geofenceService';
+import BackgroundLocationService from '../../src/services/backgroundLocationService';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -43,6 +45,8 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [geofenceStatus, setGeofenceStatus] = useState(null);
   const [allGeofences, setAllGeofences] = useState([]);
+  const [backgroundTracking, setBackgroundTracking] = useState(false);
+  const [trackingStats, setTrackingStats] = useState(null);
 
   useEffect(() => {
     initializeApp();
@@ -71,6 +75,16 @@ export default function HomeScreen() {
     
     // Start geofence monitoring AFTER loading geofences
     await startGeofenceMonitoring();
+    
+    // Check if background tracking is active
+    const isTracking = await BackgroundLocationService.isTracking();
+    setBackgroundTracking(isTracking);
+    
+    // Load tracking stats
+    if (isTracking) {
+      const stats = await BackgroundLocationService.getStats();
+      setTrackingStats(stats);
+    }
     
     // Do initial geofence check and auto check-in if needed
     setTimeout(async () => {
@@ -310,6 +324,50 @@ export default function HomeScreen() {
     return `${hour12}:${minutes} ${ampm}`;
   };
 
+  const toggleBackgroundTracking = async () => {
+    try {
+      if (backgroundTracking) {
+        // Stop tracking
+        Alert.alert(
+          'Stop Tracking?',
+          'This will stop recording your movements. You can view the history in the History > Movement tab.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Stop',
+              style: 'destructive',
+              onPress: async () => {
+                await BackgroundLocationService.stopTracking();
+                setBackgroundTracking(false);
+                setTrackingStats(null);
+              },
+            },
+          ]
+        );
+      } else {
+        // Start tracking
+        const result = await BackgroundLocationService.startTracking();
+        if (result.success) {
+          setBackgroundTracking(true);
+          Alert.alert(
+            '✅ Tracking Started',
+            'Your movements are now being recorded.\n\n• Updates every 10 meters or 10 seconds\n• Works even when app is closed\n• View history in History > Movement tab',
+            [{ text: 'Got it!' }]
+          );
+          
+          // Load stats
+          const stats = await BackgroundLocationService.getStats();
+          setTrackingStats(stats);
+        } else {
+          Alert.alert('Error', result.error || 'Failed to start tracking');
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling tracking:', error);
+      Alert.alert('Error', error.message);
+    }
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <ScrollView
@@ -327,12 +385,12 @@ export default function HomeScreen() {
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Avatar
-              name={`${user?. firstName} ${user?.lastName}`}
+              name={`${user?.firstName} ${user?.lastName}`}
               size={50}
-              source={user?.avatar ?  { uri: user.avatar } :  null}
+              source={user?.avatar ? { uri: user.avatar } : null}
             />
             <View style={styles.headerText}>
-              <Text style={[styles.greeting, { color: theme.colors. textSecondary }]}>
+              <Text style={[styles.greeting, { color: theme.colors.textSecondary }]}>
                 {getGreeting()},
               </Text>
               <Text style={[styles.userName, { color: theme.colors. text }]}>
@@ -500,7 +558,7 @@ export default function HomeScreen() {
 
         {/* Quick Actions */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors. text }]}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
             Quick Actions
           </Text>
 
@@ -545,6 +603,64 @@ export default function HomeScreen() {
               </Text>
             </TouchableOpacity>
           </View>
+        </View>
+
+        {/* Background Tracking */}
+        <View style={styles.section}>
+          <Card style={[styles.trackingCard, { backgroundColor: backgroundTracking ? theme.colors.success + '10' : theme.colors.card }]}>
+            <View style={styles.trackingHeader}>
+              <View style={styles.trackingTitleContainer}>
+                <Ionicons 
+                  name={backgroundTracking ? "footsteps" : "footsteps-outline"} 
+                  size={24} 
+                  color={backgroundTracking ? theme.colors.success : theme.colors.text} 
+                />
+                <View style={styles.trackingTextContainer}>
+                  <Text style={[styles.trackingTitle, { color: theme.colors.text }]}>
+                    Background Tracking
+                  </Text>
+                  <Text style={[styles.trackingSubtitle, { color: theme.colors.textSecondary }]}>
+                    {backgroundTracking ? 'Recording your movements' : 'Track even when app closed'}
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                value={backgroundTracking}
+                onValueChange={toggleBackgroundTracking}
+                trackColor={{ false: '#d1d5db', true: theme.colors.success + '40' }}
+                thumbColor={backgroundTracking ? theme.colors.success : '#f3f4f6'}
+              />
+            </View>
+
+            {backgroundTracking && trackingStats && (
+              <View style={[styles.trackingStats, { borderTopColor: theme.colors.border }]}>
+                <View style={styles.trackingStat}>
+                  <Text style={[styles.trackingStatLabel, { color: theme.colors.textSecondary }]}>
+                    Total Points
+                  </Text>
+                  <Text style={[styles.trackingStatValue, { color: theme.colors.text }]}>
+                    {trackingStats.total}
+                  </Text>
+                </View>
+                <View style={styles.trackingStat}>
+                  <Text style={[styles.trackingStatLabel, { color: theme.colors.textSecondary }]}>
+                    Synced
+                  </Text>
+                  <Text style={[styles.trackingStatValue, { color: theme.colors.success }]}>
+                    {trackingStats.synced}
+                  </Text>
+                </View>
+                <View style={styles.trackingStat}>
+                  <Text style={[styles.trackingStatLabel, { color: theme.colors.textSecondary }]}>
+                    Pending
+                  </Text>
+                  <Text style={[styles.trackingStatValue, { color: theme.colors.warning }]}>
+                    {trackingStats.unsynced}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </Card>
         </View>
       </ScrollView>
     </View>
@@ -751,5 +867,49 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginTop: 8,
+  },
+  trackingCard: {
+    padding: 16,
+  },
+  trackingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  trackingTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  trackingTextContainer: {
+    flex: 1,
+  },
+  trackingTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  trackingSubtitle: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  trackingStats: {
+    flexDirection: 'row',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    gap: 12,
+  },
+  trackingStat: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  trackingStatLabel: {
+    fontSize: 11,
+    marginBottom: 4,
+  },
+  trackingStatValue: {
+    fontSize: 18,
+    fontWeight: '700',
   },
 });

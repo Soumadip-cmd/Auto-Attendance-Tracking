@@ -53,34 +53,41 @@ exports.checkIn = asyncHandler(async (req, res) => {
   let lateByMinutes = 0;
 
   if (geofence && geofence.workingHours) {
-    const dayOfWeek = checkInTime.toLocaleDateString('en-US', { weekday: 'lowercase' });
-    const currentTime = `${checkInTime.getHours().toString().padStart(2, '0')}:${checkInTime.getMinutes().toString().padStart(2, '0')}`;
+    try {
+      const dayOfWeek = checkInTime.toLocaleDateString('en-US', { weekday: 'lowercase' });
+      const currentTime = `${checkInTime.getHours().toString().padStart(2, '0')}:${checkInTime.getMinutes().toString().padStart(2, '0')}`;
 
-    let expectedStartTime = '09:00';
-    
-    // New schema: enabled + schedule
-    if (geofence.workingHours.enabled && geofence.workingHours.schedule) {
-      const schedule = geofence.workingHours.schedule.find(s => s.day === dayOfWeek);
-      if (schedule && schedule.startTime) {
-        expectedStartTime = schedule.startTime;
-      }
-    }
-    // Old schema: simple start time
-    else if (geofence.workingHours.start) {
-      expectedStartTime = geofence.workingHours.start;
-    }
-
-    // Calculate if late (with 15 minute grace period) - only if we have a valid start time
-    if (expectedStartTime && expectedStartTime.includes(':')) {
-      const [expectedHour, expectedMinute] = expectedStartTime.split(':').map(Number);
-      const expected = new Date(checkInTime);
-      expected.setHours(expectedHour, expectedMinute, 0, 0);
-      const gracePeriod = 15 * 60 * 1000; // 15 minutes
+      let expectedStartTime = '09:00';
       
-      if (checkInTime > new Date(expected.getTime() + gracePeriod)) {
-        isLate = true;
-        lateByMinutes = Math.floor((checkInTime - expected) / (1000 * 60));
+      // New schema: enabled + schedule
+      if (geofence.workingHours.enabled && Array.isArray(geofence.workingHours.schedule)) {
+        const schedule = geofence.workingHours.schedule.find(s => s.day === dayOfWeek);
+        if (schedule && schedule.startTime && typeof schedule.startTime === 'string') {
+          expectedStartTime = schedule.startTime;
+        }
       }
+      // Old schema: simple start time
+      else if (geofence.workingHours.start && typeof geofence.workingHours.start === 'string') {
+        expectedStartTime = geofence.workingHours.start;
+      }
+
+      // Calculate if late (with 15 minute grace period) - only if we have a valid start time
+      if (expectedStartTime && typeof expectedStartTime === 'string' && expectedStartTime.includes(':')) {
+        const [expectedHour, expectedMinute] = expectedStartTime.split(':').map(Number);
+        if (!isNaN(expectedHour) && !isNaN(expectedMinute)) {
+          const expected = new Date(checkInTime);
+          expected.setHours(expectedHour, expectedMinute, 0, 0);
+          const gracePeriod = 15 * 60 * 1000; // 15 minutes
+          
+          if (checkInTime > new Date(expected.getTime() + gracePeriod)) {
+            isLate = true;
+            lateByMinutes = Math.floor((checkInTime - expected) / (1000 * 60));
+          }
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error calculating late status:', error);
+      // Continue with default values (not late)
     }
   }
 
@@ -205,31 +212,38 @@ exports.checkOut = asyncHandler(async (req, res) => {
   let earlyByMinutes = 0;
 
   if (geofence && geofence.workingHours) {
-    const dayOfWeek = checkOutTime.toLocaleDateString('en-US', { weekday: 'lowercase' });
-    let expectedEndTime = '18:00';
-    
-    // New schema: enabled + schedule
-    if (geofence.workingHours.enabled && geofence.workingHours.schedule) {
-      const schedule = geofence.workingHours.schedule.find(s => s.day === dayOfWeek);
-      if (schedule && schedule.endTime) {
-        expectedEndTime = schedule.endTime;
-      }
-    }
-    // Old schema: simple end time
-    else if (geofence.workingHours.end) {
-      expectedEndTime = geofence.workingHours.end;
-    }
-
-    // Calculate if early departure - only if we have a valid end time
-    if (expectedEndTime && expectedEndTime.includes(':')) {
-      const [expectedHour, expectedMinute] = expectedEndTime.split(':').map(Number);
-      const expected = new Date(checkOutTime);
-      expected.setHours(expectedHour, expectedMinute, 0, 0);
+    try {
+      const dayOfWeek = checkOutTime.toLocaleDateString('en-US', { weekday: 'lowercase' });
+      let expectedEndTime = '18:00';
       
-      if (checkOutTime < expected) {
-        isEarlyDeparture = true;
-        earlyByMinutes = Math.floor((expected - checkOutTime) / (1000 * 60));
+      // New schema: enabled + schedule
+      if (geofence.workingHours.enabled && Array.isArray(geofence.workingHours.schedule)) {
+        const schedule = geofence.workingHours.schedule.find(s => s.day === dayOfWeek);
+        if (schedule && schedule.endTime && typeof schedule.endTime === 'string') {
+          expectedEndTime = schedule.endTime;
+        }
       }
+      // Old schema: simple end time
+      else if (geofence.workingHours.end && typeof geofence.workingHours.end === 'string') {
+        expectedEndTime = geofence.workingHours.end;
+      }
+
+      // Calculate if early departure - only if we have a valid end time
+      if (expectedEndTime && typeof expectedEndTime === 'string' && expectedEndTime.includes(':')) {
+        const [expectedHour, expectedMinute] = expectedEndTime.split(':').map(Number);
+        if (!isNaN(expectedHour) && !isNaN(expectedMinute)) {
+          const expected = new Date(checkOutTime);
+          expected.setHours(expectedHour, expectedMinute, 0, 0);
+          
+          if (checkOutTime < expected) {
+            isEarlyDeparture = true;
+            earlyByMinutes = Math.floor((expected - checkOutTime) / (1000 * 60));
+          }
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error calculating early departure:', error);
+      // Continue with default values (not early)
     }
   }
 

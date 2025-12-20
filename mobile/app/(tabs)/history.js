@@ -14,6 +14,7 @@ import { useTheme } from '../../src/hooks/useTheme';
 import { useAttendance } from '../../src/hooks/useAttendance';
 import { Card } from '../../src/components/common/Card';
 import { Loading } from '../../src/components/common/Loading';
+import MovementHistory from '../../src/components/MovementHistory';
 
 export default function HistoryScreen() {
   const { theme } = useTheme();
@@ -21,6 +22,7 @@ export default function HistoryScreen() {
   
   const [refreshing, setRefreshing] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
+  const [activeTab, setActiveTab] = useState('attendance'); // 'attendance' or 'movement'
 
   useEffect(() => {
     loadHistory();
@@ -235,17 +237,65 @@ export default function HistoryScreen() {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: theme.colors.card, borderBottomColor: theme.colors.border }]}>
         <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
-          Attendance History
+          History
         </Text>
         
-        {/* Month Selector */}
-        <View style={styles.monthSelector}>
+        {/* Tab Selector */}
+        <View style={styles.tabContainer}>
           <TouchableOpacity
-            style={[styles.monthButton, { backgroundColor: theme.colors.primary + '10' }]}
-            onPress={() => changeMonth(-1)}
+            style={[
+              styles.tab,
+              activeTab === 'attendance' && styles.activeTab,
+              activeTab === 'attendance' && { backgroundColor: theme.colors.primary }
+            ]}
+            onPress={() => setActiveTab('attendance')}
           >
-            <Ionicons name="chevron-back" size={20} color={theme.colors.primary} />
+            <Ionicons 
+              name="calendar" 
+              size={18} 
+              color={activeTab === 'attendance' ? '#fff' : theme.colors.textSecondary} 
+            />
+            <Text style={[
+              styles.tabText,
+              activeTab === 'attendance' && styles.activeTabText,
+              { color: activeTab === 'attendance' ? '#fff' : theme.colors.textSecondary }
+            ]}>
+              Attendance
+            </Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.tab,
+              activeTab === 'movement' && styles.activeTab,
+              activeTab === 'movement' && { backgroundColor: theme.colors.primary }
+            ]}
+            onPress={() => setActiveTab('movement')}
+          >
+            <Ionicons 
+              name="footsteps" 
+              size={18} 
+              color={activeTab === 'movement' ? '#fff' : theme.colors.textSecondary} 
+            />
+            <Text style={[
+              styles.tabText,
+              activeTab === 'movement' && styles.activeTabText,
+              { color: activeTab === 'movement' ? '#fff' : theme.colors.textSecondary }
+            ]}>
+              Movement
+            </Text>
+          </TouchableOpacity>
+        </View>
+        
+        {/* Month Selector - Only for Attendance */}
+        {activeTab === 'attendance' && (
+          <View style={styles.monthSelector}>
+            <TouchableOpacity
+              style={[styles.monthButton, { backgroundColor: theme.colors.primary + '10' }]}
+              onPress={() => changeMonth(-1)}
+            >
+              <Ionicons name="chevron-back" size={20} color={theme.colors.primary} />
+            </TouchableOpacity>
           
           <Text style={[styles.monthText, { color: theme.colors.text }]}>
             {format(selectedMonth, 'MMMM yyyy')}
@@ -258,30 +308,35 @@ export default function HistoryScreen() {
             <Ionicons name="chevron-forward" size={20} color={theme.colors.primary} />
           </TouchableOpacity>
         </View>
+        )}
       </View>
 
-      {/* History List */}
-      <FlatList
-        data={attendanceHistory}
-        renderItem={renderHistoryItem}
-        keyExtractor={(item) => item._id}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={theme.colors.primary}
-          />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="calendar-outline" size={64} color={theme.colors.textSecondary} />
-            <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-              No attendance records for this month
-            </Text>
-          </View>
-        }
-      />
+      {/* Content */}
+      {activeTab === 'attendance' ? (
+        <FlatList
+          data={attendanceHistory}
+          renderItem={renderHistoryItem}
+          keyExtractor={(item) => item._id}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={theme.colors.primary}
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Ionicons name="calendar-outline" size={64} color={theme.colors.textSecondary} />
+              <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+                No attendance records for this month
+              </Text>
+            </View>
+          }
+        />
+      ) : (
+        <MovementHistory />
+      )}
     </View>
   );
 }
@@ -414,5 +469,35 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 16,
     textAlign: 'center',
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 16,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
+  },
+  activeTab: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  activeTabText: {
+    color: '#fff',
   },
 });

@@ -125,9 +125,6 @@ class LocationService {
     }
   }
 
-  /**
-   * Stop tracking location
-   */
   async stopTracking() {
     if (this.locationSubscription) {
       this.locationSubscription.remove();
@@ -138,7 +135,7 @@ class LocationService {
   }
 
   /**
-   * Start background location tracking
+   * Start background location tracking (use BackgroundLocationService instead)
    */
   async startBackgroundTracking() {
     try {
@@ -149,7 +146,7 @@ class LocationService {
       }
 
       await Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK, {
-        accuracy: Location. Accuracy. Balanced,
+        accuracy: Location.Accuracy.Balanced,
         distanceInterval: APP_CONFIG.LOCATION_DISTANCE_FILTER,
         timeInterval: APP_CONFIG.BACKGROUND_LOCATION_INTERVAL,
         foregroundService: {

@@ -6,7 +6,7 @@ const { validate, schemas } = require('../middleware/validation');
 const { locationLimiter } = require('../middleware/rateLimiter');
 
 router.post('/', protect, locationLimiter, validate(schemas.submitLocation), locationController.submitLocation);
-router.post('/batch', protect, locationLimiter, validate(schemas.submitLocations), locationController.submitLocations);
+router.post('/batch', protect, locationLimiter, locationController.submitLocationBatch);
 router.get('/history', protect, locationController.getLocationHistory);
 router.get('/live', protect, authorize('admin', 'manager'), locationController.getLiveLocations);
 router.get('/heatmap', protect, authorize('admin', 'manager'), locationController.getHeatmapData);

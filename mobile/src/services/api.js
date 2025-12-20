@@ -110,6 +110,7 @@ export const attendanceAPI = {
 
 export const locationAPI = {
   track: (data) => api.post('/locations', data),
+  submitBatch: (locations) => api.post('/locations/batch', { locations }),
   getHistory: (params) => api.get('/locations/history', { params }),
 };
 

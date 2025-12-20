@@ -4,6 +4,66 @@ const logger = require('../config/logger');
 const crypto = require('crypto');
 
 /**
+ * @desc    Submit batch location data (for background tracking)
+ * @route   POST /api/v1/locations/batch
+ * @access  Private
+ */
+exports.submitLocationBatch = asyncHandler(async (req, res) => {
+  const { locations } = req.body;
+
+  if (!Array.isArray(locations) || locations.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Locations array is required'
+    });
+  }
+
+  // Check tracking enabled
+  if (!req.user.consentGiven || !req.user.trackingEnabled) {
+    return res.status(403).json({
+      success: false,
+      message: 'Location tracking not enabled'
+    });
+  }
+
+  const savedLocations = [];
+  const errors = [];
+
+  for (const loc of locations) {
+    try {
+      const location = await Location.create({
+        user: req.user._id,
+        coordinates: {
+          type: 'Point',
+          coordinates: [loc.longitude, loc.latitude]
+        },
+        accuracy: loc.accuracy,
+        altitude: loc.altitude,
+        speed: loc.speed,
+        heading: loc.heading,
+        timestamp: new Date(loc.timestamp),
+        trackingType: loc.trackingType || 'background'
+      });
+      savedLocations.push(location._id);
+    } catch (error) {
+      errors.push({ location: loc, error: error.message });
+    }
+  }
+
+  logger.info(`📍 Batch: Saved ${savedLocations.length}/${locations.length} locations for user ${req.user._id}`);
+
+  res.status(201).json({
+    success: true,
+    data: {
+      saved: savedLocations.length,
+      total: locations.length,
+      errors: errors.length,
+      locationIds: savedLocations
+    }
+  });
+});
+
+/**
  * @desc    Submit location data
  * @route   POST /api/v1/locations
  * @access  Private
