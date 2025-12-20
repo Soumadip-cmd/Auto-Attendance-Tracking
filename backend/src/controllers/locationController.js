@@ -310,6 +310,8 @@ exports.submitLocations = asyncHandler(async (req, res) => {
  * @access  Private
  */
 exports.getLocationHistory = asyncHandler(async (req, res) => {
+  console.log('📍 GET /locations/history called with params:', req.query);
+  
   const {
     userId,
     startDate,
@@ -343,6 +345,8 @@ exports.getLocationHistory = asyncHandler(async (req, res) => {
     query.trackingType = trackingType;
   }
 
+  console.log('🔍 Querying locations with:', query);
+
   // Execute query with pagination
   const skip = (page - 1) * limit;
   const locations = await Location.find(query)
@@ -353,6 +357,8 @@ exports.getLocationHistory = asyncHandler(async (req, res) => {
     .select('-signature');
 
   const total = await Location.countDocuments(query);
+
+  console.log(`✅ Found ${locations.length} location records (total: ${total})`);
 
   res.json({
     success: true,

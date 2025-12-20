@@ -27,6 +27,8 @@ class GeofenceService {
     this.monitoringInterval = null;
     this.geofenceReloadInterval = null;
     this.lastCheckTime = null;
+    this.hasNotifiedEntry = false; // Track if we already sent entry notification
+    this.lastNotificationGeofenceId = null; // Track which geofence we last notified about
   }
 
   /**
@@ -100,13 +102,21 @@ class GeofenceService {
         workingHours: this.currentGeofence?.workingHours
       });
 
-      // Handle geofence entry
+      // Handle geofence entry - ONLY trigger if we weren't inside before
       if (inGeofence && !previousGeofence) {
+        this.hasNotifiedEntry = false; // Reset notification flag
         await this.handleGeofenceEntry(this.currentGeofence, location);
       }
+      // If still inside same geofence, don't trigger again
+      else if (inGeofence && previousGeofence && previousGeofence._id === this.currentGeofence._id) {
+        // Still inside, do nothing (prevents duplicate notifications)
+        console.log('ℹ️ Still inside', this.currentGeofence.name, '- no notification');
+      }
 
-      // Handle geofence exit
+      // Handle geofence exit - ONLY trigger if we were inside before
       if (!inGeofence && previousGeofence) {
+        this.hasNotifiedEntry = false; // Reset on exit
+        this.lastNotificationGeofenceId = null;
         await this.handleGeofenceExit(previousGeofence, location);
       }
 
@@ -128,6 +138,12 @@ class GeofenceService {
     try {
       console.log('🔵 Entered geofence:', geofence.name);
 
+      // Prevent duplicate notifications for same geofence
+      if (this.hasNotifiedEntry && this.lastNotificationGeofenceId === geofence._id) {
+        console.log('ℹ️ Already notified for this entry, skipping duplicate notification');
+        return;
+      }
+
       // Get current attendance status
       const attendanceStore = useAttendanceStore.getState();
       const { todayAttendance } = attendanceStore;
@@ -147,20 +163,26 @@ class GeofenceService {
             `You were automatically checked in at ${geofence.name}`,
             { type: 'auto_checkin', geofenceId: geofence._id }
           );
+          
+          // Mark as notified
+          this.hasNotifiedEntry = true;
+          this.lastNotificationGeofenceId = geofence._id;
         } else {
           console.error('❌ Auto check-in failed:', result.error);
         }
       } else {
         console.log('ℹ️ Already checked in today, skipping auto check-in');
-      }
-
-      // Show entry notification
-      if (geofence.alerts?.entryAlert) {
-        await notificationService.scheduleNotification(
-          `📍 Entered ${geofence.name}`,
-          'You are now within the designated work area',
-          { type: 'geofence_entry', geofenceId: geofence._id }
-        );
+        
+        // Still show entry notification if enabled
+        if (geofence.alerts?.entryAlert && !this.hasNotifiedEntry) {
+          await notificationService.scheduleNotification(
+            `📍 Entered ${geofence.name}`,
+            'You are now within the designated work area',
+            { type: 'geofence_entry', geofenceId: geofence._id }
+          );
+          this.hasNotifiedEntry = true;
+          this.lastNotificationGeofenceId = geofence._id;
+        }
       }
     } catch (error) {
       console.error('❌ Error handling geofence entry:', error);

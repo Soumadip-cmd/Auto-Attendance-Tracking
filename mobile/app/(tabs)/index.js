@@ -507,7 +507,7 @@ export default function HomeScreen() {
           <View style={styles.quickActions}>
             <TouchableOpacity
               style={[styles.quickAction, { backgroundColor: theme.colors.card }]}
-              onPress={() => router.push('/attendance/history')}
+              onPress={() => router.push('/(tabs)/history')}
             >
               <Ionicons name="time-outline" size={28} color={theme.colors.primary} />
               <Text style={[styles.quickActionText, { color: theme.colors.text }]}>
@@ -517,7 +517,17 @@ export default function HomeScreen() {
 
             <TouchableOpacity
               style={[styles.quickAction, { backgroundColor: theme.colors.card }]}
-              onPress={() => router.push('/reports')}
+              onPress={() => router.push('/(tabs)/map')}
+            >
+              <Ionicons name="map-outline" size={28} color={theme.colors.success} />
+              <Text style={[styles.quickActionText, { color: theme.colors.text }]}>
+                Map
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.quickAction, { backgroundColor: theme.colors.card }]}
+              onPress={() => router.push('/(tabs)/reports')}
             >
               <Ionicons name="stats-chart-outline" size={28} color={theme.colors.secondary} />
               <Text style={[styles.quickActionText, { color: theme.colors.text }]}>
@@ -527,21 +537,11 @@ export default function HomeScreen() {
 
             <TouchableOpacity
               style={[styles.quickAction, { backgroundColor: theme.colors.card }]}
-              onPress={() => router.push('/profile')}
+              onPress={() => router.push('/(tabs)/profile')}
             >
               <Ionicons name="person-outline" size={28} color={theme.colors.info} />
               <Text style={[styles.quickActionText, { color: theme.colors.text }]}>
                 Profile
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.quickAction, { backgroundColor: theme.colors.card }]}
-              onPress={() => router.push('/settings')}
-            >
-              <Ionicons name="settings-outline" size={28} color={theme.colors. warning} />
-              <Text style={[styles.quickActionText, { color: theme.colors.text }]}>
-                Settings
               </Text>
             </TouchableOpacity>
           </View>
