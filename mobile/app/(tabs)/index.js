@@ -272,14 +272,26 @@ export default function HomeScreen() {
   const getWorkingHoursText = (workingHours) => {
     // Support both new schema (enabled + schedule) and old schema (start + end)
     if (workingHours?.enabled && workingHours?.schedule?.length) {
-      // New schema with schedule array
+      // New schema with schedule array - match day names
+      const daysMap = {
+        'sunday': 'sunday',
+        'monday': 'monday',
+        'tuesday': 'tuesday',
+        'wednesday': 'wednesday',
+        'thursday': 'thursday',
+        'friday': 'friday',
+        'saturday': 'saturday'
+      };
       const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-      const todaySchedule = workingHours.schedule.find(s => s.day === today);
+      const todaySchedule = workingHours.schedule.find(s => s.day?.toLowerCase() === today);
 
-      if (todaySchedule) {
+      if (todaySchedule && todaySchedule.startTime && todaySchedule.endTime) {
         return `${formatTimeString(todaySchedule.startTime)} - ${formatTimeString(todaySchedule.endTime)}`;
       }
-      return 'No schedule for today';
+      // Fallback to first schedule if today not found
+      if (workingHours.schedule[0]?.startTime) {
+        return `${formatTimeString(workingHours.schedule[0].startTime)} - ${formatTimeString(workingHours.schedule[0].endTime)}`;
+      }
     } else if (workingHours?.start && workingHours?.end) {
       // Old schema with simple start/end
       return `${formatTimeString(workingHours.start)} - ${formatTimeString(workingHours.end)}`;

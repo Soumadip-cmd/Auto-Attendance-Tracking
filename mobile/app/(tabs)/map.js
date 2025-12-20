@@ -32,6 +32,15 @@ export default function MapScreen() {
 
   useEffect(() => {
     initializeMap();
+    
+    // Auto-start tracking after map initializes
+    const autoStartTimer = setTimeout(() => {
+      if (!isLiveTracking) {
+        handleStartLiveTracking();
+      }
+    }, 2000); // Wait 2 seconds for map to load
+
+    return () => clearTimeout(autoStartTimer);
   }, []);
 
   const initializeMap = async () => {
