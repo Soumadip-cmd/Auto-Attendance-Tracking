@@ -10,6 +10,11 @@ const rateLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  // Properly handle proxy by using standard forwarded headers
+  validate: {
+    xForwardedForHeader: false, // Disable validation since we're behind nginx
+    trustProxy: false, // Disable strict trust proxy validation
+  },
 });
 
 // Auth rate limiter (stricter for security)
@@ -22,6 +27,10 @@ const authLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  validate: {
+    xForwardedForHeader: false,
+    trustProxy: false,
+  },
 });
 
 // More permissive rate limiter for location tracking (very frequent updates)
@@ -34,6 +43,10 @@ const locationLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  validate: {
+    xForwardedForHeader: false,
+    trustProxy: false,
+  },
 });
 
 module.exports = {

@@ -32,11 +32,13 @@ class WebSocketService {
 
       this.socket = io(config.WS_URL, {
         auth: { token },
-        transports: ['websocket'],
+        transports: ['websocket', 'polling'], // Allow polling fallback for HTTPS
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
         reconnectionAttempts: this.maxReconnectAttempts,
+        timeout: 10000, // 10 second timeout
+        forceNew: true,
       });
 
       this.setupEventListeners();
