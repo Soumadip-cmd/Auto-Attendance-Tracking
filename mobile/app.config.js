@@ -8,9 +8,11 @@ export default {
     orientation: "portrait",
     userInterfaceStyle: "automatic",
     splash: {
+      image: "./assets/splash.png",
       resizeMode: "contain",
       backgroundColor: "#6366f1"
     },
+    icon: "./assets/icon.png",
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.geoattendance.freelixe",
@@ -33,6 +35,7 @@ export default {
         "FOREGROUND_SERVICE_LOCATION"
       ],
       adaptiveIcon: {
+        foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#6366f1"
       },
       config: {
