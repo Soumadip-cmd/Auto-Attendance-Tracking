@@ -6,6 +6,7 @@ const { validate, schemas } = require('../middleware/validation');
 
 router.post('/', protect, authorize('admin'), validate(schemas.createGeofence), geofenceController.createGeofence);
 router.get('/', protect, geofenceController.getGeofences);
+router.get('/nearby', protect, geofenceController.getNearbyGeofences);
 router.get('/:id', protect, geofenceController.getGeofence);
 router.put('/:id', protect, authorize('admin'), validate(schemas.updateGeofence), geofenceController.updateGeofence);
 router.delete('/:id', protect, authorize('admin'), geofenceController.deleteGeofence);

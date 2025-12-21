@@ -1,56 +1,61 @@
 const { Geofence, Event } = require('../models');
-const asyncHandler = require('express-async-handler');
+const { asyncHandler } = require('../middleware/errorHandler');
+const logger = require('../config/logger');
 
 /**
- * @desc    Create geofence
+ * @desc    Create new geofence
  * @route   POST /api/v1/geofences
- * @access  Private (Admin)
+ * @access  Private/Admin
  */
 exports.createGeofence = asyncHandler(async (req, res) => {
   const {
     name,
     description,
-    type,
     latitude,
     longitude,
     radius,
+    type,
     address,
     workingHours,
-    alerts,
-    color,
-    assignedUsers
+    color
   } = req.body;
 
+  // Create geofence
   const geofence = await Geofence.create({
     name,
     description,
-    type,
     center: {
       type: 'Point',
       coordinates: [longitude, latitude]
     },
     radius,
+    type,
     address,
     workingHours,
-    alerts,
     color,
-    assignedUsers,
     createdBy: req.user._id
   });
 
+  // Log event
   await Event.log({
-    eventType: 'geofence.create',
+    eventType: 'geofence.created',
     actor: req.user._id,
     resource: { type: 'geofence', id: geofence._id },
     severity: 'info',
-    details: { name, type, radius },
+    details: {
+      name: geofence.name,
+      type: geofence.type,
+      radius: geofence.radius
+    },
     ipAddress: req.ip,
     userAgent: req.get('user-agent')
   });
 
+  logger.info(`Geofence created: ${geofence.name} by ${req.user.fullName}`);
+
   res.status(201).json({
     success: true,
-    data: { geofence }
+    data: geofence
   });
 });
 
@@ -60,20 +65,25 @@ exports.createGeofence = asyncHandler(async (req, res) => {
  * @access  Private
  */
 exports.getGeofences = asyncHandler(async (req, res) => {
-  const { type, isActive } = req.query;
+  const { isActive, type } = req.query;
 
-  const query = {};
-  if (type) query.type = type;
-  if (typeof isActive !== 'undefined') query.isActive = isActive === 'true';
+  const filter = {};
+  if (isActive !== undefined) {
+    filter.isActive = isActive === 'true';
+  }
+  if (type) {
+    filter.type = type;
+  }
 
-  const geofences = await Geofence.find(query)
-    .populate('createdBy', 'firstName lastName')
-    .sort({ createdAt: -1 });
+  const geofences = await Geofence.find(filter)
+    .populate('createdBy', 'fullName email')
+    .populate('updatedBy', 'fullName email')
+    .sort('-createdAt');
 
-  res.status(200).json({
+  res.json({
     success: true,
     count: geofences.length,
-    data: geofences,
+    data: geofences
   });
 });
 
@@ -84,8 +94,8 @@ exports.getGeofences = asyncHandler(async (req, res) => {
  */
 exports.getGeofence = asyncHandler(async (req, res) => {
   const geofence = await Geofence.findById(req.params.id)
-    .populate('createdBy', 'firstName lastName')
-    .populate('assignedUsers', 'firstName lastName email department');
+    .populate('createdBy', 'fullName email')
+    .populate('updatedBy', 'fullName email');
 
   if (!geofence) {
     return res.status(404).json({
@@ -96,14 +106,14 @@ exports.getGeofence = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    data: { geofence }
+    data: geofence
   });
 });
 
 /**
  * @desc    Update geofence
  * @route   PUT /api/v1/geofences/:id
- * @access  Private (Admin)
+ * @access  Private/Admin
  */
 exports.updateGeofence = asyncHandler(async (req, res) => {
   let geofence = await Geofence.findById(req.params.id);
@@ -115,46 +125,64 @@ exports.updateGeofence = asyncHandler(async (req, res) => {
     });
   }
 
-  const updateData = { ...req.body };
+  const {
+    name,
+    description,
+    latitude,
+    longitude,
+    radius,
+    type,
+    address,
+    workingHours,
+    color,
+    isActive
+  } = req.body;
 
-  // Update center if latitude/longitude provided
-  if (req.body.latitude && req.body.longitude) {
-    updateData.center = {
+  // Update fields
+  if (name !== undefined) geofence.name = name;
+  if (description !== undefined) geofence.description = description;
+  if (latitude !== undefined && longitude !== undefined) {
+    geofence.center = {
       type: 'Point',
-      coordinates: [req.body.longitude, req.body.latitude]
+      coordinates: [longitude, latitude]
     };
-    delete updateData.latitude;
-    delete updateData.longitude;
   }
+  if (radius !== undefined) geofence.radius = radius;
+  if (type !== undefined) geofence.type = type;
+  if (address !== undefined) geofence.address = address;
+  if (workingHours !== undefined) geofence.workingHours = workingHours;
+  if (color !== undefined) geofence.color = color;
+  if (isActive !== undefined) geofence.isActive = isActive;
+  geofence.updatedBy = req.user._id;
 
-  updateData.updatedBy = req.user._id;
+  await geofence.save();
 
-  geofence = await Geofence.findByIdAndUpdate(
-    req.params.id,
-    updateData,
-    { new: true, runValidators: true }
-  );
-
+  // Log event
   await Event.log({
-    eventType: 'geofence.update',
+    eventType: 'geofence.updated',
     actor: req.user._id,
     resource: { type: 'geofence', id: geofence._id },
     severity: 'info',
-    details: { name: geofence.name, changes: Object.keys(updateData) },
+    details: {
+      name: geofence.name,
+      changes: req.body
+    },
     ipAddress: req.ip,
     userAgent: req.get('user-agent')
   });
 
+  logger.info(`Geofence updated: ${geofence.name} by ${req.user.fullName}`);
+
   res.json({
     success: true,
-    data: { geofence }
+    data: geofence
   });
 });
 
 /**
  * @desc    Delete geofence
  * @route   DELETE /api/v1/geofences/:id
- * @access  Private (Admin)
+ * @access  Private/Admin
  */
 exports.deleteGeofence = asyncHandler(async (req, res) => {
   const geofence = await Geofence.findById(req.params.id);
@@ -166,51 +194,115 @@ exports.deleteGeofence = asyncHandler(async (req, res) => {
     });
   }
 
-  await Geofence.findByIdAndDelete(req.params.id);
+  await geofence.deleteOne();
 
+  // Log event
   await Event.log({
-    eventType: 'geofence.delete',
+    eventType: 'geofence.deleted',
     actor: req.user._id,
     resource: { type: 'geofence', id: geofence._id },
     severity: 'warning',
-    details: { name: geofence.name },
+    details: {
+      name: geofence.name
+    },
     ipAddress: req.ip,
     userAgent: req.get('user-agent')
   });
 
+  logger.info(`Geofence deleted: ${geofence.name} by ${req.user.fullName}`);
+
   res.json({
     success: true,
-    message: 'Geofence deleted successfully'
+    data: {}
   });
 });
 
 /**
- * @desc    Check if location is within geofence
+ * @desc    Check if location is within any geofence
  * @route   POST /api/v1/geofences/check
  * @access  Private
  */
 exports.checkLocation = asyncHandler(async (req, res) => {
   const { latitude, longitude } = req.body;
 
-  const geofences = await Geofence.findContainingPoint(longitude, latitude);
+  if (!latitude || !longitude) {
+    return res.status(400).json({
+      success: false,
+      message: 'Latitude and longitude are required'
+    });
+  }
+
+  // Find all geofences containing this point
+  const containing = await Geofence.findContainingPoint(longitude, latitude);
+
+  // Find nearest geofence
+  const nearest = await Geofence.findNearest(longitude, latitude);
+
+  let nearestDistance = null;
+  if (nearest) {
+    const result = nearest.containsPoint(longitude, latitude);
+    nearestDistance = result.distance;
+  }
 
   res.json({
     success: true,
     data: {
-      isInside: geofences.length > 0,
-      geofences: geofences.map(gf => ({
-        _id: gf._id,
-        name: gf.name,
-        type: gf.type,
-        radius: gf.radius,
-        center: {
-          latitude: gf.center.coordinates[1],
-          longitude: gf.center.coordinates[0]
-        },
-        workingHours: gf.workingHours,
-        alerts: gf.alerts,
-        color: gf.color
-      }))
+      isInside: containing.length > 0,
+      geofences: containing.map(c => ({
+        id: c.geofence._id,
+        name: c.geofence.name,
+        type: c.geofence.type,
+        distance: c.distance,
+        radius: c.geofence.radius,
+        color: c.geofence.color
+      })),
+      nearest: nearest ? {
+        id: nearest._id,
+        name: nearest.name,
+        type: nearest.type,
+        distance: nearestDistance,
+        radius: nearest.radius,
+        color: nearest.color,
+        coordinates: {
+          latitude: nearest.center.coordinates[1],
+          longitude: nearest.center.coordinates[0]
+        }
+      } : null
     }
+  });
+});
+
+/**
+ * @desc    Get geofences near a location
+ * @route   GET /api/v1/geofences/nearby
+ * @access  Private
+ */
+exports.getNearbyGeofences = asyncHandler(async (req, res) => {
+  const { latitude, longitude, maxDistance = 5000 } = req.query;
+
+  if (!latitude || !longitude) {
+    return res.status(400).json({
+      success: false,
+      message: 'Latitude and longitude are required'
+    });
+  }
+
+  const geofences = await Geofence.find({
+    center: {
+      $near: {
+        $geometry: {
+          type: 'Point',
+          coordinates: [parseFloat(longitude), parseFloat(latitude)]
+        },
+        $maxDistance: parseInt(maxDistance)
+      }
+    },
+    isActive: true
+  }).limit(10);
+
+  res.json({
+    success: true,
+    count: geofences.length,
+    data: geofences
   });
 });

@@ -5,9 +5,9 @@ import {
   ClipboardList,
   BarChart3,
   Clock,
-  MapPin,
   Settings,
   LogOut,
+  MapPin,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -18,9 +18,9 @@ const Sidebar = () => {
     { icon:  LayoutDashboard, label:  'Dashboard', path: '/' },
     { icon: Users, label: 'Employees', path: '/employees' },
     { icon: ClipboardList, label: 'Attendance', path: '/attendance' },
+    { icon: MapPin, label: 'Geofences', path: '/geofences' },
     { icon: BarChart3, label: 'Reports', path: '/reports' },
     { icon: Clock, label: 'Work Schedule', path: '/work-schedule' },
-    { icon: MapPin, label: 'Geofences', path: '/geofences' },
     { icon:  Settings, label: 'Settings', path: '/settings' },
   ];
 

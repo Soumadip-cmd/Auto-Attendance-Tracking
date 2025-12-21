@@ -114,12 +114,6 @@ export const locationAPI = {
   getHistory: (params) => api.get('/locations/history', { params }),
 };
 
-export const geofenceAPI = {
-  getAll: () => api.get('/geofences'),
-  getById: (id) => api.get(`/geofences/${id}`),
-  checkLocation: (data) => api.post('/geofences/check', data),
-};
-
 export const notificationAPI = {
   getAll: (params) => api.get('/notifications', { params }),
   markAsRead: (id) => api.put(`/notifications/${id}/read`),
@@ -147,6 +141,18 @@ export const reportAPI = {
   generate: (params) => api.post('/reports/generate', params),
   getById: (id) => api.get(`/reports/${id}`),
   download: (id) => api.get(`/reports/${id}/download`, { responseType: 'blob' }),
+};
+
+export const geofenceAPI = {
+  getAll: (params) => api.get('/geofences', { params }),
+  getById: (id) => api.get(`/geofences/${id}`),
+  create: (data) => api.post('/geofences', data),
+  update: (id, data) => api.put(`/geofences/${id}`, data),
+  delete: (id) => api.delete(`/geofences/${id}`),
+  checkLocation: (latitude, longitude) => api.post('/geofences/check', { latitude, longitude }),
+  getNearby: (latitude, longitude, maxDistance = 5000) => api.get('/geofences/nearby', { 
+    params: { latitude, longitude, maxDistance } 
+  }),
 };
 
 export default api;

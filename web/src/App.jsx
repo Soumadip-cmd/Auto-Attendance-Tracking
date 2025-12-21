@@ -61,9 +61,9 @@ function App() {
               <Route index element={<Dashboard />} />
               <Route path="employees" element={<Employees />} />
               <Route path="attendance" element={<Attendance />} />
+              <Route path="geofences" element={<Geofences />} />
               <Route path="reports" element={<Reports />} />
               <Route path="work-schedule" element={<WorkSchedule />} />
-              <Route path="geofences" element={<Geofences />} />
               <Route path="settings" element={<Settings />} />
             </Route>
             {/* Redirect any unknown route */}

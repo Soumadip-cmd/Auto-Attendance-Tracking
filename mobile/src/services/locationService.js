@@ -115,9 +115,9 @@ class LocationService {
 
       this.locationSubscription = await Location.watchPositionAsync(
         {
-          accuracy: Location.Accuracy.High,
-          distanceInterval: 5, // Update every 5 meters
-          timeInterval: 3000, // 3 seconds for smoother tracking
+          accuracy: Location.Accuracy.BestForNavigation,
+          distanceInterval: 1, // Update every 1 meter of movement
+          timeInterval: 1000, // Update every 1 second for real-time tracking
         },
         (location) => {
           this.currentLocation = {
@@ -129,6 +129,8 @@ class LocationService {
             speed: location.coords.speed,
             timestamp: location.timestamp,
           };
+
+          console.log('🔄 Location update:', location.coords.latitude.toFixed(6), location.coords.longitude.toFixed(6));
 
           if (onLocationUpdate) {
             onLocationUpdate(this.currentLocation);

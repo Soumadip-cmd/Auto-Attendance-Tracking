@@ -84,11 +84,6 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-  // Assigned Geofences
-  assignedGeofences: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Geofence'
-  }],
   // Refresh Tokens
   refreshTokens: [{
     token: {

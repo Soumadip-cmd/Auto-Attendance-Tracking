@@ -24,13 +24,6 @@ const eventSchema = new mongoose.Schema({
       // Location events
       'location.update',
       'location.tamper-detected',
-      // Geofence events
-      'geofence.entry',
-      'geofence.exit',
-      'geofence.violation',
-      'geofence.create',
-      'geofence.update',
-      'geofence.delete',
       // Privacy events
       'privacy.consent-given',
       'privacy.consent-revoked',
@@ -64,7 +57,7 @@ const eventSchema = new mongoose.Schema({
   resource: {
     type: {
       type: String,
-      enum: ['user', 'device', 'location', 'attendance', 'geofence', 'system']
+      enum: ['user', 'device', 'location', 'attendance', 'system']
     },
     id: {
       type: mongoose.Schema.Types.ObjectId

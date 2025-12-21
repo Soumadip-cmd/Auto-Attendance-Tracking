@@ -45,7 +45,7 @@ export default function AnimatedSplashScreen({ onFinish }) {
           resizeMode="contain"
         />
         <Text style={styles.title}>Attendance Tracker</Text>
-        <Text style={styles.subtitle}>Powered by Team .....</Text>
+        <Text style={styles.subtitle}>Powered by Team God</Text>
       </Animated.View>
     </View>
   );

@@ -1,4 +1,4 @@
-const { Attendance, Location, Geofence, Device, Event } = require('../models');
+const { Attendance, Location, Device, Event, Geofence } = require('../models');
 const { asyncHandler } = require('../middleware/errorHandler');
 
 /**
@@ -16,6 +16,49 @@ exports.checkIn = asyncHandler(async (req, res) => {
     });
   }
 
+  // Check if location is within any geofence
+  const containingGeofences = await Geofence.findContainingPoint(longitude, latitude);
+  
+  if (containingGeofences.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'You must be within an office location to check in',
+      errorCode: 'OUTSIDE_GEOFENCE'
+    });
+  }
+
+  const primaryGeofence = containingGeofences[0]; // Use the closest geofence
+
+  // Check working hours if enabled
+  if (primaryGeofence.workingHours?.enabled) {
+    const now = new Date();
+    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const gracePeriod = primaryGeofence.workingHours.gracePeriod || 15;
+    
+    // Convert time strings to minutes for comparison
+    const timeToMinutes = (timeStr) => {
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      return hours * 60 + minutes;
+    };
+    
+    const currentMinutes = timeToMinutes(currentTime);
+    const startMinutes = timeToMinutes(primaryGeofence.workingHours.startTime) - gracePeriod;
+    const endMinutes = timeToMinutes(primaryGeofence.workingHours.endTime) + gracePeriod;
+    
+    if (currentMinutes < startMinutes || currentMinutes > endMinutes) {
+      return res.status(400).json({
+        success: false,
+        message: `Check-in only allowed between ${primaryGeofence.workingHours.startTime} and ${primaryGeofence.workingHours.endTime} (±${gracePeriod} min grace period)`,
+        errorCode: 'OUTSIDE_WORKING_HOURS',
+        workingHours: {
+          start: primaryGeofence.workingHours.startTime,
+          end: primaryGeofence.workingHours.endTime,
+          gracePeriod: gracePeriod
+        }
+      });
+    }
+  }
+
   // Get device
   const device = await Device.findOne({ user: req.user._id, deviceId });
   if (!device) {
@@ -24,10 +67,6 @@ exports.checkIn = asyncHandler(async (req, res) => {
       message: 'Device not found'
     });
   }
-
-  // Check if geofence exists at this location
-  const geofences = await Geofence.findContainingPoint(longitude, latitude);
-  const geofence = geofences[0]; // Use first matching geofence
 
   // Get today's date (date only, no time)
   const today = new Date();
@@ -48,49 +87,6 @@ exports.checkIn = asyncHandler(async (req, res) => {
 
   const checkInTime = new Date();
 
-  // Check if late based on geofence working hours
-  let isLate = false;
-  let lateByMinutes = 0;
-
-  if (geofence && geofence.workingHours) {
-    try {
-      const dayOfWeek = checkInTime.toLocaleDateString('en-US', { weekday: 'lowercase' });
-      const currentTime = `${checkInTime.getHours().toString().padStart(2, '0')}:${checkInTime.getMinutes().toString().padStart(2, '0')}`;
-
-      let expectedStartTime = '09:00';
-      
-      // New schema: enabled + schedule
-      if (geofence.workingHours.enabled && Array.isArray(geofence.workingHours.schedule)) {
-        const schedule = geofence.workingHours.schedule.find(s => s.day === dayOfWeek);
-        if (schedule && schedule.startTime && typeof schedule.startTime === 'string') {
-          expectedStartTime = schedule.startTime;
-        }
-      }
-      // Old schema: simple start time
-      else if (geofence.workingHours.start && typeof geofence.workingHours.start === 'string') {
-        expectedStartTime = geofence.workingHours.start;
-      }
-
-      // Calculate if late (with 15 minute grace period) - only if we have a valid start time
-      if (expectedStartTime && typeof expectedStartTime === 'string' && expectedStartTime.includes(':')) {
-        const [expectedHour, expectedMinute] = expectedStartTime.split(':').map(Number);
-        if (!isNaN(expectedHour) && !isNaN(expectedMinute)) {
-          const expected = new Date(checkInTime);
-          expected.setHours(expectedHour, expectedMinute, 0, 0);
-          const gracePeriod = 15 * 60 * 1000; // 15 minutes
-          
-          if (checkInTime > new Date(expected.getTime() + gracePeriod)) {
-            isLate = true;
-            lateByMinutes = Math.floor((checkInTime - expected) / (1000 * 60));
-          }
-        }
-      }
-    } catch (error) {
-      console.error('❌ Error calculating late status:', error);
-      // Continue with default values (not late)
-    }
-  }
-
   // Create or update attendance record
   if (!attendance) {
     attendance = await Attendance.create({
@@ -102,12 +98,9 @@ exports.checkIn = asyncHandler(async (req, res) => {
           type: 'Point',
           coordinates: [longitude, latitude]
         },
-        geofence: geofence?._id,
         method,
         device: device._id
       },
-      isLate,
-      lateBy: lateByMinutes,
       status: 'checked-in'
     });
   } else {
@@ -117,12 +110,9 @@ exports.checkIn = asyncHandler(async (req, res) => {
         type: 'Point',
         coordinates: [longitude, latitude]
       },
-      geofence: geofence?._id,
       method,
       device: device._id
     };
-    attendance.isLate = isLate;
-    attendance.lateBy = lateByMinutes;
     attendance.status = 'checked-in';
     await attendance.save();
   }
@@ -135,8 +125,12 @@ exports.checkIn = asyncHandler(async (req, res) => {
     severity: 'info',
     details: {
       method,
-      geofence: geofence?.name,
-      time: checkInTime
+      time: checkInTime,
+      geofence: {
+        id: primaryGeofence.geofence._id,
+        name: primaryGeofence.geofence.name,
+        distance: primaryGeofence.distance
+      }
     },
     device: device._id,
     ipAddress: req.ip,
@@ -148,8 +142,7 @@ exports.checkIn = asyncHandler(async (req, res) => {
     req.app.io.to('admin-room').emit('attendance:checkin', {
       userId: req.user._id,
       userName: req.user.fullName,
-      time: checkInTime,
-      geofence: geofence?.name
+      time: checkInTime
     });
   }
 
@@ -166,9 +159,6 @@ exports.checkIn = asyncHandler(async (req, res) => {
  */
 exports.checkOut = asyncHandler(async (req, res) => {
   const { latitude, longitude, method, deviceId } = req.body;
-
-  // Get device
-  const device = await Device.findOne({ user: req.user._id, deviceId });
 
   // Get today's attendance
   const today = new Date();
@@ -193,59 +183,42 @@ exports.checkOut = asyncHandler(async (req, res) => {
     });
   }
 
-  const checkOutTime = new Date();
-
-  // Find geofence if location provided
-  let geofence;
+  // Check working hours if location provided
   if (latitude && longitude) {
-    const geofences = await Geofence.findContainingPoint(longitude, latitude);
-    geofence = geofences[0];
-  }
-
-  // Use check-in geofence if checkout geofence not found
-  if (!geofence && attendance.checkIn?.geofence) {
-    geofence = await Geofence.findById(attendance.checkIn.geofence);
-  }
-
-  // Check if early departure based on geofence working hours
-  let isEarlyDeparture = false;
-  let earlyByMinutes = 0;
-
-  if (geofence && geofence.workingHours) {
-    try {
-      const dayOfWeek = checkOutTime.toLocaleDateString('en-US', { weekday: 'lowercase' });
-      let expectedEndTime = '18:00';
+    const containingGeofences = await Geofence.findContainingPoint(longitude, latitude);
+    
+    if (containingGeofences.length > 0) {
+      const primaryGeofence = containingGeofences[0];
       
-      // New schema: enabled + schedule
-      if (geofence.workingHours.enabled && Array.isArray(geofence.workingHours.schedule)) {
-        const schedule = geofence.workingHours.schedule.find(s => s.day === dayOfWeek);
-        if (schedule && schedule.endTime && typeof schedule.endTime === 'string') {
-          expectedEndTime = schedule.endTime;
+      if (primaryGeofence.workingHours?.enabled) {
+        const now = new Date();
+        const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        const gracePeriod = primaryGeofence.workingHours.gracePeriod || 15;
+        
+        const timeToMinutes = (timeStr) => {
+          const [hours, minutes] = timeStr.split(':').map(Number);
+          return hours * 60 + minutes;
+        };
+        
+        const currentMinutes = timeToMinutes(currentTime);
+        const startMinutes = timeToMinutes(primaryGeofence.workingHours.startTime) - gracePeriod;
+        const endMinutes = timeToMinutes(primaryGeofence.workingHours.endTime) + gracePeriod;
+        
+        if (currentMinutes < startMinutes || currentMinutes > endMinutes) {
+          return res.status(400).json({
+            success: false,
+            message: `Check-out only allowed between ${primaryGeofence.workingHours.startTime} and ${primaryGeofence.workingHours.endTime} (±${gracePeriod} min grace period)`,
+            errorCode: 'OUTSIDE_WORKING_HOURS'
+          });
         }
       }
-      // Old schema: simple end time
-      else if (geofence.workingHours.end && typeof geofence.workingHours.end === 'string') {
-        expectedEndTime = geofence.workingHours.end;
-      }
-
-      // Calculate if early departure - only if we have a valid end time
-      if (expectedEndTime && typeof expectedEndTime === 'string' && expectedEndTime.includes(':')) {
-        const [expectedHour, expectedMinute] = expectedEndTime.split(':').map(Number);
-        if (!isNaN(expectedHour) && !isNaN(expectedMinute)) {
-          const expected = new Date(checkOutTime);
-          expected.setHours(expectedHour, expectedMinute, 0, 0);
-          
-          if (checkOutTime < expected) {
-            isEarlyDeparture = true;
-            earlyByMinutes = Math.floor((expected - checkOutTime) / (1000 * 60));
-          }
-        }
-      }
-    } catch (error) {
-      console.error('❌ Error calculating early departure:', error);
-      // Continue with default values (not early)
     }
   }
+
+  // Get device
+  const device = await Device.findOne({ user: req.user._id, deviceId });
+
+  const checkOutTime = new Date();
 
   // Update attendance
   attendance.checkOut = {
@@ -254,13 +227,9 @@ exports.checkOut = asyncHandler(async (req, res) => {
       type: 'Point',
       coordinates: [longitude, latitude]
     } : undefined,
-    geofence: geofence?._id,
     method,
     device: device?._id
   };
-
-  attendance.isEarlyDeparture = isEarlyDeparture;
-  attendance.earlyBy = earlyByMinutes;
 
   await attendance.save();
 
@@ -272,7 +241,6 @@ exports.checkOut = asyncHandler(async (req, res) => {
     severity: 'info',
     details: {
       method,
-      geofence: geofence?.name,
       time: checkOutTime,
       duration: attendance.duration
     },
@@ -287,8 +255,7 @@ exports.checkOut = asyncHandler(async (req, res) => {
       userId: req.user._id,
       userName: req.user.fullName,
       time: checkOutTime,
-      duration: attendance.duration,
-      geofence: geofence?.name
+      duration: attendance.duration
     });
   }
 
@@ -341,8 +308,6 @@ exports.getRecords = asyncHandler(async (req, res) => {
     .sort({ date: -1 })
     .limit(parseInt(limit))
     .skip(skip)
-    .populate('checkIn.geofence', 'name type')
-    .populate('checkOut.geofence', 'name type')
     .populate('user', 'firstName lastName email department');
 
   const total = await Attendance.countDocuments(query);
@@ -409,9 +374,7 @@ exports.getTodayStatus = asyncHandler(async (req, res) => {
   const attendance = await Attendance.findOne({
     user: req.user._id,
     date: today
-  })
-    .populate('checkIn.geofence', 'name type')
-    .populate('checkOut.geofence', 'name type');
+  });
 
   res.json({
     success: true,

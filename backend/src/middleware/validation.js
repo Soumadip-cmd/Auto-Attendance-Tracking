@@ -147,11 +147,11 @@ const schemas = {
   // Create geofence
   createGeofence: Joi.object({
     name: Joi.string().required(),
-    description: Joi.string().optional(),
-    type: Joi.string().valid('campus', 'building', 'department', 'custom').default('campus'),
+    description: Joi.string().allow('').optional(),
+    type: Joi.string().valid('office', 'branch', 'site', 'custom').default('office'),
     latitude: Joi.number().min(-90).max(90).required(),
     longitude: Joi.number().min(-180).max(180).required(),
-    radius: Joi.number().min(1).max(10000).required(),
+    radius: Joi.number().min(10).max(10000).required(),
     address: Joi.object({
       street: Joi.string().allow('').optional(),
       city: Joi.string().allow('').optional(),
@@ -161,6 +161,9 @@ const schemas = {
     }).optional(),
     workingHours: Joi.object({
       enabled: Joi.boolean().default(false),
+      startTime: Joi.string().pattern(/^([01]\d|2[0-3]):([0-5]\d)$/).optional(),
+      endTime: Joi.string().pattern(/^([01]\d|2[0-3]):([0-5]\d)$/).optional(),
+      gracePeriod: Joi.number().min(0).max(60).optional(),
       schedule: Joi.array().items(Joi.object({
         day: Joi.string().valid('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday').required(),
         startTime: Joi.string().pattern(/^([01]\d|2[0-3]):([0-5]\d)$/).required(),
@@ -181,11 +184,11 @@ const schemas = {
   // Update geofence
   updateGeofence: Joi.object({
     name: Joi.string().optional(),
-    description: Joi.string().optional(),
-    type: Joi.string().valid('campus', 'building', 'department', 'custom').optional(),
+    description: Joi.string().allow('').optional(),
+    type: Joi.string().valid('office', 'branch', 'site', 'custom').optional(),
     latitude: Joi.number().min(-90).max(90).optional(),
     longitude: Joi.number().min(-180).max(180).optional(),
-    radius: Joi.number().min(1).max(10000).optional(),
+    radius: Joi.number().min(10).max(10000).optional(),
     address: Joi.object({
       street: Joi.string().allow('').optional(),
       city: Joi.string().allow('').optional(),
@@ -195,6 +198,9 @@ const schemas = {
     }).optional(),
     workingHours: Joi.object({
       enabled: Joi.boolean().optional(),
+      startTime: Joi.string().pattern(/^([01]\d|2[0-3]):([0-5]\d)$/).optional(),
+      endTime: Joi.string().pattern(/^([01]\d|2[0-3]):([0-5]\d)$/).optional(),
+      gracePeriod: Joi.number().min(0).max(60).optional(),
       schedule: Joi.array().items(Joi.object({
         day: Joi.string().valid('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday').required(),
         startTime: Joi.string().pattern(/^([01]\d|2[0-3]):([0-5]\d)$/).required(),

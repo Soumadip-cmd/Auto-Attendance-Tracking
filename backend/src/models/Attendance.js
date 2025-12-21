@@ -25,13 +25,9 @@ const attendanceSchema = new mongoose.Schema({
       },
       coordinates: [Number] // [longitude, latitude]
     },
-    geofence: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Geofence'
-    },
     method: {
       type: String,
-      enum: ['manual', 'automatic', 'geofence'],
+      enum: ['manual', 'automatic'],
       default: 'manual'
     },
     device: {
@@ -51,13 +47,9 @@ const attendanceSchema = new mongoose.Schema({
       },
       coordinates: [Number]
     },
-    geofence: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Geofence'
-    },
     method: {
       type: String,
-      enum: ['manual', 'automatic', 'geofence'],
+      enum: ['manual', 'automatic'],
       default: 'manual'
     },
     device: {
@@ -93,16 +85,6 @@ const attendanceSchema = new mongoose.Schema({
     type: Number, // in minutes
     default: 0
   },
-  // Time spent inside geofences
-  geofenceTime: [{
-    geofence: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Geofence'
-    },
-    duration: {
-      type: Number // in minutes
-    }
-  }],
   // Break times
   breaks: [{
     startTime: Date,

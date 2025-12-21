@@ -5,407 +5,326 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
-  ScrollView,
   Dimensions,
   ActivityIndicator,
+  SafeAreaView,
 } from 'react-native';
-import MapView, { Marker, Polyline, Circle, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, Circle, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocation } from '../../src/hooks/useLocation';
 import { useTheme } from '../../src/hooks/useTheme';
-import { locationAPI, geofenceAPI } from '../../src/services/api';
-import googleMapsService from '../../src/services/googleMapsService';
+import { geofenceAPI } from '../../src/services/api';
 import { Loading } from '../../src/components/common/Loading';
 import { Card } from '../../src/components/common/Card';
-import { format } from 'date-fns';
 
 const { width, height } = Dimensions.get('window');
 
+// Simple distance calculation
+const getDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371000; // Earth radius in meters
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // Distance in meters
+};
+
 export default function MapScreen() {
-  const { location, getCurrentLocation, hasPermission, requestPermissions } = useLocation();
+  const { location, getCurrentLocation, startTracking, stopTracking, hasPermission, requestPermissions, isTracking } = useLocation();
   const { theme } = useTheme();
   const mapRef = useRef(null);
 
   const [geofences, setGeofences] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedGeofence, setSelectedGeofence] = useState(null);
-  const [roadDistance, setRoadDistance] = useState(null);
-  const [address, setAddress] = useState(null);
-  const [loadingMaps, setLoadingMaps] = useState(false);
-  const [showDistancePanel, setShowDistancePanel] = useState(true);
+  const [distance, setDistance] = useState(null);
+  const [nearestGeofence, setNearestGeofence] = useState(null);
+  const [showDetails, setShowDetails] = useState(true);
 
   useEffect(() => {
-    initializeMap();
+    loadGeofences();
+    return () => {
+      stopTracking(); // Clean up tracking when component unmounts
+    };
   }, []);
 
+  // Start tracking when component mounts
   useEffect(() => {
-    // Fetch Google Maps data when location or geofence changes
-    if (location && selectedGeofence) {
-      fetchRoadDistance();
-      fetchAddress();
-    }
-  }, [location, selectedGeofence]);
-
-  const fetchRoadDistance = async () => {
-    if (!location || !selectedGeofence) return;
-    
-    setLoadingMaps(true);
-    const result = await googleMapsService.getDistance(
-      { latitude: location.latitude, longitude: location.longitude },
-      { latitude: selectedGeofence.center.coordinates[1], longitude: selectedGeofence.center.coordinates[0] }
-    );
-    
-    if (result.status === 'OK') {
-      setRoadDistance(result);
-    } else if (result.status === 'REQUEST_DENIED') {
-      console.log('⚠️ Google Maps API access denied - using fallback distance');
-      // Use Haversine formula as fallback
-      const fallbackDistance = googleMapsService.calculateHaversineDistance(
-        location.latitude,
-        location.longitude,
-        selectedGeofence.center.coordinates[1],
-        selectedGeofence.center.coordinates[0]
-      );
-      setRoadDistance({
-        status: 'FALLBACK',
-        distance: fallbackDistance,
-        distanceText: (fallbackDistance / 1000).toFixed(2) + ' km',
-        durationText: 'N/A',
-        isFallback: true
-      });
-    }
-    setLoadingMaps(false);
-  };
-
-  const fetchAddress = async () => {
-    if (!selectedGeofence) return;
-    
-    const result = await googleMapsService.getAddressFromCoordinates(
-      selectedGeofence.center.coordinates[1],
-      selectedGeofence.center.coordinates[0]
-    );
-    
-    if (result.status === 'OK') {
-      setAddress(result.address);
-    }
-  };
-
-  const initializeMap = async () => {
-    try {
-      console.log('🗺️ ========== MAP INITIALIZING ==========');
-      
-      if (!hasPermission) {
-        console.log('📍 No permission - requesting...');
-        await requestPermissions();
-      } else {
-        console.log('✅ Location permission already granted');
+    const initializeTracking = async () => {
+      if (hasPermission) {
+        await startTracking((newLocation) => {
+          console.log('📍 Location updated:', newLocation.latitude.toFixed(6), newLocation.longitude.toFixed(6));
+        });
       }
+    };
+    
+    initializeTracking();
+  }, [hasPermission]);
+
+  useEffect(() => {
+    if (location && geofences.length > 0) {
+      // Find the nearest geofence
+      let nearest = null;
+      let minDistance = Infinity;
+
+      geofences.forEach(geofence => {
+        const dist = getDistance(
+          location.latitude,
+          location.longitude,
+          geofence.center.coordinates[1],
+          geofence.center.coordinates[0]
+        );
+
+        if (dist < minDistance) {
+          minDistance = dist;
+          nearest = {
+            ...geofence,
+            distance: dist,
+            isInside: dist <= geofence.radius
+          };
+        }
+      });
+
+      setNearestGeofence(nearest);
+      setDistance(minDistance);
       
-      console.log('📍 Getting current location...');
-      const currentLocation = await getCurrentLocation();
-      
-      console.log('📍 ========== LOCATION DETAILS ==========');
-      console.log('📍 Full Location Object:', JSON.stringify(currentLocation, null, 2));
-      console.log('  ├─ Latitude:', currentLocation?.coords?.latitude);
-      console.log('  ├─ Longitude:', currentLocation?.coords?.longitude);
-      console.log('  ├─ Accuracy:', currentLocation?.coords?.accuracy, 'meters');
-      console.log('  ├─ Altitude:', currentLocation?.coords?.altitude);
-      console.log('  ├─ Speed:', currentLocation?.coords?.speed);
-      console.log('  ├─ Heading:', currentLocation?.coords?.heading);
-      console.log('  └─ Timestamp:', currentLocation?.timestamp);
-      console.log('========================================');
-      
-      await loadGeofences();
-      
-      setLoading(false);
-    } catch (error) {
-      console.error('❌ Error initializing map:', error);
-      Alert.alert('Error', 'Failed to initialize map');
-      setLoading(false);
+      console.log('📍 YOUR LOCATION:', location.latitude.toFixed(6), location.longitude.toFixed(6));
+      if (nearest) {
+        console.log('🏢 NEAREST GEOFENCE:', nearest.name);
+        console.log('📏 DISTANCE:', minDistance.toFixed(0), 'meters');
+        console.log(minDistance <= nearest.radius ? '✅ INSIDE' : '❌ OUTSIDE');
+      }
     }
-  };
+  }, [location, geofences]);
 
   const loadGeofences = async () => {
     try {
+      if (!hasPermission) {
+        await requestPermissions();
+      }
+      
+      await getCurrentLocation();
+      
       const response = await geofenceAPI.getAll();
       if (response.success && response.data.length > 0) {
         setGeofences(response.data);
-        setSelectedGeofence(response.data[0]); // Select first geofence by default
+      } else {
+        Alert.alert('No Office Locations', 'Please contact admin to set up office locations.');
       }
+      
+      setLoading(false);
     } catch (error) {
-      console.error('Error loading geofences:', error);
+      console.error('Error:', error);
+      Alert.alert('Error', 'Failed to load office locations');
+      setLoading(false);
     }
   };
 
-  const centerOnBothLocations = () => {
-    if (mapRef.current && location && selectedGeofence) {
-      const coordinates = [
-        {
-          latitude: location.latitude,
-          longitude: location.longitude,
-        },
-        {
-          latitude: selectedGeofence.center.coordinates[1],
-          longitude: selectedGeofence.center.coordinates[0],
-        },
-      ];
+  if (loading) return <Loading />;
 
-      mapRef.current.fitToCoordinates(coordinates, {
-        edgePadding: { top: 100, right: 50, bottom: 300, left: 50 },
-        animated: true,
-      });
-    }
-  };
-
-  useEffect(() => {
-    if (location && selectedGeofence) {
-      centerOnBothLocations();
-    }
-  }, [location, selectedGeofence]);
-
-  if (loading) {
-    return <Loading />;
-  }
-
-  const mapRegion = location ? {
-    latitude: location.latitude,
-    longitude: location.longitude,
-    latitudeDelta: 0.01,
-    longitudeDelta: 0.01,
-  } : null;
-
-  // Check if inside geofence using Google Maps distance
-  const isInsideGeofence = roadDistance && selectedGeofence && roadDistance.distance <= selectedGeofence.radius;
+  const isInside = nearestGeofence && nearestGeofence.isInside;
   
   return (
     <View style={styles.container}>
-      {/* Location Info Header */}
+      {/* Simple Header */}
       <View style={[styles.header, { backgroundColor: theme.colors.card }]}>
-        <View style={styles.headerRow}>
-          <View style={styles.locationInfo}>
-            <Text style={[styles.locationLabel, { color: theme.colors.textSecondary }]}>
-              Site Location
-            </Text>
-            <Text style={[styles.locationCoords, { color: theme.colors.text }]}>
-              {selectedGeofence ? 
-                `${selectedGeofence.center.coordinates[1].toFixed(6)}, ${selectedGeofence.center.coordinates[0].toFixed(6)}` 
-                : 'Not available'}
-            </Text>
-            <Text style={[styles.locationName, { color: theme.colors.primary }]}>
-              {selectedGeofence?.name || 'No site selected'}
-            </Text>
-          </View>
-        </View>
+        <Text style={[styles.title, { color: theme.colors.text }]}>Attendance Locations</Text>
         
-        <View style={[styles.divider, { backgroundColor: theme.colors.border }]} />
-        
-        <View style={styles.headerRow}>
-          <View style={styles.locationInfo}>
-            <Text style={[styles.locationLabel, { color: theme.colors.textSecondary }]}>
-              Employee Location
-            </Text>
-            <Text style={[styles.locationCoords, { color: theme.colors.text }]}>
-              {location ? 
-                `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}` 
-                : 'Getting location...'}
-            </Text>
-            <Text style={[styles.locationAccuracy, { color: theme.colors.success }]}>
-              Accuracy: {location ? `±${Math.round(location.accuracy)}m` : 'N/A'}
-            </Text>
+        {nearestGeofence && (
+          <View style={styles.infoBox}>
+            <View style={styles.row}>
+              <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Nearest:</Text>
+              <Text style={[styles.coords, { color: theme.colors.text }]}>
+                {nearestGeofence.name} ({nearestGeofence.distance.toFixed(0)}m)
+              </Text>
+            </View>
+            
+            <View style={styles.row}>
+              <Text style={[styles.label, { color: theme.colors.textSecondary }]}>You:</Text>
+              <Text style={[styles.coords, { color: theme.colors.text }]}>
+                {location ? `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}` : 'Loading...'}
+              </Text>
+            </View>
           </View>
-        </View>
+        )}
       </View>
 
-      {/* Map View */}
-      {mapRegion && (
+      {/* Map */}
+      {location && geofences.length > 0 && (
         <MapView
           ref={mapRef}
           provider={PROVIDER_GOOGLE}
           style={styles.map}
-          initialRegion={mapRegion}
-          showsUserLocation={false}
-          showsMyLocationButton={false}
+          initialRegion={{
+            latitude: location.latitude,
+            longitude: location.longitude,
+            latitudeDelta: 0.02,
+            longitudeDelta: 0.02,
+          }}
+          showsUserLocation={true}
+          showsMyLocationButton={true}
+          followsUserLocation={true}
           showsCompass={true}
-          loadingEnabled
+          showsTraffic={false}
         >
-          {/* Site/College Location with Geofence Circle */}
-          {selectedGeofence && (
-            <>
-              <Circle
-                center={{
-                  latitude: selectedGeofence.center.coordinates[1],
-                  longitude: selectedGeofence.center.coordinates[0],
-                }}
-                radius={selectedGeofence.radius}
-                fillColor="rgba(59, 130, 246, 0.2)"
-                strokeColor="rgba(59, 130, 246, 0.8)"
-                strokeWidth={2}
-              />
-              <Marker
-                coordinate={{
-                  latitude: selectedGeofence.center.coordinates[1],
-                  longitude: selectedGeofence.center.coordinates[0],
-                }}
-                title={selectedGeofence.name}
-                description={`Radius: ${selectedGeofence.radius}m`}
-              >
-                <View style={styles.siteMarker}>
-                  <Ionicons name="location" size={28} color="#fff" />
-                </View>
-              </Marker>
-            </>
-          )}
+          {/* All Geofences */}
+          {geofences.map((geofence) => {
+            const lat = geofence.center.coordinates[1];
+            const lon = geofence.center.coordinates[0];
+            const dist = getDistance(location.latitude, location.longitude, lat, lon);
+            const inside = dist <= geofence.radius;
+            
+            return (
+              <React.Fragment key={geofence._id}>
+                {/* Geofence Circle */}
+                <Circle
+                  center={{ latitude: lat, longitude: lon }}
+                  radius={geofence.radius}
+                  fillColor={inside ? 'rgba(16, 185, 129, 0.2)' : 'rgba(59, 130, 246, 0.15)'}
+                  strokeColor={inside ? 'rgba(16, 185, 129, 0.8)' : 'rgba(59, 130, 246, 0.6)'}
+                  strokeWidth={inside ? 3 : 2}
+                />
+                
+                {/* Geofence Marker */}
+                <Marker
+                  coordinate={{ latitude: lat, longitude: lon }}
+                  title={geofence.name}
+                  description={`Radius: ${geofence.radius}m | ${inside ? 'You are inside' : dist.toFixed(0) + 'm away'}`}
+                >
+                  <View style={[
+                    styles.geofenceMarker,
+                    { 
+                      backgroundColor: inside ? '#10b981' : '#3b82f6',
+                      borderWidth: inside ? 5 : 4
+                    }
+                  ]}>
+                    <Ionicons name="business" size={inside ? 26 : 22} color="#fff" />
+                  </View>
+                </Marker>
+              </React.Fragment>
+            );
+          })}
 
-          {/* Employee Current Location */}
-          {location && (
-            <Marker
-              coordinate={{
-                latitude: location.latitude,
-                longitude: location.longitude,
-              }}
-              title="Your Location"
-              description={`Accuracy: ${Math.round(location.accuracy)}m`}
-            >
-              <View style={styles.employeeMarker}>
-                <Ionicons name="navigate-circle" size={28} color="#fff" />
-              </View>
-            </Marker>
-          )}
-
-          {/* Line connecting both locations */}
-          {location && selectedGeofence && (
+          {/* Red Dotted Line to Nearest Geofence */}
+          {nearestGeofence && !isInside && (
             <Polyline
               coordinates={[
-                {
-                  latitude: selectedGeofence.center.coordinates[1],
-                  longitude: selectedGeofence.center.coordinates[0],
-                },
-                {
-                  latitude: location.latitude,
-                  longitude: location.longitude,
-                },
+                { latitude: location.latitude, longitude: location.longitude },
+                { 
+                  latitude: nearestGeofence.center.coordinates[1], 
+                  longitude: nearestGeofence.center.coordinates[0] 
+                }
               ]}
-              strokeColor={isInsideGeofence ? "#10b981" : "#ef4444"}
-              strokeWidth={2}
-              lineDashPattern={[10, 5]}
+              strokeColor="#ef4444"
+              strokeWidth={3}
+              lineDashPattern={[15, 10]}
             />
           )}
+
         </MapView>
       )}
 
-      {/* Distance Result Box - Compact */}
-      {showDistancePanel && selectedGeofence && (
-        <View style={styles.distanceContainer}>
-          <Card style={[styles.distanceCard, { 
-            borderLeftWidth: 3, 
-            borderLeftColor: isInsideGeofence ? theme.colors.success : theme.colors.error,
-            backgroundColor: theme.dark ? 'rgba(31, 41, 55, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+      {/* Distance Status */}
+      {nearestGeofence && distance !== null && showDetails && (
+        <View style={styles.bottomPanel}>
+          <Card style={[styles.card, { 
+            borderLeftWidth: 4,
+            borderLeftColor: isInside ? theme.colors.success : theme.colors.error,
+            backgroundColor: theme.dark ? 'rgba(31, 41, 55, 0.98)' : 'rgba(255, 255, 255, 0.98)',
           }]}>
-            {/* Compact Header */}
-            <View style={styles.distanceHeader}>
-              <View style={styles.compactHeaderContent}>
-                <Ionicons 
-                  name={isInsideGeofence ? "checkmark-circle" : "alert-circle"} 
-                  size={18} 
-                  color={isInsideGeofence ? theme.colors.success : theme.colors.error} 
-                />
-                <Text style={[styles.distanceTitleCompact, { color: theme.colors.text }]}>
-                  Distance
+            {/* Close Button */}
+            <TouchableOpacity 
+              style={styles.closeButton}
+              onPress={() => setShowDetails(false)}
+            >
+              <Ionicons name="close-circle" size={24} color={theme.colors.textSecondary} />
+            </TouchableOpacity>
+
+            <View style={styles.statusRow}>
+              <Ionicons 
+                name={isInside ? 'checkmark-circle' : 'close-circle'} 
+                size={32} 
+                color={isInside ? theme.colors.success : theme.colors.error} 
+              />
+              <View style={styles.statusText}>
+                <Text style={[styles.distanceText, { 
+                  color: isInside ? theme.colors.success : theme.colors.error 
+                }]}>
+                  {distance >= 1000 ? `${(distance / 1000).toFixed(2)} km` : `${Math.round(distance)} m`}
                 </Text>
-                <TouchableOpacity 
-                  onPress={() => setShowDistancePanel(false)}
-                  style={[styles.closeButtonCompact, { 
-                    backgroundColor: theme.dark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
-                  }]}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="close-circle" size={20} color={theme.colors.textSecondary} />
-                </TouchableOpacity>
+                <Text style={[styles.statusLabel, { 
+                  color: isInside ? theme.colors.success : theme.colors.error 
+                }]}>
+                  {isInside ? `INSIDE ${nearestGeofence.name}` : 'OUTSIDE - Too Far'}
+                </Text>
               </View>
             </View>
-          
-            {/* Compact Content */}
-            <View style={styles.distanceContentCompact}>
-            {loadingMaps ? (
-              <View style={styles.compactLoading}>
-                <ActivityIndicator size="small" color={theme.colors.primary} />
-                <Text style={[styles.compactText, { color: theme.colors.textSecondary }]}>
-                  Calculating...
+            
+            <View style={[styles.divider, { backgroundColor: theme.colors.border }]} />
+            
+            <View style={styles.detailsRow}>
+              <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>
+                Location:
+              </Text>
+              <Text style={[styles.detailValue, { color: theme.colors.text }]} numberOfLines={1}>
+                {nearestGeofence.name}
+              </Text>
+            </View>
+            
+            <View style={styles.detailsRow}>
+              <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>
+                Allowed Radius:
+              </Text>
+              <Text style={[styles.detailValue, { color: theme.colors.text }]}>
+                {nearestGeofence.radius}m
+              </Text>
+            </View>
+            
+            {!isInside && (
+              <View style={styles.detailsRow}>
+                <Text style={[styles.detailLabel, { color: theme.colors.error }]}>
+                  You need to be:
                 </Text>
-              </View>
-            ) : roadDistance ? (
-              <View style={styles.compactInfo}>
-                {/* Distance Value */}
-                <View style={styles.compactRow}>
-                  <Text style={[styles.distanceValueCompact, { 
-                    color: isInsideGeofence ? theme.colors.success : theme.colors.error 
-                  }]}>
-                    {roadDistance.distanceText}
-                  </Text>
-                  <View style={[styles.statusDotCompact, { 
-                    backgroundColor: isInsideGeofence ? theme.colors.success : theme.colors.error 
-                  }]} />
-                </View>
-                
-                {/* Additional Info Row */}
-                <View style={styles.compactDetailsRow}>
-                  {!roadDistance.isFallback && roadDistance.durationText && (
-                    <View style={styles.compactDetail}>
-                      <Ionicons name="time-outline" size={12} color={theme.colors.textSecondary} />
-                      <Text style={[styles.compactDetailText, { color: theme.colors.textSecondary }]}>
-                        {roadDistance.durationText}
-                      </Text>
-                    </View>
-                  )}
-                  <View style={styles.compactDetail}>
-                    <Ionicons name="location-outline" size={12} color={theme.colors.textSecondary} />
-                    <Text style={[styles.compactDetailText, { color: theme.colors.textSecondary }]}>
-                      Radius: {selectedGeofence?.radius}m
-                    </Text>
-                  </View>
-                </View>
-                
-                {/* Fallback Warning (if applicable) */}
-                {roadDistance.isFallback && (
-                  <View style={styles.compactWarning}>
-                    <Ionicons name="warning" size={10} color="#fbbf24" />
-                    <Text style={[styles.compactWarningText, { color: '#fbbf24' }]}>
-                      Straight-line
-                    </Text>
-                  </View>
-                )}
-              </View>
-            ) : (
-              <View style={styles.compactLoading}>
-                <ActivityIndicator size="small" color={theme.colors.primary} />
-                <Text style={[styles.compactText, { color: theme.colors.textSecondary }]}>
-                  Loading...
+                <Text style={[styles.detailValue, { color: theme.colors.error, fontWeight: '700' }]}>
+                  {Math.round(distance - nearestGeofence.radius)}m closer
                 </Text>
               </View>
             )}
-            </View>
+            
+            {geofences.length > 1 && (
+              <View style={[styles.divider, { backgroundColor: theme.colors.border }]} />
+            )}
+            
+            {geofences.length > 1 && (
+              <Text style={[styles.detailLabel, { color: theme.colors.textSecondary, fontSize: 11, marginTop: 4 }]}>
+                📍 Showing {geofences.length} office locations
+              </Text>
+            )}
           </Card>
         </View>
       )}
 
-      {/* Toggle Distance Panel Button (when hidden) */}
-      {!showDistancePanel && selectedGeofence && (
-        <TouchableOpacity 
-          style={[styles.toggleButton, { backgroundColor: theme.colors.primary }]}
-          onPress={() => setShowDistancePanel(true)}
+      {/* Toggle Details Button (when closed) */}
+      {!showDetails && nearestGeofence && (
+        <TouchableOpacity
+          style={[styles.toggleBtn, { backgroundColor: theme.colors.primary }]}
+          onPress={() => setShowDetails(true)}
         >
           <Ionicons name="information-circle" size={24} color="#fff" />
-          <Text style={styles.toggleButtonText}>Show Distance</Text>
+          <Text style={styles.toggleBtnText}>
+            {isInside ? 'Inside' : Math.round(distance) + 'm away'}
+          </Text>
         </TouchableOpacity>
       )}
 
       {/* Refresh Button */}
       <TouchableOpacity
-        style={[styles.refreshButton, { backgroundColor: theme.colors.primary }]}
+        style={[styles.refreshBtn, { backgroundColor: theme.colors.primary }]}
         onPress={async () => {
           await getCurrentLocation();
-          centerOnBothLocations();
+          await loadGeofences();
         }}
       >
         <Ionicons name="refresh" size={24} color="#fff" />
@@ -428,43 +347,50 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
-  headerRow: {
-    paddingVertical: 8,
+  title: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 12,
   },
-  locationInfo: {
-    gap: 4,
+  infoBox: {
+    gap: 8,
   },
-  locationLabel: {
-    fontSize: 12,
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  label: {
+    fontSize: 13,
     fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    width: 70,
   },
-  locationCoords: {
-    fontSize: 14,
+  coords: {
+    fontSize: 12,
     fontWeight: '500',
     fontFamily: 'monospace',
-  },
-  locationName: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  locationAccuracy: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  divider: {
-    height: 1,
-    marginVertical: 12,
+    flex: 1,
   },
   map: {
     flex: 1,
   },
-  siteMarker: {
+  geofenceMarker: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#3b82f6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderColor: '#fff',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  yourMarker: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 4,
@@ -475,183 +401,53 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
   },
-  employeeMarker: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#ef4444',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 4,
-    borderColor: '#fff',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-  },
-  distanceContainer: {
+  bottomPanel: {
     position: 'absolute',
     bottom: 20,
     left: 16,
     right: 16,
   },
-  distanceCard: {
-    padding: 10,
-    paddingHorizontal: 12,
+  card: {
+    padding: 16,
   },
-  distanceHeader: {
-    marginBottom: 8,
-  },
-  compactHeaderContent: {
+  statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 12,
+    marginBottom: 16,
   },
-  distanceTitleCompact: {
-    fontSize: 14,
-    fontWeight: '600',
+  statusText: {
     flex: 1,
   },
-  closeButtonCompact: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  distanceContentCompact: {
-    gap: 6,
-  },
-  compactLoading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 4,
-  },
-  compactText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  compactInfo: {
-    gap: 6,
-  },
-  compactRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  distanceValueCompact: {
-    fontSize: 24,
+  distanceText: {
+    fontSize: 28,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
-  statusDotCompact: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  compactDetailsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flexWrap: 'wrap',
-  },
-  compactDetail: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  compactDetailText: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  compactWarning: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingTop: 4,
-  },
-  compactWarningText: {
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  distanceValue: {
-    fontSize: 36,
-    fontWeight: '800',
-    textAlign: 'center',
-    letterSpacing: -1,
-  },
-  distanceDetails: {
-    gap: 12,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  detailText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    alignSelf: 'flex-start',
-  },
-  statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  statusText: {
+  statusLabel: {
     fontSize: 14,
     fontWeight: '700',
+    marginTop: 4,
   },
-  warningBanner: {
+  divider: {
+    height: 1,
+    marginVertical: 12,
+  },
+  detailsRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 8,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
+    paddingVertical: 4,
   },
-  warningText: {
+  detailLabel: {
     fontSize: 13,
-    fontWeight: '600',
-    flex: 1,
-  },
-  infoBox: {
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 16,
-  },
-  infoText: {
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  infoSubText: {
-    fontSize: 13,
-    textAlign: 'center',
-  },
-  loadingContainer: {
-    paddingVertical: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 14,
     fontWeight: '500',
-    textAlign: 'center',
   },
-  refreshButton: {
+  detailValue: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  refreshBtn: {
     position: 'absolute',
     top: 70,
     right: 16,
@@ -666,27 +462,31 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
   },
-  toggleButton: {
+  closeButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 10,
+  },
+  toggleBtn: {
     position: 'absolute',
     bottom: 20,
     left: 16,
-    right: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 8,
     paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 12,
+    paddingHorizontal: 16,
+    borderRadius: 25,
     elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
   },
-  toggleButtonText: {
+  toggleBtnText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
   },
 });

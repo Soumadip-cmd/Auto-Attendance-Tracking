@@ -5,7 +5,6 @@ const router = express.Router();
 const authRoutes = require('./authRoutes');
 const locationRoutes = require('./locationRoutes');
 const attendanceRoutes = require('./attendanceRoutes');
-const geofenceRoutes = require('./geofenceRoutes');
 const settingsRoutes = require('./settingsRoutes');
 
 // Mount routes
@@ -13,7 +12,6 @@ router.use('/auth', authRoutes);
 router.use('/locations', locationRoutes);
 router.use('/location', locationRoutes); // Alias for backward compatibility
 router.use('/attendance', attendanceRoutes);
-router.use('/geofences', geofenceRoutes);
 router.use('/settings', settingsRoutes);
 
 // Health check endpoint

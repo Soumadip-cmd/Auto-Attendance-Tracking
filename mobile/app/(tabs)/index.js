@@ -22,7 +22,6 @@ import { Avatar } from '../../src/components/common/Avatar';
 import { CheckInButton } from '../../src/components/attendance/CheckInButton';
 import { StatsCard } from '../../src/components/attendance/StatsCard';
 import { StatusBadge } from '../../src/components/attendance/StatusBadge';
-import geofenceService from '../../src/services/geofenceService';
 import BackgroundLocationService from '../../src/services/backgroundLocationService';
 
 export default function HomeScreen() {
@@ -43,25 +42,15 @@ export default function HomeScreen() {
   const { theme } = useTheme();
 
   const [refreshing, setRefreshing] = useState(false);
-  const [geofenceStatus, setGeofenceStatus] = useState(null);
-  const [allGeofences, setAllGeofences] = useState([]);
   const [backgroundTracking, setBackgroundTracking] = useState(false);
   const [trackingStats, setTrackingStats] = useState(null);
 
   useEffect(() => {
     initializeApp();
-
-    // Cleanup on unmount
-    return () => {
-      geofenceService.stopMonitoring();
-    };
   }, []);
 
   const initializeApp = async () => {
     await initializeScreen();
-    
-    // Load geofences FIRST before monitoring
-    await loadGeofences();
     
     setupWebSocketListeners();
     
@@ -73,9 +62,6 @@ export default function HomeScreen() {
     // Start location tracking
     await getCurrentLocation();
     
-    // Start geofence monitoring AFTER loading geofences
-    await startGeofenceMonitoring();
-    
     // Check if background tracking is active
     const isTracking = await BackgroundLocationService.isTracking();
     setBackgroundTracking(isTracking);
@@ -85,89 +71,9 @@ export default function HomeScreen() {
       const stats = await BackgroundLocationService.getStats();
       setTrackingStats(stats);
     }
-    
-    // Do initial geofence check and auto check-in if needed
-    setTimeout(async () => {
-      await updateGeofenceStatus();
-      await checkAndAutoCheckIn();
-    }, 2000); // Wait 2 seconds for location to stabilize
-
-    // Update geofence status periodically
-    const statusInterval = setInterval(async () => {
-      await updateGeofenceStatus();
-      await checkAndAutoCheckIn();
-    }, 15000); // Every 15 seconds
-
-    return statusInterval;
   };
 
-  const startGeofenceMonitoring = async () => {
-    try {
-      if (hasPermission) {
-        await geofenceService.startMonitoring(10000); // Check every 10 seconds for real-time detection
-        await updateGeofenceStatus(); // Initial status check
-        console.log('✅ Geofence monitoring started (10 second intervals)');
-      }
-    } catch (error) {
-      console.error('❌ Error starting geofence monitoring:', error);
-    }
-  };
 
-  const loadGeofences = async () => {
-    try {
-      const geofences = await geofenceService.loadGeofences();
-      setAllGeofences(geofences);
-      console.log('📍 Loaded geofences for working hours display:', geofences.length);
-      if (geofences.length > 0) {
-        console.log('🏢 First geofence details:', {
-          name: geofences[0].name,
-          workingHours: geofences[0].workingHours,
-          radius: geofences[0].radius
-        });
-      }
-      return geofences;
-    } catch (error) {
-      console.error('❌ Error loading geofences:', error);
-      return [];
-    }
-  };
-
-  const updateGeofenceStatus = async () => {
-    try {
-      const status = await geofenceService.checkCurrentLocation();
-      console.log('🏢 Geofence status updated:', {
-        inGeofence: status.inGeofence,
-        geofenceName: status.geofence?.name,
-        workingHours: status.geofence?.workingHours
-      });
-      setGeofenceStatus(status);
-      return status;
-    } catch (error) {
-      console.error('❌ Error updating geofence status:', error);
-      return null;
-    }
-  };
-
-  const checkAndAutoCheckIn = async () => {
-    try {
-      // Don't auto check-in if already checked in
-      if (isCheckedIn) {
-        return;
-      }
-
-      const status = geofenceStatus || await updateGeofenceStatus();
-      
-      if (status && status.inGeofence && status.geofence) {
-        console.log('✅ User is inside geofence, checking if auto check-in needed');
-        
-        // Let geofenceService handle the auto check-in logic
-        // It will check working hours and handle the check-in
-        await geofenceService.handleGeofenceEntry(status.geofence, status.location);
-      }
-    } catch (error) {
-      console.error('❌ Error in auto check-in check:', error);
-    }
-  };
 
   const initializeScreen = async () => {
     // Only fetch if not already loading or in error state
@@ -200,8 +106,6 @@ export default function HomeScreen() {
     setRefreshing(true);
     await getTodayAttendance();
     await getStats({ period: 'month' });
-    await loadGeofences(); // Reload geofences to get updated working hours
-    await updateGeofenceStatus(); // Update current geofence status
     setRefreshing(false);
   };
 
@@ -283,46 +187,7 @@ export default function HomeScreen() {
     return 'Good Evening';
   };
 
-  const getWorkingHoursText = (workingHours) => {
-    // Support both new schema (enabled + schedule) and old schema (start + end)
-    if (workingHours?.enabled && workingHours?.schedule?.length) {
-      // New schema with schedule array - match day names
-      const daysMap = {
-        'sunday': 'sunday',
-        'monday': 'monday',
-        'tuesday': 'tuesday',
-        'wednesday': 'wednesday',
-        'thursday': 'thursday',
-        'friday': 'friday',
-        'saturday': 'saturday'
-      };
-      const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-      const todaySchedule = workingHours.schedule.find(s => s.day?.toLowerCase() === today);
 
-      if (todaySchedule && todaySchedule.startTime && todaySchedule.endTime) {
-        return `${formatTimeString(todaySchedule.startTime)} - ${formatTimeString(todaySchedule.endTime)}`;
-      }
-      // Fallback to first schedule if today not found
-      if (workingHours.schedule[0]?.startTime) {
-        return `${formatTimeString(workingHours.schedule[0].startTime)} - ${formatTimeString(workingHours.schedule[0].endTime)}`;
-      }
-    } else if (workingHours?.start && workingHours?.end) {
-      // Old schema with simple start/end
-      return `${formatTimeString(workingHours.start)} - ${formatTimeString(workingHours.end)}`;
-    }
-    
-    // Default fallback
-    return '9:00 AM - 6:00 PM';
-  };
-
-  const formatTimeString = (time) => {
-    if (!time) return '';
-    const [hours, minutes] = time.split(':');
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const hour12 = hour % 12 || 12;
-    return `${hour12}:${minutes} ${ampm}`;
-  };
 
   const toggleBackgroundTracking = async () => {
     try {
@@ -432,16 +297,6 @@ export default function HomeScreen() {
             </View>
           )}
 
-          {/* Geofence Status Indicator */}
-          {geofenceStatus?.inGeofence && (
-            <View style={[styles.geofenceIndicator, { backgroundColor: theme.colors.success + '15', borderColor: theme.colors.success }]}>
-              <Ionicons name="location" size={16} color={theme.colors.success} />
-              <Text style={[styles.geofenceText, { color: theme.colors.success }]}>
-                Inside {geofenceStatus.geofence?.name || 'Work Area'}
-              </Text>
-            </View>
-          )}
-
           <View style={styles.statusContent}>
             <View style={styles.statusRow}>
               <View style={styles.statusItem}>
@@ -465,25 +320,6 @@ export default function HomeScreen() {
                   {formatTime(todayAttendance?.checkOut?.time)}
                 </Text>
               </View>
-            </View>
-            
-            {/* Work Hours from Geofence */}
-            <View style={[styles.workScheduleHint, { backgroundColor: theme.colors.primary + '10', borderColor: theme.colors.primary + '30' }]}>
-              <Ionicons name="time-outline" size={16} color={theme.colors.primary} />
-              <Text style={[styles.workScheduleText, { color: theme.colors.primary }]}>
-                Work Hours: {(() => {
-                  // First try current geofence if inside
-                  if (geofenceStatus?.geofence?.workingHours) {
-                    return getWorkingHoursText(geofenceStatus.geofence.workingHours);
-                  }
-                  // Then try first available geofence
-                  if (allGeofences.length > 0 && allGeofences[0].workingHours) {
-                    return getWorkingHoursText(allGeofences[0].workingHours);
-                  }
-                  // Default fallback
-                  return '9:00 AM - 6:00 PM';
-                })()}
-              </Text>
             </View>
           </View>
         </Card>
@@ -755,20 +591,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
-  workScheduleHint: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginTop: 12,
-    gap: 6,
-  },
-  workScheduleText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
   statusLabel: {
     fontSize: 12,
     marginTop: 8,
@@ -810,19 +632,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     opacity: 0.7,
-  },
-  geofenceIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    padding: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginBottom: 16,
-  },
-  geofenceText: {
-    fontSize: 13,
-    fontWeight: '600',
   },
   section:  {
     marginBottom: 24,

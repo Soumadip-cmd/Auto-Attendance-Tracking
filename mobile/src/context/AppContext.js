@@ -1,5 +1,5 @@
  import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { authAPI, attendanceAPI, geofenceAPI, locationAPI } from '../services/api';
+import { authAPI, attendanceAPI, locationAPI } from '../services/api';
 import { secureStorage } from '../utils/storage';
 import { APP_CONFIG } from '../constants/config';
 import websocketService from '../services/websocket';
@@ -35,11 +35,6 @@ export const AppProvider = ({ children }) => {
   const [locationPermission, setLocationPermission] = useState(null);
   const [isTrackingLocation, setIsTrackingLocation] = useState(false);
 
-  // Geofence State
-  const [geofences, setGeofences] = useState([]);
-  const [nearestGeofence, setNearestGeofence] = useState(null);
-  const [isInsideGeofence, setIsInsideGeofence] = useState(false);
-
   // General State
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -58,7 +53,6 @@ export const AppProvider = ({ children }) => {
 
         // Initialize services
         await websocketService.connect();
-        await loadGeofences();
         await getTodayAttendance();
         
         return true;
@@ -89,7 +83,6 @@ export const AppProvider = ({ children }) => {
 
       // Initialize services
       await websocketService.connect();
-      await loadGeofences();
       await getTodayAttendance();
 
       return { success: true, user: userData };
@@ -144,17 +137,6 @@ export const AppProvider = ({ children }) => {
 
       websocketService.disconnect();
       locationService.stopTracking();
-      
-      // Stop geofence monitoring to prevent unauthorized API calls
-      try {
-        const geofenceService = require('../services/geofenceService').default;
-        if (geofenceService) {
-          geofenceService.stopMonitoring();
-          console.log('✅ Geofence monitoring stopped');
-        }
-      } catch (err) {
-        console.log('Geofence service not available or already stopped');
-      }
 
       // Clear state immediately
       setUser(null);
@@ -162,9 +144,6 @@ export const AppProvider = ({ children }) => {
       setTodayAttendance(null);
       setAttendanceHistory([]);
       setIsCheckedIn(false);
-      setGeofences([]);
-      setNearestGeofence(null);
-      setIsInsideGeofence(false);
 
       console.log('✅ Logout successful, state cleared, navigation will trigger');
       return { success: true };
@@ -224,13 +203,8 @@ export const AppProvider = ({ children }) => {
       setLoading(true);
       setError(null);
 
-      if (!isInsideGeofence) {
-        throw new Error('You must be inside a geofence to check in');
-      }
-
       const response = await attendanceAPI.checkIn({
         location: locationData || currentLocation,
-        geofenceId: nearestGeofence?.id,
       });
 
       const attendance = response.data;
@@ -245,7 +219,7 @@ export const AppProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [currentLocation, isInsideGeofence, nearestGeofence]);
+  }, [currentLocation]);
 
   const checkOut = useCallback(async (locationData) => {
     try {
@@ -334,7 +308,6 @@ export const AppProvider = ({ children }) => {
       // Start location service
       await locationService.startTracking((location) => {
         setCurrentLocation(location);
-        checkGeofenceProximity(location);
       });
 
       return true;
@@ -378,48 +351,6 @@ export const AppProvider = ({ children }) => {
       return null;
     }
   }, []);
-
-  // ============= GEOFENCE FUNCTIONS =============
-  const loadGeofences = useCallback(async () => {
-    try {
-      const response = await geofenceAPI.getAll();
-      const geofenceData = response.data || [];
-      
-      setGeofences(geofenceData);
-      return geofenceData;
-    } catch (err) {
-      console.error('Load geofences error:', err);
-      return [];
-    }
-  }, []);
-
-  const checkGeofenceProximity = useCallback((location) => {
-    if (!location || geofences.length === 0) return;
-
-    const geolib = require('geolib');
-    let nearest = null;
-    let minDistance = Infinity;
-    let inside = false;
-
-    geofences.forEach((geofence) => {
-      const distance = geolib.getDistance(
-        { latitude: location.latitude, longitude: location.longitude },
-        { latitude: geofence.latitude, longitude: geofence.longitude }
-      );
-
-      if (distance < minDistance) {
-        minDistance = distance;
-        nearest = { ...geofence, distance };
-      }
-
-      if (distance <= geofence.radius) {
-        inside = true;
-      }
-    });
-
-    setNearestGeofence(nearest);
-    setIsInsideGeofence(inside);
-  }, [geofences]);
 
   // ============= WEBSOCKET HANDLERS =============
   useEffect(() => {
@@ -479,13 +410,6 @@ export const AppProvider = ({ children }) => {
     startLocationTracking,
     stopLocationTracking,
     getCurrentLocation,
-
-    // Geofence
-    geofences,
-    nearestGeofence,
-    isInsideGeofence,
-    loadGeofences,
-    checkGeofenceProximity,
 
     // General
     loading,
