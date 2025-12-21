@@ -1,8 +1,8 @@
 import 'dotenv/config';
 
 export default {
-  expo: {
-    name: "Attendance Tracker",
+  expo: { 
+    name: "GEO Attendance Tracker",
     slug: "attendance-tracker",
     version: "1.0.0",
     orientation: "portrait",
@@ -13,7 +13,7 @@ export default {
     },
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.yourcompany.attendancetracker",
+      bundleIdentifier: "com.geoattendance.freelixe",
       deploymentTarget: "15.1",
       infoPlist: {
         NSLocationWhenInUseUsageDescription: "Location access for attendance tracking.",
@@ -22,7 +22,7 @@ export default {
       }
     },
     android: {
-      package: "com.yourcompany.attendancetracker",
+      package: "com.geoattendance.freelixe",
       permissions: [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
