@@ -56,6 +56,22 @@ export default function MapScreen() {
     
     if (result.status === 'OK') {
       setRoadDistance(result);
+    } else if (result.status === 'REQUEST_DENIED') {
+      console.log('⚠️ Google Maps API access denied - using fallback distance');
+      // Use Haversine formula as fallback
+      const fallbackDistance = googleMapsService.calculateHaversineDistance(
+        location.latitude,
+        location.longitude,
+        selectedGeofence.center.coordinates[1],
+        selectedGeofence.center.coordinates[0]
+      );
+      setRoadDistance({
+        status: 'FALLBACK',
+        distance: fallbackDistance,
+        distanceText: (fallbackDistance / 1000).toFixed(2) + ' km',
+        durationText: 'N/A',
+        isFallback: true
+      });
     }
     setLoadingMaps(false);
   };
@@ -309,13 +325,24 @@ export default function MapScreen() {
                   {roadDistance.distanceText}
                 </Text>
                 
-                <View style={styles.distanceDetails}>
-                  <View style={styles.detailRow}>
-                    <Ionicons name="time" size={16} color={theme.colors.textSecondary} />
-                    <Text style={[styles.detailText, { color: theme.colors.textSecondary }]}>
-                      Walking Time: {roadDistance.durationText}
+                {roadDistance.isFallback && (
+                  <View style={[styles.warningBanner, { backgroundColor: 'rgba(251, 191, 36, 0.1)', borderColor: '#fbbf24' }]}>
+                    <Ionicons name="warning" size={16} color="#fbbf24" />
+                    <Text style={[styles.warningText, { color: '#fbbf24' }]}>
+                      Using straight-line distance (Maps API not enabled)
                     </Text>
                   </View>
+                )}
+                
+                <View style={styles.distanceDetails}>
+                  {!roadDistance.isFallback && (
+                    <View style={styles.detailRow}>
+                      <Ionicons name="time" size={16} color={theme.colors.textSecondary} />
+                      <Text style={[styles.detailText, { color: theme.colors.textSecondary }]}>
+                        Walking Time: {roadDistance.durationText}
+                      </Text>
+                    </View>
+                  )}
                   
                   <View style={styles.detailRow}>
                     <Ionicons name="location" size={16} color={theme.colors.textSecondary} />
@@ -323,12 +350,27 @@ export default function MapScreen() {
                       Geofence Radius: {selectedGeofence ? `${selectedGeofence.radius}m` : 'N/A'}
                     </Text>
                   </View>
+                  
+                  {roadDistance.isFallback && (
+                    <View style={styles.detailRow}>
+                      <Ionicons name="information-circle" size={16} color={theme.colors.primary} />
+                      <Text style={[styles.detailText, { color: theme.colors.primary, flex: 1 }]}>
+                        Actual road distance may differ
+                      </Text>
+                    </View>
+                  )}
                 </View>
               </>
             ) : (
-              <Text style={[styles.detailText, { color: theme.colors.textSecondary, textAlign: 'center' }]}>
-                Enable Google Maps billing to see distance
-              </Text>
+              <View style={styles.infoBox}>
+                <Ionicons name="information-circle" size={24} color={theme.colors.primary} />
+                <Text style={[styles.infoText, { color: theme.colors.text }]}>
+                  Calculating distance...
+                </Text>
+                <Text style={[styles.infoSubText, { color: theme.colors.textSecondary }]}>
+                  Make sure Google Maps APIs are enabled
+                </Text>
+              </View>
             )
           }
               
@@ -505,6 +547,33 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 14,
     fontWeight: '700',
+  },
+  warningBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  warningText: {
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
+  },
+  infoBox: {
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 16,
+  },
+  infoText: {
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  infoSubText: {
+    fontSize: 13,
+    textAlign: 'center',
   },
   refreshButton: {
     position: 'absolute',
