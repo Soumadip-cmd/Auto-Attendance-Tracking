@@ -206,89 +206,31 @@ const Geofences = () => {
     });
   };
 
-  const getCurrentLocation = async () => {
-    // Use Google Maps Geolocation API for accurate location (same as mobile app)
-    const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-    
-    if (!GOOGLE_MAPS_API_KEY) {
-      toast.error('Google Maps API key not configured');
-      return;
-    }
-
-    try {
-      toast.info('Getting your precise location via Google Maps...');
-      
-      // Use Google Maps Geolocation API
-      const response = await fetch(
-        `https://www.googleapis.com/geolocation/v1/geolocate?key=${GOOGLE_MAPS_API_KEY}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            considerIp: true,
-            // Request WiFi and cell tower data if available
-          }),
+  const getCurrentLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          console.log('\n📍 getCurrentLocation() RETURNED:', position);
+          
+          const lat = position.coords.latitude.toFixed(6);
+          const lon = position.coords.longitude.toFixed(6);
+          
+          setFormData({
+            ...formData,
+            latitude: lat,
+            longitude: lon,
+          });
+          
+          toast.success('Location captured!');
+        },
+        (error) => {
+          console.error('❌ Geolocation error:', error);
+          toast.error('Unable to get location');
         }
       );
-
-      const data = await response.json();
-
-      if (data.location) {
-        console.log('\n📍 Google Maps Geolocation API RETURNED:', data);
-        console.log('  ├─ Latitude:', data.location.lat);
-        console.log('  ├─ Longitude:', data.location.lng);
-        console.log('  └─ Accuracy:', data.accuracy, 'meters');
-
-        const lat = data.location.lat.toFixed(7);
-        const lon = data.location.lng.toFixed(7);
-
-        setFormData({
-          ...formData,
-          latitude: lat,
-          longitude: lon,
-        });
-
-        toast.success(`Location captured! (Accuracy: ±${Math.round(data.accuracy)}m)`);
-      } else if (data.error) {
-        console.error('❌ Google Maps Geolocation error:', data.error);
-        toast.error(`Location error: ${data.error.message}`);
-      }
-    } catch (error) {
-      console.error('❌ Failed to get location via Google Maps:', error);
-      
-      // Fallback to browser geolocation
-      if (navigator.geolocation) {
-        toast.info('Trying browser location as fallback...');
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            console.log('\n📍 Browser geolocation (FALLBACK):', position);
-            
-            const lat = position.coords.latitude.toFixed(7);
-            const lon = position.coords.longitude.toFixed(7);
-            
-            setFormData({
-              ...formData,
-              latitude: lat,
-              longitude: lon,
-            });
-            
-            toast.success(`Location captured via browser! (Accuracy: ±${Math.round(position.coords.accuracy)}m)`);
-          },
-          (error) => {
-            console.error('❌ Browser geolocation error:', error);
-            toast.error('Unable to get location');
-          },
-          {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0,
-          }
-        );
-      } else {
-        toast.error('Location services not available');
-      }
+    } else {
+      console.error('❌ Geolocation not supported');
+      toast.error('Geolocation not supported');
     }
   };
 
