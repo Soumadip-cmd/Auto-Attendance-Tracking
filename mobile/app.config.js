@@ -66,8 +66,8 @@ export default {
     ],
     scheme: "attendancetracker",
     extra: {
-      API_URL: process.env.API_URL || "http://192.168.31.102:6000/api/v1",
-      WS_URL: process.env.WS_URL || "http://192.168.31.102:6000",
+      API_URL: process.env.API_URL || "https://attendance.freelixe.com/api/v1",
+      WS_URL: process.env.WS_URL || "https://attendance.freelixe.com",
       GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY,
       eas: {
         projectId: "d33612ab-4b02-41a7-8a38-257a681de251"
