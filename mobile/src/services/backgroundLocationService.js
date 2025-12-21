@@ -68,11 +68,12 @@ class BackgroundLocationService {
         timeInterval: 10000, // Or every 10 seconds
         deferredUpdatesInterval: 5000, // Batch updates every 5 seconds
         foregroundService: {
-          notificationTitle: '📍 Location Tracking Active',
-          notificationBody: 'Recording your movement for attendance',
+          notificationTitle: '📍 Attendance Tracking Active',
+          notificationBody: 'Recording location for automatic attendance',
           notificationColor: '#6366f1',
+          killServiceOnDestroy: false, // Keep running when app is killed
         },
-        activityType: Location.ActivityType.Fitness, // Optimize for walking
+        activityType: Location.ActivityType.Other, // Changed from Fitness for better persistence
         showsBackgroundLocationIndicator: true,
         pausesUpdatesAutomatically: false, // Keep tracking even if stationary
       });

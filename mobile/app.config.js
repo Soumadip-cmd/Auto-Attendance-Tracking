@@ -28,7 +28,9 @@ export default {
         "ACCESS_FINE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION",
         "VIBRATE",
-        "USE_BIOMETRIC"
+        "USE_BIOMETRIC",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
       ],
       adaptiveIcon: {
         backgroundColor: "#6366f1"
