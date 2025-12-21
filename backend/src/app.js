@@ -28,16 +28,36 @@ const healthRoutes = require('./routes/healthRoutes');
 // Initialize Express app
 const app = express();
 
+// Trust proxy - Required when behind nginx/reverse proxy
+app.set('trust proxy', true);
+
 // Create HTTP server
 const server = http.createServer(app);
 
 // Initialize Socket.IO with CORS
 const io = socketIO(server, {
   cors: {
-    origin: ['http://localhost:5173', 'http://localhost:3000'],
+    origin: function (origin, callback) {
+      const allowedOrigins = process.env.CORS_ORIGIN 
+        ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
+        : [
+            'http://localhost:5173',
+            'http://localhost:3000',
+            'https://attendance.freelixe.com',
+            'https://admin.freelixe.com',
+          ];
+      
+      if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        callback(null, true); // Allow all for mobile apps
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST'],
   },
+  transports: ['websocket', 'polling'],
+  allowEIO3: true,
 });
 
 // ==========================================
