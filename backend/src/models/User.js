@@ -3,11 +3,11 @@ const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
   email: {
-  type: String,
-  required: true,
-  unique: true,  
-  lowercase: true
-},
+    type: String,
+    required: true,
+    unique: true,
+    lowercase: true
+  },
   password: {
     type: String,
     required: [true, 'Password is required'],
@@ -130,9 +130,7 @@ const userSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Indexes
-userSchema.index({ email: 1 });
-userSchema.index({ employeeId: 1 });
+// Indexes - only non-unique ones (unique already defined in fields)
 userSchema.index({ role: 1 });
 userSchema.index({ isActive: 1 });
 userSchema.index({ 'refreshTokens.token': 1 });

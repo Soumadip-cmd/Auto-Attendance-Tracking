@@ -37,7 +37,7 @@ export const useBiometric = () => {
 
   const loadBiometricPreference = async () => {
     try {
-      const enabled = await AsyncStorage.getItem('BIOMETRIC_ENABLED');
+      const enabled = await AsyncStorage.getItem('biometric_enabled');
       setIsEnabled(enabled === 'true');
     } catch (error) {
       console.error('Error loading biometric preference:', error);
@@ -68,7 +68,16 @@ export const useBiometric = () => {
 
   const enableBiometric = async () => {
     try {
-      await AsyncStorage.setItem('BIOMETRIC_ENABLED', 'true');
+      // First, check if credentials are saved
+      const savedEmail = await AsyncStorage.getItem('biometric_email');
+      const savedPassword = await AsyncStorage.getItem('biometric_password');
+      
+      if (!savedEmail || !savedPassword) {
+        console.error('No saved credentials for biometric');
+        return false;
+      }
+
+      await AsyncStorage.setItem('biometric_enabled', 'true');
       setIsEnabled(true);
       return true;
     } catch (error) {
@@ -79,7 +88,10 @@ export const useBiometric = () => {
 
   const disableBiometric = async () => {
     try {
-      await AsyncStorage.setItem('BIOMETRIC_ENABLED', 'false');
+      await AsyncStorage.setItem('biometric_enabled', 'false');
+      // Optionally clear saved credentials when disabling
+      // await AsyncStorage.removeItem('biometric_email');
+      // await AsyncStorage.removeItem('biometric_password');
       setIsEnabled(false);
       return true;
     } catch (error) {

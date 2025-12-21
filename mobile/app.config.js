@@ -8,11 +8,11 @@ export default {
     orientation: "portrait",
     userInterfaceStyle: "automatic",
     splash: {
-      image: "./assets/splash.png",
+      image: "./src/assets/immigration.png",
       resizeMode: "contain",
       backgroundColor: "#6366f1"
     },
-    icon: "./assets/icon.png",
+    icon: "./src/assets/immigration.png",
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.geoattendance.freelixe",
@@ -35,7 +35,7 @@ export default {
         "FOREGROUND_SERVICE_LOCATION"
       ],
       adaptiveIcon: {
-        foregroundImage: "./assets/adaptive-icon.png",
+        foregroundImage: "./src/assets/immigration.png",
         backgroundColor: "#6366f1"
       },
       config: {

@@ -93,8 +93,13 @@ export default function SettingsScreen() {
         text: 'Logout',
         style: 'destructive',
         onPress: async () => {
-          await logout();
-          router.replace('/(auth)/login');
+          console.log('🚪 User confirmed logout from settings');
+          const result = await logout();
+          console.log('🚪 Logout result:', result);
+          // Force complete navigation reset to login screen
+          setTimeout(() => {
+            router.replace('/(auth)/login');
+          }, 100);
         },
       },
     ]);

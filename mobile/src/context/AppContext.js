@@ -6,6 +6,7 @@ import websocketService from '../services/websocket';
 import locationService from '../services/locationService';
 import * as Location from 'expo-location';
 import { Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const AppContext = createContext();
 
@@ -131,22 +132,54 @@ export const AppProvider = ({ children }) => {
       setLoading(true);
       await authAPI.logout();
       
+      // Clear all storage including biometric credentials
       await secureStorage.removeItem(APP_CONFIG.TOKEN_KEY);
       await secureStorage.removeItem(APP_CONFIG.REFRESH_TOKEN_KEY);
       await secureStorage.removeItem(APP_CONFIG.USER_KEY);
+      
+      // Clear AsyncStorage biometric data
+      await AsyncStorage.removeItem('biometric_email');
+      await AsyncStorage.removeItem('biometric_password');
+      await AsyncStorage.removeItem('biometric_enabled');
 
       websocketService.disconnect();
       locationService.stopTracking();
+      
+      // Stop geofence monitoring to prevent unauthorized API calls
+      try {
+        const geofenceService = require('../services/geofenceService').default;
+        if (geofenceService) {
+          geofenceService.stopMonitoring();
+          console.log('✅ Geofence monitoring stopped');
+        }
+      } catch (err) {
+        console.log('Geofence service not available or already stopped');
+      }
 
+      // Clear state immediately
       setUser(null);
       setIsAuthenticated(false);
       setTodayAttendance(null);
       setAttendanceHistory([]);
       setIsCheckedIn(false);
+      setGeofences([]);
+      setNearestGeofence(null);
+      setIsInsideGeofence(false);
 
+      console.log('✅ Logout successful, state cleared, navigation will trigger');
       return { success: true };
     } catch (err) {
       console.error('Logout error:', err);
+      // Even if logout API fails, clear local data
+      await secureStorage.removeItem(APP_CONFIG.TOKEN_KEY);
+      await secureStorage.removeItem(APP_CONFIG.REFRESH_TOKEN_KEY);
+      await secureStorage.removeItem(APP_CONFIG.USER_KEY);
+      await AsyncStorage.removeItem('biometric_email');
+      await AsyncStorage.removeItem('biometric_password');
+      await AsyncStorage.removeItem('biometric_enabled');
+      
+      setUser(null);
+      setIsAuthenticated(false);
       return { success: true };
     } finally {
       setLoading(false);

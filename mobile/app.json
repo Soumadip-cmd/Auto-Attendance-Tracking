@@ -5,9 +5,9 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "icon": "./src/assets/app-icon.png",
+    "icon": "./src/assets/immigration.png",
     "splash": {
-      "image": "./src/assets/app-icon.png",
+      "image": "./src/assets/immigration.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -15,7 +15,7 @@
       "supportsTablet": true,
       "bundleIdentifier":  "com.geoattendance.freelixe",
       "deploymentTarget": "15.1",
-      "icon": "./src/assets/app-icon.png",
+      "icon": "./src/assets/immigration.png",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Location access for attendance tracking.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Background location access.",

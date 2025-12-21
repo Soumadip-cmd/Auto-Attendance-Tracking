@@ -32,6 +32,7 @@ export default function MapScreen() {
   const [roadDistance, setRoadDistance] = useState(null);
   const [address, setAddress] = useState(null);
   const [loadingMaps, setLoadingMaps] = useState(false);
+  const [showDistancePanel, setShowDistancePanel] = useState(true);
 
   useEffect(() => {
     initializeMap();
@@ -292,112 +293,112 @@ export default function MapScreen() {
         </MapView>
       )}
 
-      {/* Distance Result Box */}
-      <View style={styles.distanceContainer}>
-        <Card style={[styles.distanceCard, { 
-          borderLeftWidth: 4, 
-          borderLeftColor: isInsideGeofence ? theme.colors.success : theme.colors.error 
-        }]}>
-          <View style={styles.distanceHeader}>
-            <Ionicons 
-              name={isInsideGeofence ? "checkmark-circle" : "alert-circle"} 
-              size={24} 
-              color={isInsideGeofence ? theme.colors.success : theme.colors.error} 
-            />
-            <Text style={[styles.distanceTitle, { color: theme.colors.text }]}>
-              Distance from Site
-            </Text>
-          </View>
+      {/* Distance Result Box - Compact */}
+      {showDistancePanel && selectedGeofence && (
+        <View style={styles.distanceContainer}>
+          <Card style={[styles.distanceCard, { 
+            borderLeftWidth: 3, 
+            borderLeftColor: isInsideGeofence ? theme.colors.success : theme.colors.error,
+            backgroundColor: theme.dark ? 'rgba(31, 41, 55, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+          }]}>
+            {/* Compact Header */}
+            <View style={styles.distanceHeader}>
+              <View style={styles.compactHeaderContent}>
+                <Ionicons 
+                  name={isInsideGeofence ? "checkmark-circle" : "alert-circle"} 
+                  size={18} 
+                  color={isInsideGeofence ? theme.colors.success : theme.colors.error} 
+                />
+                <Text style={[styles.distanceTitleCompact, { color: theme.colors.text }]}>
+                  Distance
+                </Text>
+                <TouchableOpacity 
+                  onPress={() => setShowDistancePanel(false)}
+                  style={[styles.closeButtonCompact, { 
+                    backgroundColor: theme.dark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+                  }]}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="close-circle" size={20} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+            </View>
           
-          <View style={styles.distanceContent}>
+            {/* Compact Content */}
+            <View style={styles.distanceContentCompact}>
             {loadingMaps ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={theme.colors.primary} />
-                <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
-                  Calculating distance via Google Maps...
+              <View style={styles.compactLoading}>
+                <ActivityIndicator size="small" color={theme.colors.primary} />
+                <Text style={[styles.compactText, { color: theme.colors.textSecondary }]}>
+                  Calculating...
                 </Text>
               </View>
             ) : roadDistance ? (
-              <>
-                <Text style={[styles.distanceValue, { 
-                  color: isInsideGeofence ? theme.colors.success : theme.colors.error 
-                }]}>
-                  {roadDistance.distanceText}
-                </Text>
+              <View style={styles.compactInfo}>
+                {/* Distance Value */}
+                <View style={styles.compactRow}>
+                  <Text style={[styles.distanceValueCompact, { 
+                    color: isInsideGeofence ? theme.colors.success : theme.colors.error 
+                  }]}>
+                    {roadDistance.distanceText}
+                  </Text>
+                  <View style={[styles.statusDotCompact, { 
+                    backgroundColor: isInsideGeofence ? theme.colors.success : theme.colors.error 
+                  }]} />
+                </View>
                 
+                {/* Additional Info Row */}
+                <View style={styles.compactDetailsRow}>
+                  {!roadDistance.isFallback && roadDistance.durationText && (
+                    <View style={styles.compactDetail}>
+                      <Ionicons name="time-outline" size={12} color={theme.colors.textSecondary} />
+                      <Text style={[styles.compactDetailText, { color: theme.colors.textSecondary }]}>
+                        {roadDistance.durationText}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={styles.compactDetail}>
+                    <Ionicons name="location-outline" size={12} color={theme.colors.textSecondary} />
+                    <Text style={[styles.compactDetailText, { color: theme.colors.textSecondary }]}>
+                      Radius: {selectedGeofence?.radius}m
+                    </Text>
+                  </View>
+                </View>
+                
+                {/* Fallback Warning (if applicable) */}
                 {roadDistance.isFallback && (
-                  <View style={[styles.warningBanner, { backgroundColor: 'rgba(251, 191, 36, 0.1)', borderColor: '#fbbf24' }]}>
-                    <Ionicons name="warning" size={16} color="#fbbf24" />
-                    <Text style={[styles.warningText, { color: '#fbbf24' }]}>
-                      Using straight-line distance (Maps API not enabled)
+                  <View style={styles.compactWarning}>
+                    <Ionicons name="warning" size={10} color="#fbbf24" />
+                    <Text style={[styles.compactWarningText, { color: '#fbbf24' }]}>
+                      Straight-line
                     </Text>
                   </View>
                 )}
-                
-                <View style={styles.distanceDetails}>
-                  {!roadDistance.isFallback && (
-                    <View style={styles.detailRow}>
-                      <Ionicons name="time" size={16} color={theme.colors.textSecondary} />
-                      <Text style={[styles.detailText, { color: theme.colors.textSecondary }]}>
-                        Walking Time: {roadDistance.durationText}
-                      </Text>
-                    </View>
-                  )}
-                  
-                  <View style={styles.detailRow}>
-                    <Ionicons name="location" size={16} color={theme.colors.textSecondary} />
-                    <Text style={[styles.detailText, { color: theme.colors.textSecondary }]}>
-                      Geofence Radius: {selectedGeofence ? `${selectedGeofence.radius}m` : 'N/A'}
-                    </Text>
-                  </View>
-                  
-                  {roadDistance.isFallback && (
-                    <View style={styles.detailRow}>
-                      <Ionicons name="information-circle" size={16} color={theme.colors.primary} />
-                      <Text style={[styles.detailText, { color: theme.colors.primary, flex: 1 }]}>
-                        Actual road distance may differ
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              </>
+              </View>
             ) : (
-              <View style={styles.infoBox}>
-                <Ionicons name="information-circle" size={24} color={theme.colors.primary} />
-                <Text style={[styles.infoText, { color: theme.colors.text }]}>
-                  Calculating distance...
-                </Text>
-                <Text style={[styles.infoSubText, { color: theme.colors.textSecondary }]}>
-                  Make sure Google Maps APIs are enabled
+              <View style={styles.compactLoading}>
+                <ActivityIndicator size="small" color={theme.colors.primary} />
+                <Text style={[styles.compactText, { color: theme.colors.textSecondary }]}>
+                  Loading...
                 </Text>
               </View>
-            )
-          }
-              
-              {/* Address */}
-              {address && (
-                <View style={[styles.detailRow, { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: theme.colors.border }]}>
-                  <Ionicons name="business" size={16} color={theme.colors.textSecondary} />
-                  <Text style={[styles.detailText, { color: theme.colors.textSecondary, flex: 1 }]} numberOfLines={2}>
-                    {address.formattedAddress}
-                  </Text>
-                </View>
-              )}
-              
-              <View style={styles.statusBadge}>
-                <View style={[
-                  styles.statusDot, 
-                  { backgroundColor: isInsideGeofence ? theme.colors.success : theme.colors.error }
-                ]} />
-                <Text style={[styles.statusText, { 
-                  color: isInsideGeofence ? theme.colors.success : theme.colors.error 
-                }]}>
-                  {isInsideGeofence ? 'Inside Geofence' : 'Outside Geofence'}
-                </Text>
-              </View>
-          </View>
-        </Card>
-      </View>
+            )}
+            </View>
+          </Card>
+        </View>
+      )}
+
+      {/* Toggle Distance Panel Button (when hidden) */}
+      {!showDistancePanel && selectedGeofence && (
+        <TouchableOpacity 
+          style={[styles.toggleButton, { backgroundColor: theme.colors.primary }]}
+          onPress={() => setShowDistancePanel(true)}
+        >
+          <Ionicons name="information-circle" size={24} color="#fff" />
+          <Text style={styles.toggleButtonText}>Show Distance</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Refresh Button */}
       <TouchableOpacity
@@ -496,23 +497,87 @@ const styles = StyleSheet.create({
     right: 16,
   },
   distanceCard: {
-    padding: 20,
+    padding: 10,
+    paddingHorizontal: 12,
   },
   distanceHeader: {
+    marginBottom: 8,
+  },
+  compactHeaderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  distanceTitleCompact: {
+    fontSize: 14,
+    fontWeight: '600',
+    flex: 1,
+  },
+  closeButtonCompact: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  distanceContentCompact: {
+    gap: 6,
+  },
+  compactLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 4,
+  },
+  compactText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  compactInfo: {
+    gap: 6,
+  },
+  compactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  distanceValueCompact: {
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  statusDotCompact: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  compactDetailsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginBottom: 16,
+    flexWrap: 'wrap',
   },
-  distanceTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+  compactDetail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
-  distanceContent: {
-    gap: 16,
+  compactDetailText: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  compactWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingTop: 4,
+  },
+  compactWarningText: {
+    fontSize: 10,
+    fontWeight: '600',
   },
   distanceValue: {
-    fontSize: 42,
+    fontSize: 36,
     fontWeight: '800',
     textAlign: 'center',
     letterSpacing: -1,
@@ -575,6 +640,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
   },
+  loadingContainer: {
+    paddingVertical: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
   refreshButton: {
     position: 'absolute',
     top: 70,
@@ -589,5 +665,28 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
+  },
+  toggleButton: {
+    position: 'absolute',
+    bottom: 20,
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  toggleButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

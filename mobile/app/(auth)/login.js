@@ -37,23 +37,46 @@ export default function LoginScreen() {
 
   const checkBiometric = async () => {
     try {
+      console.log('🔍 Checking biometric availability...');
       const hasHardware = await LocalAuthentication.hasHardwareAsync();
       const isEnrolled = await LocalAuthentication.isEnrolledAsync();
       const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
+      
+      console.log('📱 Biometric hardware check:', {
+        hasHardware,
+        isEnrolled,
+        types: types.map(t => {
+          switch(t) {
+            case LocalAuthentication.AuthenticationType.FINGERPRINT: return 'FINGERPRINT';
+            case LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION: return 'FACE_ID';
+            case LocalAuthentication.AuthenticationType.IRIS: return 'IRIS';
+            default: return 'UNKNOWN';
+          }
+        })
+      });
       
       setBiometricAvailable(hasHardware && isEnrolled);
       
       if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
         setBiometricType('Face ID');
+        console.log('✅ Face ID available');
       } else if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
         setBiometricType('Fingerprint');
+        console.log('✅ Fingerprint available');
+      } else {
+        setBiometricType('Biometric');
+        console.log('ℹ️ Generic biometric available');
       }
 
       // Load saved email if exists
       const savedEmail = await AsyncStorage.getItem('biometric_email');
-      if (savedEmail) setEmail(savedEmail);
+      if (savedEmail) {
+        setEmail(savedEmail);
+        console.log('📧 Loaded saved email for biometric:', savedEmail);
+      }
     } catch (error) {
-      console.error('Biometric check error:', error);
+      console.error('❌ Biometric check error:', error);
+      setBiometricAvailable(false);
     }
   };
 
@@ -84,11 +107,15 @@ export default function LoginScreen() {
 
     if (result.success) {
       console.log('✅ Login successful, saving credentials for biometric...');
-      // Save credentials for biometric login (encrypted in secure storage)
-      await AsyncStorage.setItem('biometric_email', email);
-      await AsyncStorage.setItem('biometric_password', password);
-      await AsyncStorage.setItem('biometric_enabled', 'true');
-      console.log('✅ Biometric credentials saved:', email);
+      try {
+        // Save credentials for biometric login
+        await AsyncStorage.setItem('biometric_email', email);
+        await AsyncStorage.setItem('biometric_password', password);
+        await AsyncStorage.setItem('biometric_enabled', 'true');
+        console.log('✅ Biometric credentials saved successfully for:', email);
+      } catch (storageError) {
+        console.error('❌ Failed to save biometric credentials:', storageError);
+      }
       // Navigation handled by _layout.js automatically
     } else {
       console.log('❌ Login failed:', result.error);
@@ -100,28 +127,33 @@ export default function LoginScreen() {
     try {
       setBiometricLoading(true);
       console.log('🔐 Starting biometric login...');
+      
+      // Check if credentials are saved
       const savedEmail = await AsyncStorage.getItem('biometric_email');
       const savedPassword = await AsyncStorage.getItem('biometric_password');
+      const biometricEnabled = await AsyncStorage.getItem('biometric_enabled');
 
       console.log('📧 Saved email:', savedEmail);
-      console.log('🔑 Has password:', savedPassword ? 'Yes' : 'No');
+      console.log('🔑 Has password:', savedPassword ? 'Yes (length: ' + savedPassword.length + ')' : 'No');
+      console.log('✅ Biometric enabled flag:', biometricEnabled);
 
       if (!savedEmail || !savedPassword) {
-        console.log('❌ No saved credentials found');
+        console.log('❌ No saved credentials or biometric not enabled');
         setBiometricLoading(false);
         Alert.alert(
-          'Setup Required',
-          'Please login with email and password first to enable biometric login.',
+          '👆 Setup Required',
+          `Please login with email and password first to enable ${biometricType} login.`,
           [{ text: 'OK' }]
         );
         return;
       }
 
-      console.log('👆 Requesting biometric authentication...');
+      console.log(`👆 Requesting ${biometricType} authentication...`);
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: `Login with ${biometricType}`,
         fallbackLabel: 'Use password',
         cancelLabel: 'Cancel',
+        disableDeviceFallback: false,
       });
 
       console.log('🔐 Biometric result:', result.success);
@@ -140,9 +172,13 @@ export default function LoginScreen() {
         } else {
           console.log('❌ Login with saved credentials failed:', loginResult.error);
           setBiometricLoading(false);
+          // Clear invalid saved credentials
+          await AsyncStorage.removeItem('biometric_email');
+          await AsyncStorage.removeItem('biometric_password');
+          await AsyncStorage.removeItem('biometric_enabled');
           Alert.alert(
-            'Login Failed',
-            loginResult.error || 'Your saved credentials are invalid. Please login with email and password.',
+            '❌ Login Failed',
+            'Your saved credentials are invalid. Please login with email and password again.',
             [{ text: 'OK' }]
           );
         }
@@ -153,7 +189,7 @@ export default function LoginScreen() {
     } catch (error) {
       console.error('💥 Biometric error:', error);
       setBiometricLoading(false);
-      Alert.alert('Error', 'Biometric authentication failed. Please try again.');
+      Alert.alert('❌ Error', `${biometricType} authentication failed. Please try again.`);
     }
   };
 
