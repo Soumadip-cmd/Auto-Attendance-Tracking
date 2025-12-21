@@ -1,12 +1,14 @@
 {
   "expo": {
+    "name": "GEO Attendance Tracker",
+    "slug": "attendance-tracker",
     "extra": {
       "eas": {
-        "projectId": "aeb3b86b-1769-4206-af80-534bc34773dd"
+        "projectId": "d33612ab-4b02-41a7-8a38-257a681de251"
       }
     },
     "android": {
-      "package": "com.care_freelixe.autoattendancetracking"
+      "package": "com.geoattendance.freelixe"
     }
   }
 }
