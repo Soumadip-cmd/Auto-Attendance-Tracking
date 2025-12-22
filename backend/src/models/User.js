@@ -145,7 +145,11 @@ userSchema.virtual('fullName').get(function() {
 
 // Hash password before saving
 userSchema.pre('save', async function(next) {
+  // Only hash if password is modified or new
   if (!this.isModified('password')) return next();
+  
+  // Don't hash if password is already hashed (starts with $2)
+  if (this.password && this.password.startsWith('$2')) return next();
   
   this.password = await bcrypt.hash(this.password, 12);
   this.passwordChangedAt = Date.now() - 1000; // Subtract 1 second to ensure token is created after password change

@@ -204,7 +204,7 @@ exports.login = asyncHandler(async (req, res) => {
 
   // Update last login
   user.lastLogin = Date.now();
-  await user.save();
+  await user.save({ validateBeforeSave: false });
 
   // Generate tokens
   const token = generateToken(user._id);
