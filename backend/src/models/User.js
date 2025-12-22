@@ -110,6 +110,14 @@ const userSchema = new mongoose.Schema({
   passwordChangedAt: {
     type: Date
   },
+  passwordResetToken: {
+    type: String,
+    select: false
+  },
+  passwordResetExpires: {
+    type: Date,
+    select: false
+  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'

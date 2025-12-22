@@ -98,7 +98,7 @@ export default function SettingsScreen() {
           console.log('🚪 Logout result:', result);
           // Force complete navigation reset to login screen
           setTimeout(() => {
-            router.replace('/(auth)/login');
+            router.replace('/(auth)/login_new');
           }, 100);
         },
       },

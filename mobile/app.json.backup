@@ -7,7 +7,7 @@
     "userInterfaceStyle": "automatic",
     "icon": "./src/assets/immigration.png",
     "splash": {
-      "image": "./src/assets/immigration.png",
+      "image": "./assets/splash.jpg",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },

@@ -8,7 +8,7 @@ export default {
     orientation: "portrait",
     userInterfaceStyle: "automatic",
     splash: {
-      image: "./src/assets/immigration.png",
+      image: "./assets/splash.jpg",
       resizeMode: "contain",
       backgroundColor: "#6366f1"
     },

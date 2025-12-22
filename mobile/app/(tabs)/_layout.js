@@ -81,23 +81,24 @@ export default function TabLayout() {
         }}
       />
 
-      {isAdmin && (
-        <Tabs.Screen
-          name="admin"
-          options={{
-            title: 'Admin',
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="shield" size={size} color={color} />
-            ),
-          }}
-        />
-      )}
+      {/* Admin tab - hidden for non-admin users */}
+      <Tabs.Screen
+        name="admin"
+        options={{
+          title: 'Admin',
+          href: isAdmin ? undefined : null,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="shield" size={size} color={color} />
+          ),
+        }}
+      />
 
+      {/* Reports tab - visible to all but can be customized */}
       <Tabs.Screen
         name="reports"
         options={{
           title: 'Reports',
-          href: isAdmin ? null : undefined,
+          href: undefined,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="stats-chart" size={size} color={color} />
           ),

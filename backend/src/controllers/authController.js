@@ -480,3 +480,123 @@ exports.updatePassword = asyncHandler(async (req, res) => {
     }
   });
 });
+
+/**
+ * @desc    Forgot password - Request reset token
+ * @route   POST /api/v1/auth/forgot-password
+ * @access  Public
+ */
+exports.forgotPassword = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({
+      success: false,
+      message: 'Please provide an email address'
+    });
+  }
+
+  const user = await User.findOne({ email });
+
+  // Always return success to prevent email enumeration
+  if (!user) {
+    return res.json({
+      success: true,
+      message: 'If that email exists, a reset code has been sent'
+    });
+  }
+
+  // Generate 6-digit reset code
+  const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+  const resetCodeHash = require('crypto').createHash('sha256').update(resetCode).digest('hex');
+
+  // Save hashed code and expiry (10 minutes)
+  user.passwordResetToken = resetCodeHash;
+  user.passwordResetExpires = Date.now() + 10 * 60 * 1000;
+  await user.save();
+
+  // Log the reset request
+  await Event.log({
+    eventType: 'user.password-reset-request',
+    actor: user._id,
+    severity: 'info',
+    ipAddress: req.ip,
+    userAgent: req.get('user-agent')
+  });
+
+  // In production, send email here
+  // For now, log it (remove in production)
+  logger.info(`Password reset code for ${email}: ${resetCode}`);
+
+  res.json({
+    success: true,
+    message: 'If that email exists, a reset code has been sent',
+    // Remove this in production - only for testing
+    ...(process.env.NODE_ENV === 'development' && { resetCode })
+  });
+});
+
+/**
+ * @desc    Reset password with token
+ * @route   POST /api/v1/auth/reset-password
+ * @access  Public
+ */
+exports.resetPassword = asyncHandler(async (req, res) => {
+  const { email, resetCode, newPassword } = req.body;
+
+  if (!email || !resetCode || !newPassword) {
+    return res.status(400).json({
+      success: false,
+      message: 'Please provide email, reset code, and new password'
+    });
+  }
+
+  // Hash the provided code
+  const resetCodeHash = require('crypto').createHash('sha256').update(resetCode).digest('hex');
+
+  // Find user with matching code and not expired
+  const user = await User.findOne({
+    email,
+    passwordResetToken: resetCodeHash,
+    passwordResetExpires: { $gt: Date.now() }
+  });
+
+  if (!user) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid or expired reset code'
+    });
+  }
+
+  // Update password
+  user.password = newPassword;
+  user.passwordResetToken = undefined;
+  user.passwordResetExpires = undefined;
+  
+  // Clear all refresh tokens for security
+  user.refreshTokens = [];
+  
+  await user.save();
+
+  // Log password reset
+  await Event.log({
+    eventType: 'user.password-reset',
+    actor: user._id,
+    severity: 'warning',
+    ipAddress: req.ip,
+    userAgent: req.get('user-agent')
+  });
+
+  // Generate new tokens
+  const token = generateToken(user._id);
+  const refreshToken = generateRefreshToken(user._id);
+
+  res.json({
+    success: true,
+    message: 'Password reset successfully',
+    data: {
+      token,
+      refreshToken
+    }
+  });
+});

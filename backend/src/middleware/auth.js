@@ -16,9 +16,14 @@ const protect = async (req, res, next) => {
     }
 
     if (!token) {
+      logger.warn('No token provided in request', {
+        path: req.path,
+        method: req.method,
+        headers: req.headers.authorization
+      });
       return res.status(401).json({
         success: false,
-        message: 'Not authorized to access this route'
+        message: 'Not authorized to access this route - No token provided'
       });
     }
 

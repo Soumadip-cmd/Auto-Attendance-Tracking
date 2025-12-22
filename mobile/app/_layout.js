@@ -36,11 +36,15 @@ function RootLayoutNav() {
       allSegments: segments
     });
 
-    // Only handle initial login redirect (auth to tabs)
-    // Logout navigation is handled directly in logout handlers
+    // Handle authentication redirects
     if (isAuthenticated && inAuthGroup) {
+      // User logged in but still on auth screen -> go to app
       console.log('➡️ Authenticated in auth screen, redirecting to main app...');
       router.replace('/(tabs)');
+    } else if (!isAuthenticated && !inAuthGroup) {
+      // User logged out but still in app -> go to login
+      console.log('➡️ Not authenticated, redirecting to login...');
+      router.replace('/(auth)/login_new');
     }
   }, [isAuthenticated, authLoading, segments]);
 
