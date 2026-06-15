@@ -26,8 +26,8 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['admin', 'manager', 'staff'],
-    default: 'staff'
+    enum: ['super_admin', 'admin', 'hod', 'teacher', 'student', 'manager', 'staff'],
+    default: 'teacher'
   },
   employeeId: {
     type: String,
@@ -37,6 +37,30 @@ const userSchema = new mongoose.Schema({
   department: {
     type: String,
     trim: true
+  },
+  college: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'College',
+    index: true
+  },
+  departmentRef: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Department',
+    index: true
+  },
+  hod: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  teacherCode: {
+    type: String,
+    trim: true,
+    sparse: true
+  },
+  studentRollNumber: {
+    type: String,
+    trim: true,
+    sparse: true
   },
   phoneNumber: {
     type: String,
@@ -60,6 +84,25 @@ const userSchema = new mongoose.Schema({
   trackingEnabled: {
     type: Boolean,
     default: false
+  },
+  trackingStatus: {
+    type: String,
+    enum: ['offline', 'online', 'paused', 'outside_geofence'],
+    default: 'offline'
+  },
+  permissions: {
+    canLiveTrack: {
+      type: Boolean,
+      default: true
+    },
+    canRequestMovementPermission: {
+      type: Boolean,
+      default: true
+    },
+    canApproveMovementPermission: {
+      type: Boolean,
+      default: false
+    }
   },
   privacySettings: {
     shareLocationWithManagers: {
@@ -136,6 +179,9 @@ const userSchema = new mongoose.Schema({
 // Indexes - only non-unique ones (unique already defined in fields)
 userSchema.index({ role: 1 });
 userSchema.index({ isActive: 1 });
+userSchema.index({ college: 1, role: 1 });
+userSchema.index({ departmentRef: 1, role: 1 });
+userSchema.index({ trackingStatus: 1 });
 userSchema.index({ 'refreshTokens.token': 1 });
 
 // Virtual for full name

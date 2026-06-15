@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const { User } = require('../models');
 const logger = require('../config/logger');
 const { Event } = require('../models');
+const { isAdminLike } = require('../utils/roleUtils');
 
 /**
  * Middleware to protect routes - requires valid JWT token
@@ -127,10 +128,10 @@ const authorizeOwnerOrAdmin = (req, res, next) => {
 
   const resourceUserId = req.params.userId || req.params.id || req.body.userId;
   
-  // Allow if user is admin or manager, or if accessing own resource
+  // Allow if user is admin-like, or if accessing own resource
   if (
-    req.user.role === 'admin' || 
-    req.user.role === 'manager' || 
+    isAdminLike(req.user) ||
+    req.user.role === 'hod' ||
     req.user._id.toString() === resourceUserId
   ) {
     return next();

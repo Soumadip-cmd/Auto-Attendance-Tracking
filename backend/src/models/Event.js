@@ -24,6 +24,25 @@ const eventSchema = new mongoose.Schema({
       // Location events
       'location.update',
       'location.tamper-detected',
+      'location.live-update',
+      'location.geofence-violation',
+      // Geofence events
+      'geofence.created',
+      'geofence.updated',
+      'geofence.deleted',
+      'geofence.entered',
+      'geofence.exited',
+      // Organization events
+      'college.created',
+      'college.updated',
+      'department.created',
+      'department.updated',
+      'department.hod-assigned',
+      // Movement permission events
+      'movement-permission.requested',
+      'movement-permission.approved',
+      'movement-permission.rejected',
+      'movement-permission.cancelled',
       // Privacy events
       'privacy.consent-given',
       'privacy.consent-revoked',
@@ -57,7 +76,18 @@ const eventSchema = new mongoose.Schema({
   resource: {
     type: {
       type: String,
-      enum: ['user', 'device', 'location', 'attendance', 'system']
+      enum: [
+        'user',
+        'device',
+        'location',
+        'attendance',
+        'system',
+        'geofence',
+        'college',
+        'department',
+        'movement-permission',
+        'live-location'
+      ]
     },
     id: {
       type: mongoose.Schema.Types.ObjectId

@@ -15,9 +15,13 @@ exports.createGeofence = asyncHandler(async (req, res) => {
     longitude,
     radius,
     type,
+    college,
+    department,
     address,
     workingHours,
-    color
+    color,
+    alerts,
+    assignedUsers
   } = req.body;
 
   // Create geofence
@@ -30,9 +34,13 @@ exports.createGeofence = asyncHandler(async (req, res) => {
     },
     radius,
     type,
+    college: college || req.user.college,
+    department,
     address,
     workingHours,
     color,
+    alerts,
+    assignedUsers,
     createdBy: req.user._id
   });
 
@@ -65,7 +73,7 @@ exports.createGeofence = asyncHandler(async (req, res) => {
  * @access  Private
  */
 exports.getGeofences = asyncHandler(async (req, res) => {
-  const { isActive, type } = req.query;
+  const { isActive, type, college, department } = req.query;
 
   const filter = {};
   if (isActive !== undefined) {
@@ -73,6 +81,12 @@ exports.getGeofences = asyncHandler(async (req, res) => {
   }
   if (type) {
     filter.type = type;
+  }
+  if (college) {
+    filter.college = college;
+  }
+  if (department) {
+    filter.department = department;
   }
 
   const geofences = await Geofence.find(filter)
@@ -132,9 +146,13 @@ exports.updateGeofence = asyncHandler(async (req, res) => {
     longitude,
     radius,
     type,
+    college,
+    department,
     address,
     workingHours,
     color,
+    alerts,
+    assignedUsers,
     isActive
   } = req.body;
 
@@ -149,9 +167,13 @@ exports.updateGeofence = asyncHandler(async (req, res) => {
   }
   if (radius !== undefined) geofence.radius = radius;
   if (type !== undefined) geofence.type = type;
+  if (college !== undefined) geofence.college = college;
+  if (department !== undefined) geofence.department = department;
   if (address !== undefined) geofence.address = address;
   if (workingHours !== undefined) geofence.workingHours = workingHours;
   if (color !== undefined) geofence.color = color;
+  if (alerts !== undefined) geofence.alerts = alerts;
+  if (assignedUsers !== undefined) geofence.assignedUsers = assignedUsers;
   if (isActive !== undefined) geofence.isActive = isActive;
   geofence.updatedBy = req.user._id;
 

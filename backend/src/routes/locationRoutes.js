@@ -8,8 +8,8 @@ const { locationLimiter } = require('../middleware/rateLimiter');
 router.post('/', protect, locationLimiter, validate(schemas.submitLocation), locationController.submitLocation);
 router.post('/batch', protect, locationLimiter, locationController.submitLocationBatch);
 router.get('/history', protect, locationController.getLocationHistory);
-router.get('/live', protect, authorize('admin', 'manager'), locationController.getLiveLocations);
-router.get('/heatmap', protect, authorize('admin', 'manager'), locationController.getHeatmapData);
+router.get('/live', protect, authorize('super_admin', 'admin', 'manager', 'hod'), locationController.getLiveLocations);
+router.get('/heatmap', protect, authorize('super_admin', 'admin', 'manager', 'hod'), locationController.getHeatmapData);
 router.delete('/history', protect, locationController.deleteLocationHistory);
 
 module.exports = router;

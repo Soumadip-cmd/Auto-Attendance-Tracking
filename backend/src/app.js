@@ -24,6 +24,10 @@ const geofenceRoutes = require('./routes/geofenceRoutes');
 const locationRoutes = require('./routes/locationRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
 const healthRoutes = require('./routes/healthRoutes');
+const liveTrackingRoutes = require('./routes/liveTrackingRoutes');
+const movementPermissionRoutes = require('./routes/movementPermissionRoutes');
+const organizationRoutes = require('./routes/organizationRoutes');
+const { initializeWebSocket } = require('./websocket/socketHandler');
 
 // Initialize Express app
 const app = express();
@@ -166,6 +170,9 @@ app.use(`/api/${API_VERSION}/dashboard`, dashboardRoutes); // ✅ ADD THIS
 app.use(`/api/${API_VERSION}/geofences`, geofenceRoutes);
 app.use(`/api/${API_VERSION}/locations`, locationRoutes);
 app.use(`/api/${API_VERSION}/settings`, settingsRoutes);
+app.use(`/api/${API_VERSION}/live-tracking`, liveTrackingRoutes);
+app.use(`/api/${API_VERSION}/movement-permissions`, movementPermissionRoutes);
+app.use(`/api/${API_VERSION}/organization`, organizationRoutes);
 
 // Root route
 app.get('/', (req, res) => {
@@ -193,18 +200,7 @@ if (process.env.NODE_ENV === 'development') {
 // WEBSOCKET SETUP
 // ==========================================
 
-io.on('connection', (socket) => {
-  logger.info(`New WebSocket connection: ${socket.id}`);
-
-  socket.on('disconnect', () => {
-    logger.info(`WebSocket disconnected: ${socket.id}`);
-  });
-
-  // Handle attendance events
-  socket.on('attendance:update', (data) => {
-    io.emit('attendance:updated', data);
-  });
-});
+initializeWebSocket(io);
 
 // Make io accessible to routes
 app.set('io', io);

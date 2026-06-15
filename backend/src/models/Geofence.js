@@ -46,9 +46,23 @@ const geofenceSchema = new mongoose.Schema({
   // Type of geofence
   type: {
     type: String,
-    enum: ['office', 'branch', 'site', 'custom'],
+    enum: ['office', 'branch', 'site', 'classroom', 'lab', 'library', 'custom'],
     default: 'office'
   },
+  college: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'College',
+    index: true
+  },
+  department: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Department',
+    index: true
+  },
+  assignedUsers: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
   // Address (optional, for display)
   address: {
     street: String,
@@ -103,6 +117,24 @@ const geofenceSchema = new mongoose.Schema({
     default: '#3b82f6', // Blue
     match: [/^#[0-9A-F]{6}$/i, 'Please provide a valid hex color code']
   },
+  alerts: {
+    entryAlert: {
+      type: Boolean,
+      default: true
+    },
+    exitAlert: {
+      type: Boolean,
+      default: true
+    },
+    violationAlert: {
+      type: Boolean,
+      default: true
+    },
+    notifyManagers: {
+      type: Boolean,
+      default: true
+    }
+  },
   // Metadata
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -120,6 +152,8 @@ const geofenceSchema = new mongoose.Schema({
 geofenceSchema.index({ center: '2dsphere' });
 geofenceSchema.index({ isActive: 1 });
 geofenceSchema.index({ type: 1 });
+geofenceSchema.index({ college: 1, isActive: 1 });
+geofenceSchema.index({ department: 1, isActive: 1 });
 
 // Instance method: Check if a point is within this geofence
 geofenceSchema.methods.containsPoint = function(longitude, latitude) {

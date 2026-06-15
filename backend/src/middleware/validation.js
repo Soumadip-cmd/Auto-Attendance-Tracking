@@ -39,9 +39,14 @@ const schemas = {
     password: Joi.string().min(8).required(),
     firstName: Joi.string().required(),
     lastName: Joi.string().required(),
-    role: Joi.string().valid('admin', 'manager', 'staff').default('staff'),
+    role: Joi.string().valid('super_admin', 'admin', 'hod', 'teacher', 'student', 'manager', 'staff').default('teacher'),
     employeeId: Joi.string().optional(),
     department: Joi.string().optional(),
+    college: Joi.string().optional(),
+    departmentRef: Joi.string().optional(),
+    hod: Joi.string().optional(),
+    teacherCode: Joi.string().optional(),
+    studentRollNumber: Joi.string().optional(),
     phoneNumber: Joi.string().optional()
   }),
 
@@ -148,7 +153,9 @@ const schemas = {
   createGeofence: Joi.object({
     name: Joi.string().required(),
     description: Joi.string().allow('').optional(),
-    type: Joi.string().valid('office', 'branch', 'site', 'custom').default('office'),
+    type: Joi.string().valid('office', 'branch', 'site', 'classroom', 'lab', 'library', 'custom').default('office'),
+    college: Joi.string().optional(),
+    department: Joi.string().optional(),
     latitude: Joi.number().min(-90).max(90).required(),
     longitude: Joi.number().min(-180).max(180).required(),
     radius: Joi.number().min(10).max(10000).required(),
@@ -185,7 +192,9 @@ const schemas = {
   updateGeofence: Joi.object({
     name: Joi.string().optional(),
     description: Joi.string().allow('').optional(),
-    type: Joi.string().valid('office', 'branch', 'site', 'custom').optional(),
+    type: Joi.string().valid('office', 'branch', 'site', 'classroom', 'lab', 'library', 'custom').optional(),
+    college: Joi.string().optional(),
+    department: Joi.string().optional(),
     latitude: Joi.number().min(-90).max(90).optional(),
     longitude: Joi.number().min(-180).max(180).optional(),
     radius: Joi.number().min(10).max(10000).optional(),

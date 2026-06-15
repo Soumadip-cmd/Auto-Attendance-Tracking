@@ -4,6 +4,11 @@ const Location = require('./Location');
 const Attendance = require('./Attendance');
 const Event = require('./Event');
 const Geofence = require('./Geofence');
+const College = require('./College');
+const Department = require('./Department');
+const MovementPermission = require('./MovementPermission');
+const LiveLocation = require('./LiveLocation');
+const LiveLocationHistory = require('./LiveLocationHistory');
 
 module.exports = {
   User,
@@ -11,5 +16,10 @@ module.exports = {
   Location,
   Attendance,
   Event,
-  Geofence
+  Geofence,
+  College,
+  Department,
+  MovementPermission,
+  LiveLocation,
+  LiveLocationHistory
 };
