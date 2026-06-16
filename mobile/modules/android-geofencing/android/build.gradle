@@ -1,14 +1,18 @@
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
-apply plugin: 'expo-module'
+
+// Mirrors the helper defined in the root build.gradle so we don't need expo-module plugin
+def safeExtGet(prop, fallback) {
+    rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
+}
 
 android {
     namespace "expo.modules.androidgeofencing"
-    compileSdkVersion safeExtGet("compileSdkVersion", 34)
+    compileSdk safeExtGet("compileSdkVersion", 35)
 
     defaultConfig {
-        minSdkVersion safeExtGet("minSdkVersion", 24)
-        targetSdkVersion safeExtGet("targetSdkVersion", 34)
+        minSdk safeExtGet("minSdkVersion", 24)
+        targetSdk safeExtGet("targetSdkVersion", 35)
     }
 
     compileOptions {
@@ -22,5 +26,7 @@ android {
 }
 
 dependencies {
+    // expo-modules-core is always a sub-project in Expo's Android build
+    implementation project(':expo-modules-core')
     implementation "com.google.android.gms:play-services-location:21.3.0"
 }
