@@ -17,6 +17,7 @@
     "lint": "eslint src/ --ext .js",
     "lint:fix": "eslint src/ --ext .js --fix",
     "seed:admin": "node src/scripts/seedAdmin.js",
+    "seed:super-admin": "node src/scripts/seedSuperAdmin.js",
     "cleanup": "node src/scripts/cleanup.js",
     "cleanup:locations": "node src/scripts/cleanup.js locations",
     "cleanup:events": "node src/scripts/cleanup. js events",

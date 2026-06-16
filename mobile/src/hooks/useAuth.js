@@ -36,7 +36,10 @@ export const useAuth = () => {
     changePassword,
     refreshUser,
     clearError,
-    isAdmin:  user?.role === 'admin',
+    isAdmin: user?.role === 'admin' || user?.role === 'super_admin',
+    isSuperAdmin: user?.role === 'super_admin',
+    isHod: user?.role === 'hod',
+    isTeacher: user?.role === 'teacher' || user?.role === 'staff',
     isManager: user?.role === 'manager',
     isStaff: user?.role === 'staff',
   };

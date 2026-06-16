@@ -1,5 +1,6 @@
 const { asyncHandler } = require('../middleware/errorHandler');
 const liveTrackingService = require('../services/liveTrackingService');
+const { Event, Geofence } = require('../models');
 
 /**
  * @desc    Submit current teacher location through REST fallback
@@ -105,5 +106,68 @@ exports.stopTracking = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     message: 'Live tracking stopped'
+  });
+});
+
+/**
+ * @desc    Submit native device geofence transition event
+ * @route   POST /api/v1/live-tracking/geofence-event
+ * @access  Private
+ */
+exports.submitGeofenceEvent = asyncHandler(async (req, res) => {
+  const { geofenceId, eventType, latitude, longitude, timestamp } = req.body;
+  const normalizedType = eventType === 'exit' ? 'exit' : 'enter';
+  const geofence = geofenceId ? await Geofence.findById(geofenceId) : null;
+
+  const event = await Event.log({
+    eventType: normalizedType === 'exit' ? 'geofence.exited' : 'geofence.entered',
+    actor: req.user._id,
+    target: req.user._id,
+    resource: geofence ? { type: 'geofence', id: geofence._id } : undefined,
+    severity: normalizedType === 'exit' ? 'warning' : 'info',
+    status: normalizedType === 'exit' ? 'warning' : 'success',
+    details: {
+      geofenceName: geofence?.name,
+      latitude,
+      longitude,
+      timestamp: timestamp || new Date()
+    },
+    ipAddress: req.ip,
+    userAgent: req.get('user-agent')
+  });
+
+  const io = req.app.get('io');
+  if (io) {
+    const payload = {
+      userId: req.user._id,
+      teacher: {
+        id: req.user._id,
+        firstName: req.user.firstName,
+        lastName: req.user.lastName,
+        email: req.user.email,
+        employeeId: req.user.employeeId
+      },
+      geofence: geofence ? {
+        id: geofence._id,
+        name: geofence.name,
+        radius: geofence.radius,
+        coordinates: {
+          latitude: geofence.center.coordinates[1],
+          longitude: geofence.center.coordinates[0]
+        }
+      } : null,
+      eventType: normalizedType,
+      latitude,
+      longitude,
+      timestamp: timestamp || new Date()
+    };
+
+    io.to('admin-room').emit('teacher:geofence:event', payload);
+    io.to(`user:${req.user._id}`).emit('teacher:geofence:event', payload);
+  }
+
+  res.status(201).json({
+    success: true,
+    data: event
   });
 });

@@ -22,7 +22,7 @@ import { Avatar } from '../../src/components/common/Avatar';
 import { CheckInButton } from '../../src/components/attendance/CheckInButton';
 import { StatsCard } from '../../src/components/attendance/StatsCard';
 import { StatusBadge } from '../../src/components/attendance/StatusBadge';
-import BackgroundLocationService from '../../src/services/backgroundLocationService';
+import TeacherLiveTrackingService from '../../src/services/teacherLiveTrackingService';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -63,12 +63,12 @@ export default function HomeScreen() {
     await getCurrentLocation();
     
     // Check if background tracking is active
-    const isTracking = await BackgroundLocationService.isTracking();
+    const isTracking = await TeacherLiveTrackingService.isTracking();
     setBackgroundTracking(isTracking);
     
     // Load tracking stats
     if (isTracking) {
-      const stats = await BackgroundLocationService.getStats();
+      const stats = await TeacherLiveTrackingService.getStats();
       setTrackingStats(stats);
     }
   };
@@ -94,7 +94,7 @@ export default function HomeScreen() {
   };
 
   const setupWebSocketListeners = () => {
-    const unsubscribe = on('attendance: updated', (data) => {
+    const unsubscribe = on('attendance:updated', (data) => {
       console.log('Attendance updated via WebSocket:', data);
       getTodayAttendance();
     });
@@ -202,7 +202,7 @@ export default function HomeScreen() {
               text: 'Stop',
               style: 'destructive',
               onPress: async () => {
-                await BackgroundLocationService.stopTracking();
+                await TeacherLiveTrackingService.stopTracking();
                 setBackgroundTracking(false);
                 setTrackingStats(null);
               },
@@ -211,17 +211,17 @@ export default function HomeScreen() {
         );
       } else {
         // Start tracking
-        const result = await BackgroundLocationService.startTracking();
+        const result = await TeacherLiveTrackingService.startTracking();
         if (result.success) {
           setBackgroundTracking(true);
           Alert.alert(
-            '✅ Tracking Started',
-            'Your movements are now being recorded.\n\n• Updates every 10 meters or 10 seconds\n• Works even when app is closed\n• View history in History > Movement tab',
-            [{ text: 'Got it!' }]
+            'Tracking Started',
+            `Live movement tracking is active. Native geofences registered: ${result.geofences || 0}.`,
+            [{ text: 'OK' }]
           );
           
           // Load stats
-          const stats = await BackgroundLocationService.getStats();
+          const stats = await TeacherLiveTrackingService.getStats();
           setTrackingStats(stats);
         } else {
           Alert.alert('Error', result.error || 'Failed to start tracking');
@@ -438,10 +438,20 @@ export default function HomeScreen() {
                 Profile
               </Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.quickAction, { backgroundColor: theme.colors.card }]}
+              onPress={() => router.push('/movement-request')}
+            >
+              <Ionicons name="shield-checkmark-outline" size={28} color={theme.colors.warning} />
+              <Text style={[styles.quickActionText, { color: theme.colors.text }]}>
+                Access
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 
-        {/* Background Tracking */}
+        {/* Live Tracking */}
         <View style={styles.section}>
           <Card style={[styles.trackingCard, { backgroundColor: backgroundTracking ? theme.colors.success + '10' : theme.colors.card }]}>
             <View style={styles.trackingHeader}>
@@ -453,10 +463,10 @@ export default function HomeScreen() {
                 />
                 <View style={styles.trackingTextContainer}>
                   <Text style={[styles.trackingTitle, { color: theme.colors.text }]}>
-                    Background Tracking
+                    Live Tracking
                   </Text>
                   <Text style={[styles.trackingSubtitle, { color: theme.colors.textSecondary }]}>
-                    {backgroundTracking ? 'Recording your movements' : 'Track even when app closed'}
+                    {backgroundTracking ? 'Streaming movement to admin' : 'Use native geofencing'}
                   </Text>
                 </View>
               </View>

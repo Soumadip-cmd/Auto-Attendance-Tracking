@@ -191,6 +191,35 @@ export const healthAPI = {
   check: () => api.get('/health'),
 };
 
+// Live Tracking APIs
+export const liveTrackingAPI = {
+  getLive: (params) => api.get('/live-tracking/live', { params }),
+  submitLocation: (data) => api.post('/live-tracking/location', data),
+  stopTracking: () => api.post('/live-tracking/stop'),
+  getTeacher: (teacherId, params) => api.get(`/live-tracking/teacher/${teacherId}`, { params }),
+  getTeacherTrail: (teacherId, params) => api.get(`/live-tracking/teacher/${teacherId}/trail`, { params }),
+};
+
+// Movement Permission APIs
+export const movementPermissionAPI = {
+  getAll: (params) => api.get('/movement-permissions', { params }),
+  getById: (id) => api.get(`/movement-permissions/${id}`),
+  create: (data) => api.post('/movement-permissions', data),
+  approve: (id, data) => api.put(`/movement-permissions/${id}/approve`, data),
+  reject: (id, data) => api.put(`/movement-permissions/${id}/reject`, data),
+  cancel: (id, data) => api.put(`/movement-permissions/${id}/cancel`, data),
+};
+
+// Organization APIs
+export const organizationAPI = {
+  getColleges: (params) => api.get('/organization/colleges', { params }),
+  createCollege: (data) => api.post('/organization/colleges', data),
+  updateCollege: (id, data) => api.put(`/organization/colleges/${id}`, data),
+  getDepartments: (params) => api.get('/organization/departments', { params }),
+  createDepartment: (data) => api.post('/organization/departments', data),
+  updateDepartment: (id, data) => api.put(`/organization/departments/${id}`, data),
+};
+
 // Export aliases for backward compatibility
 export const usersAPI = userAPI;
 

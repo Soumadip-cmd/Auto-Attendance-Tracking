@@ -8,6 +8,8 @@ import {
   Settings,
   LogOut,
   MapPin,
+  Navigation,
+  ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -18,6 +20,8 @@ const Sidebar = () => {
     { icon:  LayoutDashboard, label:  'Dashboard', path: '/' },
     { icon: Users, label: 'Employees', path: '/employees' },
     { icon: ClipboardList, label: 'Attendance', path: '/attendance' },
+    { icon: Navigation, label: 'Live Tracking', path: '/live-tracking' },
+    { icon: ShieldCheck, label: 'Permissions', path: '/movement-permissions' },
     { icon: MapPin, label: 'Geofences', path: '/geofences' },
     { icon: BarChart3, label: 'Reports', path: '/reports' },
     { icon: Clock, label: 'Work Schedule', path: '/work-schedule' },

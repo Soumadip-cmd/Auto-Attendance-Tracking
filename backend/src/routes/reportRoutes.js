@@ -9,9 +9,9 @@ const {
   exportReportData
 } = require('../controllers/reportController');
 
-// All report routes require authentication and admin authorization
+// All report routes require authentication and admin/HOD authorization
 router.use(protect);
-router.use(authorize('admin', 'manager'));
+router.use(authorize('super_admin', 'admin', 'manager', 'hod'));
 
 /**
  * @route   POST /api/v1/reports/generate

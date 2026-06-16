@@ -96,9 +96,9 @@ export const authAPI = {
   register: (userData) => api.post('/auth/register', userData),
   logout: () => api.post('/auth/logout'),
   refreshToken: (refreshToken) => api.post('/auth/refresh', { refreshToken }),
-  getProfile: () => api.get('/auth/profile'),
+  getProfile: () => api.get('/auth/me'),
   updateProfile: (data) => api.put('/auth/profile', data),
-  changePassword: (data) => api.put('/auth/change-password', data),
+  changePassword: (data) => api.put('/auth/password', data),
 };
 
 export const attendanceAPI = {
@@ -114,6 +114,23 @@ export const locationAPI = {
   track: (data) => api.post('/locations', data),
   submitBatch: (locations) => api.post('/locations/batch', { locations }),
   getHistory: (params) => api.get('/locations/history', { params }),
+};
+
+export const liveTrackingAPI = {
+  submitLocation: (data) => api.post('/live-tracking/location', data),
+  submitGeofenceEvent: (data) => api.post('/live-tracking/geofence-event', data),
+  stopTracking: () => api.post('/live-tracking/stop'),
+  getLive: (params) => api.get('/live-tracking/live', { params }),
+  getTeacherTrail: (teacherId, params) => api.get(`/live-tracking/teacher/${teacherId}/trail`, { params }),
+};
+
+export const movementPermissionAPI = {
+  getAll: (params) => api.get('/movement-permissions', { params }),
+  getById: (id) => api.get(`/movement-permissions/${id}`),
+  create: (data) => api.post('/movement-permissions', data),
+  approve: (id, data) => api.put(`/movement-permissions/${id}/approve`, data),
+  reject: (id, data) => api.put(`/movement-permissions/${id}/reject`, data),
+  cancel: (id, data) => api.put(`/movement-permissions/${id}/cancel`, data),
 };
 
 export const notificationAPI = {

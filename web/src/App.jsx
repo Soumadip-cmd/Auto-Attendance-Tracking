@@ -11,6 +11,8 @@ import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import WorkSchedule from './pages/WorkSchedule';
 import Geofences from './pages/Geofences';
+import LiveTracking from './pages/LiveTracking';
+import MovementPermissions from './pages/MovementPermissions';
 
 // You may want to define ProtectedRoute here if needed
 function ProtectedRoute({ children }) {
@@ -61,6 +63,8 @@ function App() {
               <Route index element={<Dashboard />} />
               <Route path="employees" element={<Employees />} />
               <Route path="attendance" element={<Attendance />} />
+              <Route path="live-tracking" element={<LiveTracking />} />
+              <Route path="movement-permissions" element={<MovementPermissions />} />
               <Route path="geofences" element={<Geofences />} />
               <Route path="reports" element={<Reports />} />
               <Route path="work-schedule" element={<WorkSchedule />} />

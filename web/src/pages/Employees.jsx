@@ -19,6 +19,25 @@ import { TableSkeleton, StatsCardSkeleton } from '../components/common/Skeleton'
 import { exportEmployeesToExcel } from '../utils/exportUtils';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 
+const ROLE_OPTIONS = [
+  { value: 'super_admin', label: 'Super Admin' },
+  { value: 'admin', label: 'Admin' },
+  { value: 'hod', label: 'HOD' },
+  { value: 'teacher', label: 'Teacher' },
+  { value: 'student', label: 'Student' },
+  { value: 'manager', label: 'Manager' },
+  { value: 'staff', label: 'Staff' },
+];
+
+const roleClassName = (role) => {
+  if (role === 'super_admin') return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400';
+  if (role === 'admin') return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400';
+  if (role === 'hod') return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400';
+  if (role === 'teacher' || role === 'staff') return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
+  if (role === 'student') return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
+  return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+};
+
 const Employees = () => {
   const { setPageTitle } = useOutletContext();
   const [loading, setLoading] = useState(true);
@@ -40,7 +59,7 @@ const Employees = () => {
     email: '',
     password: '',
     employeeId: '',
-    role: 'employee',
+    role: 'teacher',
     department: '',
     phoneNumber: '',
     isActive: true,
@@ -166,7 +185,7 @@ const Employees = () => {
       email: '',
       password: '',
       employeeId: '',
-      role:  'employee',
+      role:  'teacher',
       department:  '',
       phoneNumber: '',
       isActive: true,
@@ -322,9 +341,11 @@ const Employees = () => {
               onChange={(e) => setRoleFilter(e.target.value)}
             >
               <option value="all">All Roles</option>
-              <option value="admin">Admin</option>
-              <option value="manager">Manager</option>
-              <option value="employee">Employee</option>
+              {ROLE_OPTIONS.map((role) => (
+                <option key={role.value} value={role.value}>
+                  {role.label}
+                </option>
+              ))}
             </select>
 
             {/* Department Filter */}
@@ -455,13 +476,7 @@ const Employees = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
-                        className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          employee.role === 'admin'
-                            ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
-                            : employee.role === 'manager'
-                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                            : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                        }`}
+                        className={`px-2 py-1 text-xs font-medium rounded-full ${roleClassName(employee.role)}`}
                       >
                         {employee. role}
                       </span>
@@ -656,9 +671,11 @@ const Employees = () => {
                     value={formData.role}
                     onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                   >
-                    <option value="employee">Employee</option>
-                    <option value="manager">Manager</option>
-                    <option value="admin">Admin</option>
+                    {ROLE_OPTIONS.map((role) => (
+                      <option key={role.value} value={role.value}>
+                        {role.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
 

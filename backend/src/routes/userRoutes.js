@@ -110,6 +110,10 @@ router.post('/', protect, authorize(...MANAGEMENT_ROLES), async (req, res, next)
       userData.hod = req.user._id;
     }
 
+    if (userData.isVerified === undefined) {
+      userData.isVerified = true;
+    }
+
     const user = await User.create(userData);
     user.password = undefined;
     

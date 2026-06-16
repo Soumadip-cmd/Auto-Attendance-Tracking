@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { protect, authorize } = require('../middleware/auth');
 const Attendance = require('../models/Attendance');
+const liveTrackingService = require('../services/liveTrackingService');
 
 // Helper function to calculate distance between two coordinates (Haversine formula)
 function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -24,7 +25,7 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
  * @desc    Get all attendance records for a specific date (Admin only)
  * @access  Private/Admin
  */
-router.get('/date/:date', protect, authorize('admin'), async (req, res, next) => {
+router.get('/date/:date', protect, authorize('super_admin', 'admin', 'manager', 'hod'), async (req, res, next) => {
   try {
     const { date } = req.params;
     
@@ -243,6 +244,33 @@ router.post('/check-in', protect, async (req, res, next) => {
         message: 'You have already completed attendance for today (checked in and out).',
         data: existingAttendance,
       });
+    }
+
+    if (latitude && longitude) {
+      const trackingResult = await liveTrackingService.processTeacherLocation({
+        user: req.user,
+        location: {
+          latitude,
+          longitude,
+          accuracy,
+          timestamp: new Date().toISOString(),
+          source: 'manual'
+        },
+        io: req.app.get('io'),
+        source: 'manual',
+        requestContext: {
+          ip: req.ip,
+          userAgent: req.get('user-agent')
+        }
+      });
+
+      if (trackingResult.validation.violation) {
+        return res.status(403).json({
+          success: false,
+          message: 'You are outside the assigned geofence and no approved movement permission covers this location.',
+          validation: trackingResult.validation
+        });
+      }
     }
     
     // Find geofence at this location to get expected check-in time
@@ -529,7 +557,7 @@ router.get('/user/:userId', protect, async (req, res, next) => {
  * @desc    Get dashboard statistics
  * @access  Private/Admin
  */
-router.get('/stats/dashboard', protect, authorize('admin'), async (req, res, next) => {
+router.get('/stats/dashboard', protect, authorize('super_admin', 'admin', 'manager', 'hod'), async (req, res, next) => {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -567,7 +595,7 @@ router.get('/stats/dashboard', protect, authorize('admin'), async (req, res, nex
  * @desc    Manually create attendance record (for admins)
  * @access  Private/Admin
  */
-router.post('/', protect, authorize('admin'), async (req, res, next) => {
+router.post('/', protect, authorize('super_admin', 'admin', 'manager', 'hod'), async (req, res, next) => {
   try {
     const { employee, checkIn, checkOut, status, location } = req.body;
     
@@ -655,7 +683,7 @@ router.post('/', protect, authorize('admin'), async (req, res, next) => {
  * @desc    Get all attendance records (with optional date filter)
  * @access  Private/Admin
  */
-router.get('/', protect, authorize('admin'), async (req, res, next) => {
+router.get('/', protect, authorize('super_admin', 'admin', 'manager', 'hod'), async (req, res, next) => {
   try {
     const { date } = req.query;
     
@@ -693,7 +721,7 @@ router.get('/', protect, authorize('admin'), async (req, res, next) => {
  * @desc    Update attendance record
  * @access  Private/Admin
  */
-router.put('/:id', protect, authorize('admin'), async (req, res, next) => {
+router.put('/:id', protect, authorize('super_admin', 'admin', 'manager', 'hod'), async (req, res, next) => {
   try {
     const { checkIn, checkOut, status, location } = req.body;
     
@@ -753,7 +781,7 @@ router.put('/:id', protect, authorize('admin'), async (req, res, next) => {
  * @desc    Delete attendance record
  * @access  Private/Admin
  */
-router.delete('/:id', protect, authorize('admin'), async (req, res, next) => {
+router.delete('/:id', protect, authorize('super_admin', 'admin', 'manager'), async (req, res, next) => {
   try {
     const attendance = await Attendance.findById(req.params.id);
     

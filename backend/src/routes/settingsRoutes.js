@@ -27,7 +27,7 @@ let workScheduleSettings = {
  * @desc    Get work schedule settings
  * @access  Private/Admin
  */
-router.get('/work-schedule', protect, authorize('admin'), async (req, res) => {
+router.get('/work-schedule', protect, authorize('super_admin', 'admin', 'manager', 'hod'), async (req, res) => {
   res.status(200).json({
     success: true,
     data: workScheduleSettings,
@@ -39,7 +39,7 @@ router.get('/work-schedule', protect, authorize('admin'), async (req, res) => {
  * @desc    Update work schedule settings
  * @access  Private/Admin
  */
-router.post('/work-schedule', protect, authorize('admin'), async (req, res) => {
+router.post('/work-schedule', protect, authorize('super_admin', 'admin', 'manager'), async (req, res) => {
   try {
     workScheduleSettings = {
       ...workScheduleSettings,

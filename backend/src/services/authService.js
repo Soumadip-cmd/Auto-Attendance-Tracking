@@ -27,7 +27,21 @@ class AuthService {
    * Register a new user
    */
   async register(userData, createdBy = null) {
-    const { email, password, firstName, lastName, role, employeeId, department, phoneNumber } = userData;
+    const {
+      email,
+      password,
+      firstName,
+      lastName,
+      role,
+      employeeId,
+      department,
+      phoneNumber,
+      college,
+      departmentRef,
+      hod,
+      teacherCode,
+      studentRollNumber
+    } = userData;
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -49,16 +63,21 @@ class AuthService {
       password,
       firstName,
       lastName,
-      role:  role || 'staff',
+      role:  role || 'teacher',
       employeeId,
       department,
+      college,
+      departmentRef,
+      hod,
+      teacherCode,
+      studentRollNumber,
       phoneNumber,
       createdBy
     });
 
     // Log event
     await Event.log({
-      eventType: 'user. register',
+      eventType: 'user.register',
       actor: user._id,
       target: user._id,
       resource: { type: 'user', id: user._id },

@@ -17,8 +17,8 @@
       "deploymentTarget": "15.1",
       "icon": "./src/assets/immigration.png",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Location access for attendance tracking.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Background location access.",
+        "NSLocationWhenInUseUsageDescription": "GeoAttend uses your location to check attendance inside approved college geofences.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "GeoAttend uses background location to monitor approved geofences during attendance tracking.",
         "NSCameraUsageDescription": "Camera access for profile pictures."
       }
     },
@@ -31,6 +31,7 @@
         "ACCESS_BACKGROUND_LOCATION",
         "FOREGROUND_SERVICE",
         "FOREGROUND_SERVICE_LOCATION",
+        "POST_NOTIFICATIONS",
         "VIBRATE",
         "USE_BIOMETRIC",
         "INTERNET",

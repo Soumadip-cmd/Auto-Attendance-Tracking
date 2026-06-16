@@ -27,7 +27,21 @@ const generateRefreshToken = (id) => {
  * @access  Public (or Admin only for bulk registration)
  */
 exports.register = asyncHandler(async (req, res) => {
-  const { email, password, firstName, lastName, role, employeeId, department, phoneNumber } = req.body;
+  const {
+    email,
+    password,
+    firstName,
+    lastName,
+    role,
+    employeeId,
+    department,
+    phoneNumber,
+    college,
+    departmentRef,
+    hod,
+    teacherCode,
+    studentRollNumber
+  } = req.body;
 
   // Check if user already exists
   const existingUser = await User.findOne({ email });
@@ -44,9 +58,14 @@ exports.register = asyncHandler(async (req, res) => {
     password,
     firstName,
     lastName,
-    role: role || 'staff',
+    role: role || 'teacher',
     employeeId,
     department,
+    college,
+    departmentRef,
+    hod,
+    teacherCode,
+    studentRollNumber,
     phoneNumber,
     createdBy: req.user?._id
   });
@@ -335,7 +354,8 @@ exports.logout = asyncHandler(async (req, res) => {
  */
 exports.getMe = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user._id)
-    .populate('assignedGeofences', 'name type');
+    .populate('college', 'name code')
+    .populate('departmentRef', 'name code');
 
   res.json({
     success: true,

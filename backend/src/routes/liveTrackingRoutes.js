@@ -12,6 +12,13 @@ router.post(
 
 router.post('/stop', protect, liveTrackingController.stopTracking);
 
+router.post(
+  '/geofence-event',
+  protect,
+  authorize('teacher', 'staff', 'hod', 'admin', 'manager', 'super_admin'),
+  liveTrackingController.submitGeofenceEvent
+);
+
 router.get(
   '/live',
   protect,
