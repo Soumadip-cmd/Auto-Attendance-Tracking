@@ -10,14 +10,12 @@ import androidx.core.content.ContextCompat
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingRequest
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.tasks.Tasks
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.records.Field
 import expo.modules.kotlin.records.Record
-import kotlinx.coroutines.suspendCancellableCoroutine
 import org.json.JSONArray
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 
 class GeofenceRegion : Record {
     @Field
@@ -100,28 +98,16 @@ class AndroidGeofencingModule : Module() {
                     .addGeofences(geofences)
                     .build()
 
-                suspendCancellableCoroutine { cont ->
-                    geofencingClient.addGeofences(request, geofencePendingIntent)
-                        .addOnSuccessListener { cont.resume(Unit) }
-                        .addOnFailureListener { cont.resumeWithException(it) }
-                }
+                Tasks.await(geofencingClient.addGeofences(request, geofencePendingIntent))
             }
         }
 
         AsyncFunction("removeGeofences") { identifiers: List<String> ->
-            suspendCancellableCoroutine { cont ->
-                geofencingClient.removeGeofences(identifiers)
-                    .addOnSuccessListener { cont.resume(Unit) }
-                    .addOnFailureListener { cont.resumeWithException(it) }
-            }
+            Tasks.await(geofencingClient.removeGeofences(identifiers))
         }
 
         AsyncFunction("removeAllGeofences") {
-            suspendCancellableCoroutine { cont ->
-                geofencingClient.removeGeofences(geofencePendingIntent)
-                    .addOnSuccessListener { cont.resume(Unit) }
-                    .addOnFailureListener { cont.resumeWithException(it) }
-            }
+            Tasks.await(geofencingClient.removeGeofences(geofencePendingIntent))
         }
 
         AsyncFunction("getPendingEvents") {
