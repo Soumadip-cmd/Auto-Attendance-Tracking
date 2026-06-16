@@ -36,7 +36,8 @@ export default {
         "VIBRATE",
         "USE_BIOMETRIC",
         "FOREGROUND_SERVICE",
-        "FOREGROUND_SERVICE_LOCATION"
+        "FOREGROUND_SERVICE_LOCATION",
+        "ACTIVITY_RECOGNITION"
       ],
       adaptiveIcon: {
         foregroundImage: "./src/assets/immigration.png",

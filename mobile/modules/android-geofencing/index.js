@@ -6,6 +6,8 @@ const NativeModule =
 
 const emitter = NativeModule ? new EventEmitter(NativeModule) : null;
 
+// ── Geofencing ──────────────────────────────────────────────────────────────
+
 export function addGeofences(regions) {
   return NativeModule?.addGeofences(regions) ?? Promise.resolve();
 }
@@ -25,4 +27,22 @@ export function getPendingEvents() {
 export function addTransitionListener(listener) {
   if (!emitter) return { remove: () => {} };
   return emitter.addListener('onGeofenceTransition', listener);
+}
+
+// ── Activity Recognition (Google SDK) ───────────────────────────────────────
+
+export function startWalkingDetection() {
+  return NativeModule?.startWalkingDetection() ?? Promise.resolve();
+}
+
+export function stopWalkingDetection() {
+  return NativeModule?.stopWalkingDetection() ?? Promise.resolve();
+}
+
+/**
+ * listener({ activity: 'WALKING'|'STILL'|'RUNNING'|..., transition: 'ENTER'|'EXIT', isWalking: boolean })
+ */
+export function addWalkingListener(listener) {
+  if (!emitter) return { remove: () => {} };
+  return emitter.addListener('onActivityChanged', listener);
 }

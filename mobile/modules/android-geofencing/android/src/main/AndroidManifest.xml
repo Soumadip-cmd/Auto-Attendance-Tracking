@@ -1,7 +1,16 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- Legacy Activity Recognition (pre-Android 10) -->
+  <uses-permission android:name="com.google.android.gms.permission.ACTIVITY_RECOGNITION" />
+  <!-- Runtime Activity Recognition (Android 10+) -->
+  <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+
   <application>
     <receiver
       android:name="expo.modules.androidgeofencing.GeofenceBroadcastReceiver"
+      android:enabled="true"
+      android:exported="false" />
+    <receiver
+      android:name="expo.modules.androidgeofencing.ActivityTransitionReceiver"
       android:enabled="true"
       android:exported="false" />
   </application>
