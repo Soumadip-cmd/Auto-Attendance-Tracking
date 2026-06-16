@@ -12,18 +12,36 @@ import com.google.android.gms.location.GeofencingRequest
 import com.google.android.gms.location.LocationServices
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import expo.modules.kotlin.records.Field
+import expo.modules.kotlin.records.Record
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.json.JSONArray
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
+class GeofenceRegion : Record {
+    @Field
+    var identifier: String = ""
+
+    @Field
+    var latitude: Double = 0.0
+
+    @Field
+    var longitude: Double = 0.0
+
+    @Field
+    var radius: Double = 100.0
+
+    @Field
+    var notifyOnEnter: Boolean = true
+
+    @Field
+    var notifyOnExit: Boolean = true
+}
+
 class AndroidGeofencingModule : Module() {
 
     companion object {
-        /**
-         * Set by OnStartObserving so the BroadcastReceiver can forward live events to JS
-         * when the app is in the foreground or background (not killed).
-         */
         @Volatile
         var onTransition: ((Map<String, Any?>) -> Unit)? = null
     }
@@ -54,41 +72,39 @@ class AndroidGeofencingModule : Module() {
             onTransition = null
         }
 
-        AsyncFunction("addGeofences") { regions: List<Map<String, Any?>> ->
+        AsyncFunction("addGeofences") { regions: List<GeofenceRegion> ->
             if (!hasPermission()) throw Exception("Location permission is not granted")
 
-            val geofences = regions.mapNotNull { region ->
-                val id = region["identifier"] as? String ?: return@mapNotNull null
-                val lat = (region["latitude"] as? Number)?.toDouble() ?: return@mapNotNull null
-                val lng = (region["longitude"] as? Number)?.toDouble() ?: return@mapNotNull null
-                val radius = ((region["radius"] as? Number)?.toFloat() ?: 100f).coerceAtLeast(10f)
-                val notifyEnter = region["notifyOnEnter"] as? Boolean ?: true
-                val notifyExit = region["notifyOnExit"] as? Boolean ?: true
-
+            val geofences = regions.map { region ->
                 var transitions = 0
-                if (notifyEnter) transitions = transitions or Geofence.GEOFENCE_TRANSITION_ENTER
-                if (notifyExit) transitions = transitions or Geofence.GEOFENCE_TRANSITION_EXIT
+                if (region.notifyOnEnter) transitions = transitions or Geofence.GEOFENCE_TRANSITION_ENTER
+                if (region.notifyOnExit) transitions = transitions or Geofence.GEOFENCE_TRANSITION_EXIT
+                if (transitions == 0) transitions = Geofence.GEOFENCE_TRANSITION_ENTER or Geofence.GEOFENCE_TRANSITION_EXIT
 
                 Geofence.Builder()
-                    .setRequestId(id)
-                    .setCircularRegion(lat, lng, radius)
+                    .setRequestId(region.identifier)
+                    .setCircularRegion(
+                        region.latitude,
+                        region.longitude,
+                        region.radius.toFloat().coerceAtLeast(10f)
+                    )
                     .setExpirationDuration(Geofence.NEVER_EXPIRE)
                     .setTransitionTypes(transitions)
                     .setNotificationResponsiveness(5_000)
                     .build()
             }
 
-            if (geofences.isEmpty()) return@AsyncFunction
+            if (geofences.isNotEmpty()) {
+                val request = GeofencingRequest.Builder()
+                    .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
+                    .addGeofences(geofences)
+                    .build()
 
-            val request = GeofencingRequest.Builder()
-                .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
-                .addGeofences(geofences)
-                .build()
-
-            suspendCancellableCoroutine { cont ->
-                geofencingClient.addGeofences(request, geofencePendingIntent)
-                    .addOnSuccessListener { cont.resume(Unit) }
-                    .addOnFailureListener { cont.resumeWithException(it) }
+                suspendCancellableCoroutine { cont ->
+                    geofencingClient.addGeofences(request, geofencePendingIntent)
+                        .addOnSuccessListener { cont.resume(Unit) }
+                        .addOnFailureListener { cont.resumeWithException(it) }
+                }
             }
         }
 
@@ -108,16 +124,12 @@ class AndroidGeofencingModule : Module() {
             }
         }
 
-        /**
-         * Drain events that arrived via the BroadcastReceiver while the app was killed.
-         * Clears the queue after reading — call once on app startup.
-         */
         AsyncFunction("getPendingEvents") {
             val prefs = context.getSharedPreferences("AndroidGeofencing", Context.MODE_PRIVATE)
             val json = prefs.getString("pending_events", "[]") ?: "[]"
             prefs.edit().putString("pending_events", "[]").apply()
             val arr = JSONArray(json)
-            List(arr.length()) { i ->
+            (0 until arr.length()).map { i ->
                 val obj = arr.getJSONObject(i)
                 mapOf(
                     "identifier" to obj.getString("identifier"),

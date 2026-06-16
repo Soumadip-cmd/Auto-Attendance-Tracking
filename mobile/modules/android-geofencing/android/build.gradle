@@ -1,7 +1,6 @@
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
-// Mirrors the helper defined in the root build.gradle so we don't need expo-module plugin
 def safeExtGet(prop, fallback) {
     rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
 }
@@ -26,7 +25,9 @@ android {
 }
 
 dependencies {
-    // expo-modules-core is always a sub-project in Expo's Android build
     implementation project(':expo-modules-core')
     implementation "com.google.android.gms:play-services-location:21.3.0"
+    // Explicit declaration so suspendCancellableCoroutine is on the compile classpath
+    // regardless of whether expo-modules-core exposes it as 'api' or 'implementation'
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1"
 }
