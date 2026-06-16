@@ -16,6 +16,9 @@ export default {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.geoattendance.freelixe",
+      runtimeVersion: {
+        policy: "appVersion"
+      },
       deploymentTarget: "15.1",
       infoPlist: {
         NSLocationWhenInUseUsageDescription: "Location access for attendance tracking.",
@@ -25,6 +28,7 @@ export default {
     },
     android: {
       package: "com.geoattendance.freelixe",
+      runtimeVersion: "1.0.0",
       permissions: [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
@@ -64,6 +68,12 @@ export default {
         }
       ]
     ],
+    updates: {
+      url: "https://u.expo.dev/d33612ab-4b02-41a7-8a38-257a681de251",
+      enabled: true,
+      checkAutomatically: "ON_LOAD",
+      fallbackToCacheTimeout: 0
+    },
     scheme: "attendancetracker",
     extra: {
       API_URL: "https://attendance.freelixe.com/api/v1",
