@@ -1,0 +1,6 @@
+{
+  "name": "android-geofencing",
+  "version": "1.0.0",
+  "description": "Local Expo module — Google Play Services GeofencingClient with BroadcastReceiver",
+  "main": "./index"
+}

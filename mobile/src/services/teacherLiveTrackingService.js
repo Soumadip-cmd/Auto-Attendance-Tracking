@@ -5,6 +5,7 @@ import { Alert, Linking, Platform } from 'react-native';
 import { geofenceAPI, liveTrackingAPI } from './api';
 import websocketService from './websocket';
 import notificationService from './notificationService';
+import * as AndroidGeofencing from 'android-geofencing';
 
 const LIVE_LOCATION_TASK = 'teacher-live-location-updates';
 const GEOFENCE_TASK = 'teacher-native-geofence-monitoring';
@@ -147,6 +148,7 @@ TaskManager.defineTask(GEOFENCE_TASK, async ({ data, error }) => {
 class TeacherLiveTrackingService {
   constructor() {
     this.foregroundSubscription = null;
+    this.unsubscribeNativeGeofence = null;
     this.unsubscribeViolation = null;
     this.unsubscribePermissionApproved = null;
     this.unsubscribePermissionRejected = null;
@@ -260,6 +262,10 @@ class TeacherLiveTrackingService {
     await this.startBackgroundUpdates();
     const geofenceResult = await this.startNativeGeofenceMonitoring();
 
+    if (Platform.OS === 'android') {
+      this.drainPendingGeofenceEvents().catch(() => null);
+    }
+
     return {
       success: true,
       message: 'Teacher live tracking started',
@@ -327,13 +333,22 @@ class TeacherLiveTrackingService {
         notifyOnExit: true,
       }));
 
-    const alreadyStarted = await Location.hasStartedGeofencingAsync(GEOFENCE_TASK);
-    if (alreadyStarted) {
-      await Location.stopGeofencingAsync(GEOFENCE_TASK);
-    }
-
-    if (regions.length > 0) {
-      await Location.startGeofencingAsync(GEOFENCE_TASK, regions);
+    if (Platform.OS === 'android') {
+      // Native module uses GeofencingClient + BroadcastReceiver directly.
+      // Events are delivered even when the app is killed; persisted in SharedPreferences
+      // and drained by drainPendingGeofenceEvents() on next startTracking() call.
+      await AndroidGeofencing.removeAllGeofences().catch(() => null);
+      if (regions.length > 0) {
+        await AndroidGeofencing.addGeofences(regions);
+      }
+    } else {
+      const alreadyStarted = await Location.hasStartedGeofencingAsync(GEOFENCE_TASK);
+      if (alreadyStarted) {
+        await Location.stopGeofencingAsync(GEOFENCE_TASK);
+      }
+      if (regions.length > 0) {
+        await Location.startGeofencingAsync(GEOFENCE_TASK, regions);
+      }
     }
 
     await writeStats({ geofences: regions.length });
@@ -343,6 +358,23 @@ class TeacherLiveTrackingService {
       count: regions.length,
       capped: geofences.length > MAX_ANDROID_GEOFENCES,
     };
+  }
+
+  async drainPendingGeofenceEvents() {
+    const pendingEvents = await AndroidGeofencing.getPendingEvents();
+    for (const event of pendingEvents) {
+      try {
+        await liveTrackingAPI.submitGeofenceEvent({
+          geofenceId: event.identifier,
+          eventType: event.transitionType,
+          latitude: event.latitude,
+          longitude: event.longitude,
+          timestamp: event.timestamp,
+        });
+      } catch (e) {
+        console.error('Failed to drain pending geofence event:', e);
+      }
+    }
   }
 
   subscribeToServerEvents() {
@@ -375,6 +407,32 @@ class TeacherLiveTrackingService {
         );
       });
     }
+
+    if (Platform.OS === 'android' && !this.unsubscribeNativeGeofence) {
+      this.unsubscribeNativeGeofence = AndroidGeofencing.addTransitionListener(async (event) => {
+        const { identifier, transitionType, latitude, longitude, timestamp } = event;
+        const title = transitionType === 'exit' ? 'Outside allowed area' : 'Inside allowed area';
+        const body = transitionType === 'exit'
+          ? 'Your HOD/admin may be notified if this movement is not approved.'
+          : 'Your attendance location is back inside the allowed geofence.';
+        await notificationService.scheduleNotification(title, body, {
+          type: 'native_geofence',
+          eventType: transitionType,
+          geofenceId: identifier,
+        });
+        try {
+          await liveTrackingAPI.submitGeofenceEvent({
+            geofenceId: identifier,
+            eventType: transitionType,
+            latitude,
+            longitude,
+            timestamp,
+          });
+        } catch (sendError) {
+          console.error('Failed to send native geofence event:', sendError);
+        }
+      });
+    }
   }
 
   async stopTracking() {
@@ -388,9 +446,18 @@ class TeacherLiveTrackingService {
       await Location.stopLocationUpdatesAsync(LIVE_LOCATION_TASK);
     }
 
-    const hasGeofencing = await Location.hasStartedGeofencingAsync(GEOFENCE_TASK);
-    if (hasGeofencing) {
-      await Location.stopGeofencingAsync(GEOFENCE_TASK);
+    if (Platform.OS === 'android') {
+      await AndroidGeofencing.removeAllGeofences().catch(() => null);
+    } else {
+      const hasGeofencing = await Location.hasStartedGeofencingAsync(GEOFENCE_TASK);
+      if (hasGeofencing) {
+        await Location.stopGeofencingAsync(GEOFENCE_TASK);
+      }
+    }
+
+    if (this.unsubscribeNativeGeofence) {
+      this.unsubscribeNativeGeofence.remove();
+      this.unsubscribeNativeGeofence = null;
     }
 
     if (this.unsubscribeViolation) {
@@ -414,6 +481,9 @@ class TeacherLiveTrackingService {
 
   async isTracking() {
     const locationUpdates = await Location.hasStartedLocationUpdatesAsync(LIVE_LOCATION_TASK);
+    if (Platform.OS === 'android') {
+      return locationUpdates || !!this.foregroundSubscription;
+    }
     const geofencing = await Location.hasStartedGeofencingAsync(GEOFENCE_TASK);
     return locationUpdates || geofencing || !!this.foregroundSubscription;
   }
