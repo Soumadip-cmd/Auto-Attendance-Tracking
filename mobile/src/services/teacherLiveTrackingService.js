@@ -1,6 +1,7 @@
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Alert, Linking, Platform } from 'react-native';
 import { geofenceAPI, liveTrackingAPI } from './api';
 import websocketService from './websocket';
 import notificationService from './notificationService';
@@ -10,6 +11,7 @@ const GEOFENCE_TASK = 'teacher-native-geofence-monitoring';
 const TRACKING_SESSION_KEY = '@teacher_live_tracking_session';
 const TRACKING_STATS_KEY = '@teacher_live_tracking_stats';
 const MAX_ANDROID_GEOFENCES = 100;
+const ANDROID_BACKGROUND_PERMISSION_LABEL = 'Allow all the time';
 
 const defaultStats = {
   total: 0,
@@ -43,6 +45,11 @@ const normalizeLocation = (location, source, trackingSessionId) => ({
   source,
   trackingSessionId,
 });
+
+const isApproximateLocation = (permission) => (
+  permission?.accuracy === 'coarse' ||
+  permission?.android?.accuracy === 'coarse'
+);
 
 const sendLiveLocation = async (payload) => {
   try {
@@ -144,24 +151,95 @@ class TeacherLiveTrackingService {
     this.unsubscribePermissionRejected = null;
   }
 
+  showBackgroundLocationEducation() {
+    if (Platform.OS !== 'android') {
+      return Promise.resolve(true);
+    }
+
+    return new Promise((resolve) => {
+      Alert.alert(
+        'Background Location Needed',
+        `GeoAttend needs background location only while Live Tracking is enabled. Android uses it to monitor college geofences when the app is closed and to notify your HOD/admin if you leave the allowed area during attendance time.\n\nOn Android 11 or newer, choose "${ANDROID_BACKGROUND_PERMISSION_LABEL}" from the app location settings screen.`,
+        [
+          {
+            text: 'Not Now',
+            style: 'cancel',
+            onPress: () => resolve(false),
+          },
+          {
+            text: 'Continue',
+            onPress: () => resolve(true),
+          },
+        ],
+        {
+          cancelable: true,
+          onDismiss: () => resolve(false),
+        }
+      );
+    });
+  }
+
+  showOpenSettingsPrompt() {
+    if (Platform.OS !== 'android') {
+      return;
+    }
+
+    Alert.alert(
+      'Enable Background Location',
+      `Native geofence monitoring needs background location. Open app settings, tap Location, then choose "${ANDROID_BACKGROUND_PERMISSION_LABEL}".`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Open Settings', onPress: () => Linking.openSettings() },
+      ]
+    );
+  }
+
   async ensurePermissions() {
-    const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
-    if (foregroundStatus !== 'granted') {
+    let foregroundPermission = await Location.getForegroundPermissionsAsync();
+
+    if (foregroundPermission.status !== 'granted') {
+      foregroundPermission = await Location.requestForegroundPermissionsAsync();
+    }
+
+    if (foregroundPermission.status !== 'granted') {
       return {
         success: false,
         error: 'Foreground location permission is required for attendance tracking.',
       };
     }
 
-    const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
-    if (backgroundStatus !== 'granted') {
+    let backgroundPermission = await Location.getBackgroundPermissionsAsync();
+
+    if (backgroundPermission.status !== 'granted') {
+      const shouldContinue = await this.showBackgroundLocationEducation();
+
+      if (!shouldContinue) {
+        return {
+          success: false,
+          declined: true,
+          error: 'Background location was not enabled. You can still use the app, but live native geofence monitoring cannot run in the background.',
+        };
+      }
+
+      backgroundPermission = await Location.requestBackgroundPermissionsAsync();
+    }
+
+    if (backgroundPermission.status !== 'granted') {
+      this.showOpenSettingsPrompt();
+
       return {
         success: false,
-        error: 'Background location permission is required for geofence monitoring.',
+        needsSettings: true,
+        error: `Background location permission is required for native geofence monitoring. Choose "${ANDROID_BACKGROUND_PERMISSION_LABEL}" in app settings.`,
       };
     }
 
-    return { success: true };
+    return {
+      success: true,
+      warning: isApproximateLocation(foregroundPermission)
+        ? 'Approximate location is enabled. Android will also use approximate location in the background, so geofence accuracy can be reduced.'
+        : null,
+    };
   }
 
   async startTracking() {
@@ -185,6 +263,7 @@ class TeacherLiveTrackingService {
       success: true,
       message: 'Teacher live tracking started',
       geofences: geofenceResult.count,
+      warning: permissions.warning,
     };
   }
 
