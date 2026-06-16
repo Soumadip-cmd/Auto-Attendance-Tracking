@@ -51,18 +51,9 @@ function RootLayoutNav() {
           return;
         }
 
-        if (fetchResult.isNew || fetchResult.isRollBackToEmbedded) {
+        if (fetchResult.isNew) {
           setUpdateMessage('Update downloaded. Restarting app...');
-          await Updates.reloadAsync({
-            reloadScreenOptions: {
-              backgroundColor: '#ffffff',
-              spinner: {
-                enabled: true,
-                color: '#6366f1',
-                size: 'large',
-              },
-            },
-          });
+          await Updates.reloadAsync();
           return;
         }
 
@@ -109,12 +100,12 @@ function RootLayoutNav() {
     }
   }, [isAuthenticated, authLoading, segments]);
 
-  if (showAnimatedSplash) {
-    return <AnimatedSplashScreen onFinish={() => setShowAnimatedSplash(false)} />;
-  }
-
   if (updateMessage) {
     return <UpdateScreen message={updateMessage} />;
+  }
+
+  if (showAnimatedSplash) {
+    return <AnimatedSplashScreen onFinish={() => setShowAnimatedSplash(false)} />;
   }
 
   if (authLoading) {
