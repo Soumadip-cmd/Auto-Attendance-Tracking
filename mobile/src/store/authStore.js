@@ -12,6 +12,7 @@ export const useAuthStore = create((set, get) => ({
   isAuthenticated: false,
   isLoading: false,
   hasInitialized: false,
+  interactiveAuthAt: null,
   error:  null,
 
   /**
@@ -77,6 +78,7 @@ export const useAuthStore = create((set, get) => ({
         isAuthenticated: true,
         isLoading: false,
         hasInitialized: true,
+        interactiveAuthAt: Date.now(),
         error: null,
       });
 
@@ -115,6 +117,7 @@ export const useAuthStore = create((set, get) => ({
         isAuthenticated: true,
         isLoading: false,
         hasInitialized: true,
+        interactiveAuthAt: Date.now(),
         error: null,
       });
 
@@ -160,6 +163,7 @@ export const useAuthStore = create((set, get) => ({
         isAuthenticated: false,
         isLoading: false,
         hasInitialized: true,
+        interactiveAuthAt: null,
         error:  null,
       });
 
@@ -175,6 +179,7 @@ export const useAuthStore = create((set, get) => ({
         isAuthenticated: false,
         isLoading: false,
         hasInitialized: true,
+        interactiveAuthAt: null,
       });
 
       return { success: true }; // Still success even if API call fails

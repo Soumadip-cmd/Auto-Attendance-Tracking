@@ -9,11 +9,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import AnimatedSplashScreen from './splash';
 import { useAuthStore } from '../src/store/authStore';
 
+const BIOMETRIC_ENABLED_KEY = 'biometric_enabled';
+const BIOMETRIC_UNLOCKED_AT_KEY = 'biometric_unlocked_at';
+const BIOMETRIC_UNLOCK_GRACE_MS = 15000;
+const BIOMETRIC_PROMPT_SETTLE_MS = 3000;
+const TRANSIENT_BIOMETRIC_ERRORS = new Set(['app_cancel', 'system_cancel']);
+
 // Keep the splash screen visible while we check auth
 SplashScreen.preventAutoHideAsync();
 
 function RootLayoutNav() {
-  const { isAuthenticated, isLoading, initAuth, logout } = useAuthStore();
+  const { isAuthenticated, isLoading, interactiveAuthAt, initAuth, logout } = useAuthStore();
   const segments = useSegments();
   const [showAnimatedSplash, setShowAnimatedSplash] = useState(true);
   const [authReady, setAuthReady] = useState(false);
@@ -21,6 +27,8 @@ function RootLayoutNav() {
   const [biometricChecking, setBiometricChecking] = useState(false);
   const appState = useRef(AppState.currentState);
   const biometricPromptInFlight = useRef(false);
+  const lastBiometricUnlockAt = useRef(0);
+  const lastBiometricPromptCompletedAt = useRef(0);
 
   useEffect(() => {
     console.log('APP LAUNCHED - Starting initialization');
@@ -37,7 +45,13 @@ function RootLayoutNav() {
       return false;
     }
 
-    const biometricEnabled = await AsyncStorage.getItem('biometric_enabled');
+    const unlockedAt = Number(await AsyncStorage.getItem(BIOMETRIC_UNLOCKED_AT_KEY));
+    if (Number.isFinite(unlockedAt) && Date.now() - unlockedAt < BIOMETRIC_UNLOCK_GRACE_MS) {
+      lastBiometricUnlockAt.current = unlockedAt;
+      return false;
+    }
+
+    const biometricEnabled = await AsyncStorage.getItem(BIOMETRIC_ENABLED_KEY);
     if (biometricEnabled !== 'true') {
       return false;
     }
@@ -50,6 +64,14 @@ function RootLayoutNav() {
 
   const unlockWithBiometric = useCallback(async () => {
     if (!isAuthenticated || biometricPromptInFlight.current) {
+      return;
+    }
+
+    if (interactiveAuthAt && Date.now() - interactiveAuthAt < BIOMETRIC_UNLOCK_GRACE_MS) {
+      const now = Date.now();
+      lastBiometricUnlockAt.current = now;
+      await AsyncStorage.setItem(BIOMETRIC_UNLOCKED_AT_KEY, String(now));
+      setBiometricUnlocked(true);
       return;
     }
 
@@ -73,6 +95,14 @@ function RootLayoutNav() {
       });
 
       if (result.success) {
+        const now = Date.now();
+        lastBiometricUnlockAt.current = now;
+        await AsyncStorage.setItem(BIOMETRIC_UNLOCKED_AT_KEY, String(now));
+        setBiometricUnlocked(true);
+        return;
+      }
+
+      if (TRANSIENT_BIOMETRIC_ERRORS.has(result.error)) {
         setBiometricUnlocked(true);
         return;
       }
@@ -87,9 +117,10 @@ function RootLayoutNav() {
       router.replace('/(auth)/login_new');
     } finally {
       biometricPromptInFlight.current = false;
+      lastBiometricPromptCompletedAt.current = Date.now();
       setBiometricChecking(false);
     }
-  }, [isAuthenticated, logout, shouldRequireBiometricUnlock]);
+  }, [interactiveAuthAt, isAuthenticated, logout, shouldRequireBiometricUnlock]);
 
   useEffect(() => {
     if (!authReady) {
@@ -101,10 +132,15 @@ function RootLayoutNav() {
       return;
     }
 
+    if (interactiveAuthAt && Date.now() - interactiveAuthAt < BIOMETRIC_UNLOCK_GRACE_MS) {
+      setBiometricUnlocked(true);
+      return;
+    }
+
     if (!biometricUnlocked && appState.current === 'active') {
       unlockWithBiometric();
     }
-  }, [authReady, biometricUnlocked, isAuthenticated, unlockWithBiometric]);
+  }, [authReady, biometricUnlocked, interactiveAuthAt, isAuthenticated, unlockWithBiometric]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
@@ -121,6 +157,17 @@ function RootLayoutNav() {
       }
 
       if (wasInBackground && nextAppState === 'active') {
+        const now = Date.now();
+        const promptJustSettled =
+          now - lastBiometricPromptCompletedAt.current < BIOMETRIC_PROMPT_SETTLE_MS;
+        const recentlyUnlocked =
+          now - lastBiometricUnlockAt.current < BIOMETRIC_UNLOCK_GRACE_MS;
+
+        if (promptJustSettled || recentlyUnlocked) {
+          setBiometricUnlocked(true);
+          return;
+        }
+
         setBiometricUnlocked(false);
         unlockWithBiometric();
       }
