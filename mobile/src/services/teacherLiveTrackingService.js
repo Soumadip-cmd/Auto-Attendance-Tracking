@@ -48,7 +48,8 @@ const normalizeLocation = (location, source, trackingSessionId) => ({
 
 const isApproximateLocation = (permission) => (
   permission?.accuracy === 'coarse' ||
-  permission?.android?.accuracy === 'coarse'
+  permission?.android?.accuracy === 'coarse' ||
+  permission?.ios?.accuracy === 'reduced'
 );
 
 const sendLiveLocation = async (payload) => {

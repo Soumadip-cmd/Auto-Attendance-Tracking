@@ -17,8 +17,6 @@
       "deploymentTarget": "15.1",
       "icon": "./src/assets/immigration.png",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "GeoAttend uses your location to check attendance inside approved college geofences.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "GeoAttend uses background location to monitor approved geofences during attendance tracking.",
         "NSCameraUsageDescription": "Camera access for profile pictures."
       }
     },
@@ -47,7 +45,16 @@
     },
     "plugins": [
       "expo-router",
-      "expo-location",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "GeoAttend uses background location to monitor approved geofences during attendance tracking.",
+          "locationWhenInUsePermission": "GeoAttend uses your location to check attendance inside approved college geofences.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
       "expo-notifications",
       "expo-secure-store",
       "expo-local-authentication",
