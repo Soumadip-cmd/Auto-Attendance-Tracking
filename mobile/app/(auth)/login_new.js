@@ -12,20 +12,21 @@ import {
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { Input } from '../../src/components/common/Input';
 import { Button } from '../../src/components/common/Button';
 import { useAuth } from '../../src/hooks/useAuth';
 import { useTheme } from '../../src/hooks/useTheme';
-
-const BIOMETRIC_ENABLED_KEY = 'biometric_enabled';
-const BIOMETRIC_EMAIL_KEY = 'biometric_email';
-const BIOMETRIC_TOKEN_KEY = 'biometric_token';
+import {
+  disableBiometricSession,
+  getBiometricRefreshToken,
+  getBiometricState,
+  saveBiometricSession,
+} from '../../src/utils/biometricAuth';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { login, isLoading } = useAuth();
+  const { login, loginWithRefreshToken, isLoading } = useAuth();
   const { theme } = useTheme();
 
   const [email, setEmail] = useState('');
@@ -45,12 +46,10 @@ export default function LoginScreen() {
       const hasHardware = await LocalAuthentication.hasHardwareAsync();
       const isEnrolled = await LocalAuthentication.isEnrolledAsync();
       const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
-      const savedEmail = await AsyncStorage.getItem(BIOMETRIC_EMAIL_KEY);
-      const savedToken = await AsyncStorage.getItem(BIOMETRIC_TOKEN_KEY);
-      const enabled = await AsyncStorage.getItem(BIOMETRIC_ENABLED_KEY);
+      const biometricState = await getBiometricState();
 
       setBiometricAvailable(hasHardware && isEnrolled);
-      setBiometricEnabled(enabled === 'true' && !!savedToken);
+      setBiometricEnabled(biometricState.enabled);
 
       if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
         setBiometricType('Face ID');
@@ -58,8 +57,8 @@ export default function LoginScreen() {
         setBiometricType('Fingerprint');
       }
 
-      if (savedEmail) {
-        setEmail(savedEmail);
+      if (biometricState.email) {
+        setEmail(biometricState.email);
       }
     } catch (error) {
       console.error('Biometric check error:', error);
@@ -93,13 +92,7 @@ export default function LoginScreen() {
     const result = await login({ email, password });
 
     if (result.success) {
-      await AsyncStorage.setItem(BIOMETRIC_EMAIL_KEY, email);
-      await AsyncStorage.setItem(BIOMETRIC_ENABLED_KEY, 'true');
-
-      if (result.data?.token) {
-        await AsyncStorage.setItem(BIOMETRIC_TOKEN_KEY, result.data.token);
-      }
-
+      await setupBiometricAfterPasswordLogin(email, result.data?.refreshToken);
       router.replace('/(tabs)');
       return;
     }
@@ -107,18 +100,67 @@ export default function LoginScreen() {
     Alert.alert('Login Failed', result.error || 'Invalid credentials');
   };
 
+  const setupBiometricAfterPasswordLogin = async (loginEmail, refreshToken) => {
+    if (!biometricAvailable || !refreshToken) {
+      return;
+    }
+
+    const biometricState = await getBiometricState();
+
+    if (biometricState.enabled) {
+      await saveBiometricSession({ email: loginEmail, refreshToken });
+      setBiometricEnabled(true);
+      return;
+    }
+
+    await new Promise((resolve) => {
+      Alert.alert(
+        'Enable Biometric Login',
+        `Use ${biometricType} for quick login on this device?`,
+        [
+          {
+            text: 'Not Now',
+            style: 'cancel',
+            onPress: resolve,
+          },
+          {
+            text: 'Enable',
+            onPress: async () => {
+              try {
+                const authResult = await LocalAuthentication.authenticateAsync({
+                  promptMessage: `Enable ${biometricType} Login`,
+                  fallbackLabel: 'Use password',
+                  cancelLabel: 'Cancel',
+                  disableDeviceFallback: false,
+                });
+
+                if (authResult.success) {
+                  await saveBiometricSession({ email: loginEmail, refreshToken });
+                  setBiometricEnabled(true);
+                }
+              } catch (error) {
+                console.error('Biometric setup error:', error);
+              } finally {
+                resolve();
+              }
+            },
+          },
+        ],
+        { cancelable: false }
+      );
+    });
+  };
+
   const handleBiometricLogin = async () => {
     try {
       setBiometricLoading(true);
 
-      const savedEmail = await AsyncStorage.getItem(BIOMETRIC_EMAIL_KEY);
-      const savedToken = await AsyncStorage.getItem(BIOMETRIC_TOKEN_KEY);
-      const enabled = await AsyncStorage.getItem(BIOMETRIC_ENABLED_KEY);
+      const biometricState = await getBiometricState();
 
-      if (enabled !== 'true' || !savedEmail || !savedToken) {
+      if (!biometricState.enabled || !biometricState.email) {
         Alert.alert(
           'Setup Required',
-          `Please login with email and password first to enable ${biometricType} login.`,
+          `Please login with email and password first to register ${biometricType} on this device.`,
           [{ text: 'OK' }]
         );
         return;
@@ -135,26 +177,37 @@ export default function LoginScreen() {
         return;
       }
 
-      const loginResult = await login({ token: savedToken, biometric: true });
+      const refreshToken = await getBiometricRefreshToken();
+
+      if (!refreshToken) {
+        await disableBiometricSession();
+        setBiometricEnabled(false);
+        Alert.alert(
+          'Setup Required',
+          `Please login with email and password to register ${biometricType} on this device.`,
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      const loginResult = await loginWithRefreshToken(refreshToken);
 
       if (loginResult.success) {
-        await AsyncStorage.setItem(BIOMETRIC_EMAIL_KEY, savedEmail);
-        await AsyncStorage.setItem(BIOMETRIC_ENABLED_KEY, 'true');
-
-        if (loginResult.data?.token) {
-          await AsyncStorage.setItem(BIOMETRIC_TOKEN_KEY, loginResult.data.token);
-        }
-
+        await saveBiometricSession({
+          email: biometricState.email,
+          refreshToken: loginResult.data.refreshToken,
+        });
+        setBiometricEnabled(true);
         router.replace('/(tabs)');
         return;
       }
 
-      await AsyncStorage.setItem(BIOMETRIC_ENABLED_KEY, 'false');
-      await AsyncStorage.removeItem(BIOMETRIC_TOKEN_KEY);
+      await disableBiometricSession();
+      setBiometricEnabled(false);
 
       Alert.alert(
-        'Session Expired',
-        'Your biometric session has expired. Please login with email and password again.',
+        'Biometric Setup Needed',
+        `Please login with email and password to register ${biometricType} again on this device.`,
         [{ text: 'OK' }]
       );
     } catch (error) {

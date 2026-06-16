@@ -71,7 +71,7 @@ export default {
     updates: {
       url: "https://u.expo.dev/d33612ab-4b02-41a7-8a38-257a681de251",
       enabled: true,
-      checkAutomatically: "ON_LOAD",
+      checkAutomatically: "ON_ERROR_RECOVERY",
       fallbackToCacheTimeout: 0
     },
     scheme: "attendancetracker",

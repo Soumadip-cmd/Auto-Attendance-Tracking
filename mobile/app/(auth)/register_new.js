@@ -12,12 +12,12 @@ import {
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { Input } from '../../src/components/common/Input';
 import { Button } from '../../src/components/common/Button';
 import { useAuth } from '../../src/hooks/useAuth';
 import { useTheme } from '../../src/hooks/useTheme';
+import { saveBiometricSession } from '../../src/utils/biometricAuth';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -64,7 +64,7 @@ export default function RegisterScreen() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const askForBiometric = async (email, token) => {
+  const askForBiometric = async (email, refreshToken) => {
     const hasHardware = await LocalAuthentication.hasHardwareAsync();
     const isEnrolled = await LocalAuthentication.isEnrolledAsync();
     const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
@@ -102,9 +102,7 @@ export default function RegisterScreen() {
               });
 
               if (result.success) {
-                await AsyncStorage.setItem('biometric_email', email);
-                await AsyncStorage.setItem('biometric_token', token);
-                await AsyncStorage.setItem('biometric_enabled', 'true');
+                await saveBiometricSession({ email, refreshToken });
                 
                 Alert.alert(
                   'Success!',
@@ -136,8 +134,8 @@ export default function RegisterScreen() {
 
     if (result.success) {
       // Ask if user wants to enable biometric
-      if (result.data?.token) {
-        await askForBiometric(formData.email, result.data.token);
+      if (result.data?.refreshToken) {
+        await askForBiometric(formData.email, result.data.refreshToken);
       } else {
         router.replace('/(tabs)');
       }

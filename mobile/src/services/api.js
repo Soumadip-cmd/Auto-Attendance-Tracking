@@ -1,5 +1,4 @@
 import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { config, APP_CONFIG } from '../constants/config';
 import { secureStorage } from '../utils/storage';
 
@@ -58,11 +57,6 @@ api.interceptors.response.use(
 
           const { token } = response.data.data;
           await secureStorage.setItem(APP_CONFIG.TOKEN_KEY, token);
-
-          const biometricEnabled = await AsyncStorage.getItem('biometric_enabled');
-          if (biometricEnabled === 'true') {
-            await AsyncStorage.setItem('biometric_token', token);
-          }
 
           originalRequest.headers.Authorization = `Bearer ${token}`;
           return api(originalRequest);

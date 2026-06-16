@@ -96,6 +96,47 @@ export const useAuthStore = create((set, get) => ({
   },
 
   /**
+   * Login from a device-bound biometric refresh token
+   */
+  loginWithRefreshToken: async (refreshToken) => {
+    try {
+      set({ isLoading: true, error: null });
+
+      const refreshResponse = await authAPI.refreshToken(refreshToken);
+      const token = refreshResponse.data.token;
+
+      await secureStorage.setItem(APP_CONFIG.TOKEN_KEY, token);
+      await secureStorage.setItem(APP_CONFIG.REFRESH_TOKEN_KEY, refreshToken);
+
+      const profileResponse = await authAPI.getProfile();
+      const user = profileResponse.data.user;
+
+      await secureStorage.setItem(APP_CONFIG.USER_KEY, JSON.stringify(user));
+
+      set({
+        user,
+        token,
+        refreshToken,
+        isAuthenticated: true,
+        isLoading: false,
+        hasInitialized: true,
+        interactiveAuthAt: Date.now(),
+        error: null,
+      });
+
+      websocketService.connect().catch(() => {});
+
+      return { success: true, user, data: { token, refreshToken } };
+    } catch (error) {
+      set({
+        isLoading: false,
+        error: error.message || 'Biometric login failed',
+      });
+      return { success: false, error: error.message };
+    }
+  },
+
+  /**
    * Register
    */
   register: async (userData) => {

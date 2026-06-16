@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import * as LocalAuthentication from 'expo-local-authentication';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { secureStorage } from '../utils/storage';
 import { APP_CONFIG } from '../constants/config';
-
-const BIOMETRIC_ENABLED_KEY = 'biometric_enabled';
-const BIOMETRIC_EMAIL_KEY = 'biometric_email';
-const BIOMETRIC_TOKEN_KEY = 'biometric_token';
+import {
+  disableBiometricSession,
+  getBiometricState,
+  saveBiometricSession,
+} from '../utils/biometricAuth';
 
 export const useBiometric = () => {
   const [isAvailable, setIsAvailable] = useState(false);
@@ -43,8 +43,8 @@ export const useBiometric = () => {
 
   const loadBiometricPreference = async () => {
     try {
-      const enabled = await AsyncStorage.getItem(BIOMETRIC_ENABLED_KEY);
-      setIsEnabled(enabled === 'true');
+      const biometricState = await getBiometricState();
+      setIsEnabled(biometricState.enabled);
     } catch (error) {
       console.error('Error loading biometric preference:', error);
     }
@@ -74,20 +74,12 @@ export const useBiometric = () => {
 
   const enableBiometric = async () => {
     try {
-      let savedEmail = await AsyncStorage.getItem(BIOMETRIC_EMAIL_KEY);
-      let savedToken = await AsyncStorage.getItem(BIOMETRIC_TOKEN_KEY);
+      const refreshToken = await secureStorage.getItem(APP_CONFIG.REFRESH_TOKEN_KEY);
+      const userJson = await secureStorage.getItem(APP_CONFIG.USER_KEY);
+      const user = userJson ? JSON.parse(userJson) : null;
+      const email = user?.email || null;
 
-      if (!savedToken) {
-        savedToken = await secureStorage.getItem(APP_CONFIG.TOKEN_KEY);
-      }
-      
-      if (!savedEmail) {
-        const userJson = await secureStorage.getItem(APP_CONFIG.USER_KEY);
-        const user = userJson ? JSON.parse(userJson) : null;
-        savedEmail = user?.email || null;
-      }
-
-      if (!savedEmail || !savedToken) {
+      if (!email || !refreshToken) {
         console.error('No active session found for biometric setup');
         return false;
       }
@@ -97,9 +89,7 @@ export const useBiometric = () => {
         return false;
       }
 
-      await AsyncStorage.setItem(BIOMETRIC_EMAIL_KEY, savedEmail);
-      await AsyncStorage.setItem(BIOMETRIC_TOKEN_KEY, savedToken);
-      await AsyncStorage.setItem(BIOMETRIC_ENABLED_KEY, 'true');
+      await saveBiometricSession({ email, refreshToken });
       setIsEnabled(true);
       return true;
     } catch (error) {
@@ -110,10 +100,7 @@ export const useBiometric = () => {
 
   const disableBiometric = async () => {
     try {
-      await AsyncStorage.setItem(BIOMETRIC_ENABLED_KEY, 'false');
-      // Optionally clear saved credentials when disabling
-      // await AsyncStorage.removeItem(BIOMETRIC_EMAIL_KEY);
-      // await AsyncStorage.removeItem(BIOMETRIC_TOKEN_KEY);
+      await disableBiometricSession();
       setIsEnabled(false);
       return true;
     } catch (error) {

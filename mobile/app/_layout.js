@@ -1,34 +1,22 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, Platform } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 import { Stack, router, useSegments } from 'expo-router';
 import { Loading } from '../src/components/common';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
-import * as LocalAuthentication from 'expo-local-authentication';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Updates from 'expo-updates';
 import AnimatedSplashScreen from './splash';
 import { useAuthStore } from '../src/store/authStore';
-
-const BIOMETRIC_ENABLED_KEY = 'biometric_enabled';
-const BIOMETRIC_UNLOCKED_AT_KEY = 'biometric_unlocked_at';
-const BIOMETRIC_UNLOCK_GRACE_MS = 15000;
-const BIOMETRIC_PROMPT_SETTLE_MS = 3000;
-const TRANSIENT_BIOMETRIC_ERRORS = new Set(['app_cancel', 'system_cancel']);
 
 // Keep the splash screen visible while we check auth
 SplashScreen.preventAutoHideAsync();
 
 function RootLayoutNav() {
-  const { isAuthenticated, isLoading, interactiveAuthAt, initAuth, logout } = useAuthStore();
+  const { isAuthenticated, isLoading, initAuth } = useAuthStore();
   const segments = useSegments();
   const [showAnimatedSplash, setShowAnimatedSplash] = useState(true);
   const [authReady, setAuthReady] = useState(false);
-  const [biometricUnlocked, setBiometricUnlocked] = useState(false);
-  const [biometricChecking, setBiometricChecking] = useState(false);
-  const appState = useRef(AppState.currentState);
-  const biometricPromptInFlight = useRef(false);
-  const lastBiometricUnlockAt = useRef(0);
-  const lastBiometricPromptCompletedAt = useRef(0);
+  const [updateMessage, setUpdateMessage] = useState(null);
 
   useEffect(() => {
     console.log('APP LAUNCHED - Starting initialization');
@@ -40,147 +28,61 @@ function RootLayoutNav() {
     });
   }, [initAuth]);
 
-  const shouldRequireBiometricUnlock = useCallback(async () => {
-    if (Platform.OS === 'web') {
-      return false;
-    }
-
-    const unlockedAt = Number(await AsyncStorage.getItem(BIOMETRIC_UNLOCKED_AT_KEY));
-    if (Number.isFinite(unlockedAt) && Date.now() - unlockedAt < BIOMETRIC_UNLOCK_GRACE_MS) {
-      lastBiometricUnlockAt.current = unlockedAt;
-      return false;
-    }
-
-    const biometricEnabled = await AsyncStorage.getItem(BIOMETRIC_ENABLED_KEY);
-    if (biometricEnabled !== 'true') {
-      return false;
-    }
-
-    const hasHardware = await LocalAuthentication.hasHardwareAsync();
-    const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-
-    return hasHardware && isEnrolled;
-  }, []);
-
-  const unlockWithBiometric = useCallback(async () => {
-    if (!isAuthenticated || biometricPromptInFlight.current) {
-      return;
-    }
-
-    if (interactiveAuthAt && Date.now() - interactiveAuthAt < BIOMETRIC_UNLOCK_GRACE_MS) {
-      const now = Date.now();
-      lastBiometricUnlockAt.current = now;
-      await AsyncStorage.setItem(BIOMETRIC_UNLOCKED_AT_KEY, String(now));
-      setBiometricUnlocked(true);
-      return;
-    }
-
-    setBiometricChecking(true);
-
-    try {
-      const requiresBiometric = await shouldRequireBiometricUnlock();
-
-      if (!requiresBiometric) {
-        setBiometricUnlocked(true);
-        return;
-      }
-
-      biometricPromptInFlight.current = true;
-
-      const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Unlock GeoAttend',
-        fallbackLabel: 'Use password',
-        cancelLabel: 'Cancel',
-        disableDeviceFallback: false,
-      });
-
-      if (result.success) {
-        const now = Date.now();
-        lastBiometricUnlockAt.current = now;
-        await AsyncStorage.setItem(BIOMETRIC_UNLOCKED_AT_KEY, String(now));
-        setBiometricUnlocked(true);
-        return;
-      }
-
-      if (TRANSIENT_BIOMETRIC_ERRORS.has(result.error)) {
-        setBiometricUnlocked(true);
-        return;
-      }
-
-      setBiometricUnlocked(false);
-      await logout();
-      router.replace('/(auth)/login_new');
-    } catch (error) {
-      console.error('Biometric unlock error:', error);
-      setBiometricUnlocked(false);
-      await logout();
-      router.replace('/(auth)/login_new');
-    } finally {
-      biometricPromptInFlight.current = false;
-      lastBiometricPromptCompletedAt.current = Date.now();
-      setBiometricChecking(false);
-    }
-  }, [interactiveAuthAt, isAuthenticated, logout, shouldRequireBiometricUnlock]);
-
   useEffect(() => {
-    if (!authReady) {
-      return;
-    }
+    let isMounted = true;
 
-    if (!isAuthenticated) {
-      setBiometricUnlocked(true);
-      return;
-    }
-
-    if (interactiveAuthAt && Date.now() - interactiveAuthAt < BIOMETRIC_UNLOCK_GRACE_MS) {
-      setBiometricUnlocked(true);
-      return;
-    }
-
-    if (!biometricUnlocked && appState.current === 'active') {
-      unlockWithBiometric();
-    }
-  }, [authReady, biometricUnlocked, interactiveAuthAt, isAuthenticated, unlockWithBiometric]);
-
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextAppState) => {
-      const wasInBackground = /inactive|background/.test(appState.current);
-      appState.current = nextAppState;
-
-      if (!authReady || !isAuthenticated || biometricPromptInFlight.current) {
+    const checkForLaunchUpdate = async () => {
+      if (__DEV__ || Platform.OS === 'web' || !Updates.isEnabled) {
         return;
       }
 
-      if (/inactive|background/.test(nextAppState)) {
-        setBiometricUnlocked(false);
-        return;
-      }
+      try {
+        const update = await Updates.checkForUpdateAsync();
 
-      if (wasInBackground && nextAppState === 'active') {
-        const now = Date.now();
-        const promptJustSettled =
-          now - lastBiometricPromptCompletedAt.current < BIOMETRIC_PROMPT_SETTLE_MS;
-        const recentlyUnlocked =
-          now - lastBiometricUnlockAt.current < BIOMETRIC_UNLOCK_GRACE_MS;
-
-        if (promptJustSettled || recentlyUnlocked) {
-          setBiometricUnlocked(true);
+        if (!isMounted || !update.isAvailable) {
           return;
         }
 
-        setBiometricUnlocked(false);
-        unlockWithBiometric();
+        setUpdateMessage('New update available. Updating app...');
+
+        const fetchResult = await Updates.fetchUpdateAsync();
+
+        if (!isMounted) {
+          return;
+        }
+
+        if (fetchResult.isNew || fetchResult.isRollBackToEmbedded) {
+          setUpdateMessage('Update downloaded. Restarting app...');
+          await Updates.reloadAsync({
+            reloadScreenOptions: {
+              backgroundColor: '#ffffff',
+              spinner: {
+                enabled: true,
+                color: '#6366f1',
+                size: 'large',
+              },
+            },
+          });
+          return;
+        }
+
+        setUpdateMessage(null);
+      } catch (error) {
+        console.log('EAS update check skipped/failed:', error?.message || error);
+        if (isMounted) {
+          setUpdateMessage(null);
+        }
       }
-    });
+    };
 
-    return () => subscription.remove();
-  }, [authReady, isAuthenticated, unlockWithBiometric]);
+    checkForLaunchUpdate();
 
-  const authLoading =
-    !authReady ||
-    isLoading ||
-    biometricChecking ||
-    (isAuthenticated && !biometricUnlocked);
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const authLoading = !authReady || isLoading;
 
   useEffect(() => {
     if (authLoading) return;
@@ -211,6 +113,10 @@ function RootLayoutNav() {
     return <AnimatedSplashScreen onFinish={() => setShowAnimatedSplash(false)} />;
   }
 
+  if (updateMessage) {
+    return <UpdateScreen message={updateMessage} />;
+  }
+
   if (authLoading) {
     return <Loading />;
   }
@@ -229,3 +135,52 @@ function RootLayoutNav() {
 export default function RootLayout() {
   return <RootLayoutNav />;
 }
+
+function UpdateScreen({ message }) {
+  return (
+    <View style={styles.updateContainer}>
+      <View style={styles.updateIcon}>
+        <ActivityIndicator size="large" color="#6366f1" />
+      </View>
+      <Text style={styles.updateTitle}>Updating app</Text>
+      <Text style={styles.updateMessage}>{message}</Text>
+      <Text style={styles.updateHint}>Please keep the app open.</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  updateContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    backgroundColor: '#ffffff',
+  },
+  updateIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+    backgroundColor: '#eef2ff',
+  },
+  updateTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  updateMessage: {
+    fontSize: 16,
+    color: '#4b5563',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  updateHint: {
+    fontSize: 13,
+    color: '#6b7280',
+    textAlign: 'center',
+  },
+});
