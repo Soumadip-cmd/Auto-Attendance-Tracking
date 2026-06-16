@@ -14,7 +14,9 @@ export default function AuthLayout() {
           headerShown: false,
         }}
       />
+      <Stack.Screen name="login_new" />
       <Stack.Screen name="register" />
+      <Stack.Screen name="register_new" />
     </Stack>
   );
 }

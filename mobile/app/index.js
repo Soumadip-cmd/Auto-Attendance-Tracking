@@ -1,12 +1,11 @@
-import { useEffect } from 'react';
-import { Redirect, router } from 'expo-router';
-import { useApp } from '../src/context/AppContext';
+import { Redirect } from 'expo-router';
+import { useAuthStore } from '../src/store/authStore';
 import { Loading } from '../src/components/common';
 
 export default function Index() {
-  const { isAuthenticated, authLoading } = useApp();
+  const { isAuthenticated, isLoading, hasInitialized } = useAuthStore();
 
-  if (authLoading) {
+  if (!hasInitialized || isLoading) {
     return <Loading />;
   }
 

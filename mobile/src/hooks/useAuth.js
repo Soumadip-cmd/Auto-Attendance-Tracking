@@ -7,6 +7,7 @@ export const useAuth = () => {
     token,
     isAuthenticated,
     isLoading,
+    hasInitialized,
     error,
     login,
     register,
@@ -20,14 +21,17 @@ export const useAuth = () => {
 
   // Initialize auth on mount
   useEffect(() => {
-    initAuth();
-  }, []);
+    if (!hasInitialized) {
+      initAuth();
+    }
+  }, [hasInitialized, initAuth]);
 
   return {
     user,
     token,
     isAuthenticated,
     isLoading,
+    hasInitialized,
     error,
     login,
     register,

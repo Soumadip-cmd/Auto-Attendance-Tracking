@@ -11,6 +11,7 @@ export const useAuthStore = create((set, get) => ({
   refreshToken: null,
   isAuthenticated: false,
   isLoading: false,
+  hasInitialized: false,
   error:  null,
 
   /**
@@ -18,6 +19,10 @@ export const useAuthStore = create((set, get) => ({
    */
   initAuth:  async () => {
     try {
+      if (get().hasInitialized && !get().isLoading) {
+        return get().isAuthenticated;
+      }
+
       set({ isLoading: true });
       
       const token = await secureStorage.getItem(APP_CONFIG.TOKEN_KEY);
@@ -32,6 +37,7 @@ export const useAuthStore = create((set, get) => ({
           user,
           isAuthenticated:  true,
           isLoading: false,
+          hasInitialized: true,
         });
 
         // Connect to WebSocket (non-blocking)
@@ -39,12 +45,12 @@ export const useAuthStore = create((set, get) => ({
         
         return true;
       } else {
-        set({ isLoading: false });
+        set({ isLoading: false, hasInitialized: true });
         return false;
       }
     } catch (error) {
       console.error('Error initializing auth:', error);
-      set({ isLoading: false, error: error.message });
+      set({ isLoading: false, hasInitialized: true, error: error.message });
       return false;
     }
   },
@@ -70,6 +76,7 @@ export const useAuthStore = create((set, get) => ({
         refreshToken,
         isAuthenticated: true,
         isLoading: false,
+        hasInitialized: true,
         error: null,
       });
 
@@ -107,6 +114,7 @@ export const useAuthStore = create((set, get) => ({
         refreshToken,
         isAuthenticated: true,
         isLoading: false,
+        hasInitialized: true,
         error: null,
       });
 
@@ -151,6 +159,7 @@ export const useAuthStore = create((set, get) => ({
         refreshToken: null,
         isAuthenticated: false,
         isLoading: false,
+        hasInitialized: true,
         error:  null,
       });
 
@@ -165,6 +174,7 @@ export const useAuthStore = create((set, get) => ({
         refreshToken: null,
         isAuthenticated: false,
         isLoading: false,
+        hasInitialized: true,
       });
 
       return { success: true }; // Still success even if API call fails

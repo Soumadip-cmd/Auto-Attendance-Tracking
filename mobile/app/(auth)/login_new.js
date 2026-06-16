@@ -19,6 +19,10 @@ import { Button } from '../../src/components/common/Button';
 import { useAuth } from '../../src/hooks/useAuth';
 import { useTheme } from '../../src/hooks/useTheme';
 
+const BIOMETRIC_ENABLED_KEY = 'biometric_enabled';
+const BIOMETRIC_EMAIL_KEY = 'biometric_email';
+const BIOMETRIC_TOKEN_KEY = 'biometric_token';
+
 export default function LoginScreen() {
   const router = useRouter();
   const { login, isLoading } = useAuth();
@@ -28,7 +32,9 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({});
   const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [biometricType, setBiometricType] = useState('Biometric');
+  const [biometricLoading, setBiometricLoading] = useState(false);
 
   React.useEffect(() => {
     checkBiometric();
@@ -39,20 +45,26 @@ export default function LoginScreen() {
       const hasHardware = await LocalAuthentication.hasHardwareAsync();
       const isEnrolled = await LocalAuthentication.isEnrolledAsync();
       const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
-      
+      const savedEmail = await AsyncStorage.getItem(BIOMETRIC_EMAIL_KEY);
+      const savedToken = await AsyncStorage.getItem(BIOMETRIC_TOKEN_KEY);
+      const enabled = await AsyncStorage.getItem(BIOMETRIC_ENABLED_KEY);
+
       setBiometricAvailable(hasHardware && isEnrolled);
-      
+      setBiometricEnabled(enabled === 'true' && !!savedToken);
+
       if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
         setBiometricType('Face ID');
       } else if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
         setBiometricType('Fingerprint');
       }
 
-      // Load saved email if exists
-      const savedEmail = await AsyncStorage.getItem('biometric_email');
-      if (savedEmail) setEmail(savedEmail);
+      if (savedEmail) {
+        setEmail(savedEmail);
+      }
     } catch (error) {
       console.error('Biometric check error:', error);
+      setBiometricAvailable(false);
+      setBiometricEnabled(false);
     }
   };
 
@@ -81,28 +93,32 @@ export default function LoginScreen() {
     const result = await login({ email, password });
 
     if (result.success) {
-      // Save credentials for biometric login
-      await AsyncStorage.setItem('biometric_email', email);
-      await AsyncStorage.setItem('biometric_enabled', 'true');
+      await AsyncStorage.setItem(BIOMETRIC_EMAIL_KEY, email);
+      await AsyncStorage.setItem(BIOMETRIC_ENABLED_KEY, 'true');
+
       if (result.data?.token) {
-        await AsyncStorage.setItem('biometric_token', result.data.token);
+        await AsyncStorage.setItem(BIOMETRIC_TOKEN_KEY, result.data.token);
       }
-      
+
       router.replace('/(tabs)');
-    } else {
-      Alert.alert('Login Failed', result.error || 'Invalid credentials');
+      return;
     }
+
+    Alert.alert('Login Failed', result.error || 'Invalid credentials');
   };
 
   const handleBiometricLogin = async () => {
     try {
-      const savedEmail = await AsyncStorage.getItem('biometric_email');
-      const savedToken = await AsyncStorage.getItem('biometric_token');
+      setBiometricLoading(true);
 
-      if (!savedEmail) {
+      const savedEmail = await AsyncStorage.getItem(BIOMETRIC_EMAIL_KEY);
+      const savedToken = await AsyncStorage.getItem(BIOMETRIC_TOKEN_KEY);
+      const enabled = await AsyncStorage.getItem(BIOMETRIC_ENABLED_KEY);
+
+      if (enabled !== 'true' || !savedEmail || !savedToken) {
         Alert.alert(
           'Setup Required',
-          'Please login with email and password first to enable biometric login.',
+          `Please login with email and password first to enable ${biometricType} login.`,
           [{ text: 'OK' }]
         );
         return;
@@ -112,31 +128,44 @@ export default function LoginScreen() {
         promptMessage: `Login with ${biometricType}`,
         fallbackLabel: 'Use password',
         cancelLabel: 'Cancel',
+        disableDeviceFallback: false,
       });
 
-      if (result.success) {
-        // Try to login with saved token
-        if (savedToken) {
-          const loginResult = await login({ token: savedToken, biometric: true });
-          
-          if (loginResult.success) {
-            router.replace('/(tabs)');
-          } else {
-            Alert.alert(
-              'Session Expired',
-              'Your session has expired. Please login with email and password.',
-              [{ text: 'OK' }]
-            );
-          }
-        } else {
-          Alert.alert('Error', 'No saved credentials found. Please login with email and password.');
-        }
+      if (!result.success) {
+        return;
       }
+
+      const loginResult = await login({ token: savedToken, biometric: true });
+
+      if (loginResult.success) {
+        await AsyncStorage.setItem(BIOMETRIC_EMAIL_KEY, savedEmail);
+        await AsyncStorage.setItem(BIOMETRIC_ENABLED_KEY, 'true');
+
+        if (loginResult.data?.token) {
+          await AsyncStorage.setItem(BIOMETRIC_TOKEN_KEY, loginResult.data.token);
+        }
+
+        router.replace('/(tabs)');
+        return;
+      }
+
+      await AsyncStorage.setItem(BIOMETRIC_ENABLED_KEY, 'false');
+      await AsyncStorage.removeItem(BIOMETRIC_TOKEN_KEY);
+
+      Alert.alert(
+        'Session Expired',
+        'Your biometric session has expired. Please login with email and password again.',
+        [{ text: 'OK' }]
+      );
     } catch (error) {
       console.error('Biometric error:', error);
-      Alert.alert('Error', 'Biometric authentication failed. Please try again.');
+      Alert.alert('Error', `${biometricType} authentication failed. Please try again.`);
+    } finally {
+      setBiometricLoading(false);
     }
   };
+
+  const showBiometricLogin = biometricAvailable && biometricEnabled;
 
   return (
     <KeyboardAvoidingView
@@ -144,43 +173,45 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <StatusBar style={theme.isDarkMode ? 'light' : 'dark'} />
-      
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={[styles.title, { color: theme.colors.text }]}>
-            Welcome Back! 👋
-          </Text>
+          <Text style={[styles.title, { color: theme.colors.text }]}>Welcome Back!</Text>
           <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
             Sign in to continue tracking your attendance
           </Text>
         </View>
 
-        {/* Biometric Quick Login - Prominent at top */}
-        {biometricAvailable && (
+        {showBiometricLogin && (
           <TouchableOpacity
-            style={[styles.biometricButton, { 
-              backgroundColor: theme.colors.primary + '15',
-              borderColor: theme.colors.primary 
-            }]}
+            style={[
+              styles.biometricButton,
+              {
+                backgroundColor: theme.colors.primary + '15',
+                borderColor: theme.colors.primary,
+                opacity: biometricLoading ? 0.5 : 1,
+              },
+            ]}
             onPress={handleBiometricLogin}
+            disabled={biometricLoading || isLoading}
           >
             <View style={[styles.biometricIconContainer, { backgroundColor: theme.colors.primary }]}>
-              <Ionicons 
-                name={biometricType === 'Face ID' ? 'scan' : 'finger-print'} 
-                size={32} 
-                color="#ffffff" 
+              <Ionicons
+                name={biometricLoading ? 'hourglass' : biometricType === 'Face ID' ? 'scan' : 'finger-print'}
+                size={32}
+                color="#ffffff"
               />
             </View>
             <View style={styles.biometricTextContainer}>
               <Text style={[styles.biometricTitle, { color: theme.colors.text }]}>
-                Quick Login
+                {biometricLoading ? 'Logging in...' : 'Quick Login'}
               </Text>
               <Text style={[styles.biometricSubtitle, { color: theme.colors.textSecondary }]}>
-                Use {biometricType}
+                {biometricLoading ? 'Please wait' : `Use ${biometricType}`}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={24} color={theme.colors.primary} />
@@ -215,7 +246,7 @@ export default function LoginScreen() {
             error={errors.password}
           />
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.forgotPassword}
             onPress={() => router.push('/(auth)/forgot-password')}
           >
@@ -236,10 +267,8 @@ export default function LoginScreen() {
           <Text style={[styles.footerText, { color: theme.colors.textSecondary }]}>
             Don't have an account?{' '}
           </Text>
-          <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
-            <Text style={[styles.footerLink, { color: theme.colors.primary }]}>
-              Sign Up
-            </Text>
+          <TouchableOpacity onPress={() => router.push('/(auth)/register_new')}>
+            <Text style={[styles.footerLink, { color: theme.colors.primary }]}>Sign Up</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

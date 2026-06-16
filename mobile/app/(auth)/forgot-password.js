@@ -73,7 +73,7 @@ export default function ForgotPassword() {
       Alert.alert(
         'Success',
         'Your password has been reset successfully',
-        [{ text: 'Login', onPress: () => router.replace('/(auth)/login') }]
+        [{ text: 'Login', onPress: () => router.replace('/(auth)/login_new') }]
       );
     } catch (error) {
       Alert.alert('Error', error.response?.data?.message || 'Failed to reset password');

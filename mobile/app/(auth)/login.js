@@ -16,12 +16,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { Input } from '../../src/components/common/Input';
 import { Button } from '../../src/components/common/Button';
-import { useApp } from '../../src/context/AppContext';
+import { useAuth } from '../../src/hooks/useAuth';
 import { useTheme } from '../../src/hooks/useTheme';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { login, authLoading } = useApp();
+  const { login, isLoading } = useAuth();
   const { theme } = useTheme();
 
   const [email, setEmail] = useState('');
@@ -112,6 +112,9 @@ export default function LoginScreen() {
         await AsyncStorage.setItem('biometric_email', email);
         await AsyncStorage.setItem('biometric_password', password);
         await AsyncStorage.setItem('biometric_enabled', 'true');
+        if (result.data?.token) {
+          await AsyncStorage.setItem('biometric_token', result.data.token);
+        }
         console.log('✅ Biometric credentials saved successfully for:', email);
       } catch (storageError) {
         console.error('❌ Failed to save biometric credentials:', storageError);
@@ -166,6 +169,9 @@ export default function LoginScreen() {
         console.log('📊 Login result:', loginResult.success, loginResult.error);
         
         if (loginResult.success) {
+          if (loginResult.data?.token) {
+            await AsyncStorage.setItem('biometric_token', loginResult.data.token);
+          }
           console.log('🎉 Biometric login successful! Navigation handled by layout...');
           setBiometricLoading(false);
           // Navigation handled by _layout.js automatically
@@ -175,6 +181,7 @@ export default function LoginScreen() {
           // Clear invalid saved credentials
           await AsyncStorage.removeItem('biometric_email');
           await AsyncStorage.removeItem('biometric_password');
+          await AsyncStorage.removeItem('biometric_token');
           await AsyncStorage.removeItem('biometric_enabled');
           Alert.alert(
             '❌ Login Failed',
@@ -223,7 +230,7 @@ export default function LoginScreen() {
               opacity: biometricLoading ? 0.5 : 1
             }]}
             onPress={handleBiometricLogin}
-            disabled={biometricLoading || authLoading}
+            disabled={biometricLoading || isLoading}
           >
             <View style={[styles.biometricIconContainer, { backgroundColor: theme.colors.primary }]}>
               {biometricLoading ? (
@@ -288,7 +295,7 @@ export default function LoginScreen() {
           <Button
             title="Login"
             onPress={handleLogin}
-            loading={authLoading}
+            loading={isLoading}
             style={{ marginTop: 24 }}
           />
         </View>
@@ -297,7 +304,7 @@ export default function LoginScreen() {
           <Text style={[styles.footerText, { color: theme.colors.textSecondary }]}>
             Don't have an account?{' '}
           </Text>
-          <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
+          <TouchableOpacity onPress={() => router.push('/(auth)/register_new')}>
             <Text style={[styles.footerLink, { color: theme.colors.primary }]}>
               Sign Up
             </Text>

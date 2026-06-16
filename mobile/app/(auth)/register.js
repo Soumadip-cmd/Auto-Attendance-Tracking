@@ -16,12 +16,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { Input } from '../../src/components/common/Input';
 import { Button } from '../../src/components/common/Button';
-import { useApp } from '../../src/context/AppContext';
+import { useAuth } from '../../src/hooks/useAuth';
 import { useTheme } from '../../src/hooks/useTheme';
 
 export default function RegisterScreen() {
   const router = useRouter();
-  const { register, authLoading } = useApp();
+  const { register, isLoading } = useAuth();
   const { theme } = useTheme();
 
   const [formData, setFormData] = useState({
@@ -64,7 +64,7 @@ export default function RegisterScreen() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const askForBiometric = async (email, password) => {
+  const askForBiometric = async (email, password, token) => {
     const hasHardware = await LocalAuthentication.hasHardwareAsync();
     const isEnrolled = await LocalAuthentication.isEnrolledAsync();
     const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
@@ -105,6 +105,9 @@ export default function RegisterScreen() {
                 await AsyncStorage.setItem('biometric_email', email);
                 await AsyncStorage.setItem('biometric_password', password);
                 await AsyncStorage.setItem('biometric_enabled', 'true');
+                if (token) {
+                  await AsyncStorage.setItem('biometric_token', token);
+                }
                 
                 Alert.alert(
                   'Success!',
@@ -136,7 +139,7 @@ export default function RegisterScreen() {
 
     if (result.success) {
       // Ask if user wants to enable biometric
-      await askForBiometric(formData.email, formData.password);
+      await askForBiometric(formData.email, formData.password, result.data?.token);
     } else {
       Alert.alert('Registration Failed', result.error || 'Please try again');
     }
@@ -226,7 +229,7 @@ export default function RegisterScreen() {
           <Button
             title="Create Account"
             onPress={handleRegister}
-            loading={authLoading}
+            loading={isLoading}
             style={{ marginTop: 24 }}
           />
 
@@ -243,7 +246,7 @@ export default function RegisterScreen() {
           <Text style={[styles.footerText, { color: theme.colors.textSecondary }]}>
             Already have an account?{' '}
           </Text>
-          <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
+          <TouchableOpacity onPress={() => router.push('/(auth)/login_new')}>
             <Text style={[styles.footerLink, { color: theme.colors.primary }]}>
               Sign In
             </Text>
