@@ -222,40 +222,28 @@ class TeacherLiveTrackingService {
     if (foregroundPermission.status !== 'granted') {
       return {
         success: false,
-        error: 'Foreground location permission is required for attendance tracking.',
+        error: 'Location permission is required. Please allow location access to enable live tracking.',
       };
     }
 
-    let backgroundPermission = await Location.getBackgroundPermissionsAsync();
+    // Background permission is OPTIONAL — tracking works in foreground-only mode without it
+    const backgroundPermission = await Location.getBackgroundPermissionsAsync();
+    const hasBackground = backgroundPermission.status === 'granted';
 
-    if (backgroundPermission.status !== 'granted') {
-      const shouldContinue = await this.showBackgroundLocationEducation();
-
-      if (!shouldContinue) {
-        return {
-          success: false,
-          declined: true,
-          error: 'Background location was not enabled. You can still use the app, but live native geofence monitoring cannot run in the background.',
-        };
-      }
-
-      backgroundPermission = await Location.requestBackgroundPermissionsAsync();
-    }
-
-    if (backgroundPermission.status !== 'granted') {
-      this.showOpenSettingsPrompt();
-
+    if (!hasBackground) {
+      // Silently return foreground-only mode; don't block the user
       return {
-        success: false,
-        needsSettings: true,
-        error: `Background location permission is required for native geofence monitoring. Choose "${ANDROID_BACKGROUND_PERMISSION_LABEL}" in app settings.`,
+        success: true,
+        foregroundOnly: true,
+        warning: 'Background location not enabled. Tracking works while the app is open. To track in background, go to Settings → Location → Allow all the time.',
       };
     }
 
     return {
       success: true,
+      foregroundOnly: false,
       warning: isApproximateLocation(foregroundPermission)
-        ? 'Approximate location is enabled. Android will also use approximate location in the background, so geofence accuracy can be reduced.'
+        ? 'Approximate location is enabled. Geofence accuracy may be reduced.'
         : null,
     };
   }
@@ -274,18 +262,27 @@ class TeacherLiveTrackingService {
     await websocketService.connect();
     this.subscribeToServerEvents();
     await this.startForegroundWatch(trackingSessionId);
-    await this.startBackgroundUpdates();
-    const geofenceResult = await this.startNativeGeofenceMonitoring();
-    this._startPermissionMonitor();
 
-    if (Platform.OS === 'android') {
-      this.drainPendingGeofenceEvents().catch(() => null);
+    let geofenceCount = 0;
+    if (!permissions.foregroundOnly) {
+      // Full background tracking — start background updates and native geofences
+      await this.startBackgroundUpdates();
+      const geofenceResult = await this.startNativeGeofenceMonitoring();
+      geofenceCount = geofenceResult?.count ?? 0;
+      if (Platform.OS === 'android') {
+        this.drainPendingGeofenceEvents().catch(() => null);
+      }
     }
+
+    this._startPermissionMonitor();
 
     return {
       success: true,
-      message: 'Teacher live tracking started',
-      geofences: geofenceResult.count,
+      message: permissions.foregroundOnly
+        ? 'Live tracking started (foreground mode — open app for tracking)'
+        : 'Teacher live tracking started',
+      geofences: geofenceCount,
+      foregroundOnly: permissions.foregroundOnly,
       warning: permissions.warning,
     };
   }

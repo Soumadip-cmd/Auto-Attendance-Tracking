@@ -57,8 +57,8 @@ function GrantModal({ onClose, onSaved }) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    userAPI.getAll({ role: 'teacher' })
-      .then((r) => setTeachers(r.data.data || []))
+    userAPI.getAll({ role: 'teacher', limit: 500 })
+      .then((r) => setTeachers(r.data?.data || []))
       .catch(() => toast.error('Failed to load teachers'))
       .finally(() => setLoadingTeachers(false));
   }, []);

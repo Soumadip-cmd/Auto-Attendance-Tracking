@@ -22,6 +22,64 @@ const canManage = (user) =>
 const canManageTeachers = (user) =>
   ['super_admin', 'admin', 'manager', 'hod'].includes(user?.role);
 
+function CollegeModal({ onClose, onCreated }) {
+  const [form, setForm] = useState({ name: '', code: '', address: '' });
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    if (!form.name.trim() || !form.code.trim()) {
+      toast.error('Name and code are required');
+      return;
+    }
+    setSaving(true);
+    try {
+      await organizationAPI.createCollege(form);
+      toast.success('College created');
+      onCreated();
+      onClose();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to create college');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Create College</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+        </div>
+        <p className="text-sm text-amber-600 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 rounded-lg p-3">
+          No college found. Create your institution first before adding departments.
+        </p>
+        <div className="space-y-3">
+          <div>
+            <label className="label">College Name *</label>
+            <input className="input" value={form.name} onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. ABC Engineering College" />
+          </div>
+          <div>
+            <label className="label">Code *</label>
+            <input className="input uppercase" value={form.code} onChange={(e) => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))} placeholder="e.g. ABCEC" />
+          </div>
+          <div>
+            <label className="label">Address</label>
+            <input className="input" value={form.address} onChange={(e) => setForm(f => ({ ...f, address: e.target.value }))} placeholder="City, State" />
+          </div>
+        </div>
+        <div className="flex gap-3 pt-2">
+          <button onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+          <button onClick={save} disabled={saving} className="btn-primary flex-1 flex items-center justify-center gap-2">
+            {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+            Create College
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DeptModal({ dept, colleges, users, onClose, onSave }) {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === 'super_admin';
@@ -149,10 +207,11 @@ function TeacherPanel({ dept, onClose }) {
     try {
       const [deptRes, allRes] = await Promise.all([
         organizationAPI.getDepartmentTeachers(dept._id),
-        userAPI.getAll({ role: 'teacher' }),
+        userAPI.getAll({ role: 'teacher', limit: 500 }),
       ]);
-      setDeptTeachers(deptRes.data.data || []);
-      setAllTeachers(allRes.data.data || []);
+      // Web API interceptor returns full axios response, so .data is the JSON body
+      setDeptTeachers(deptRes.data?.data || []);
+      setAllTeachers(allRes.data?.data || allRes.data?.users || []);
     } catch {
       toast.error('Failed to load teachers');
     } finally {
@@ -290,20 +349,21 @@ export default function Departments() {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null); // null | { dept: null|{...} }
   const [teacherPanel, setTeacherPanel] = useState(null); // null | dept
+  const [collegeModal, setCollegeModal] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const [deptRes, userRes] = await Promise.all([
         organizationAPI.getDepartments(),
-        userAPI.getAll(),
+        userAPI.getAll({ limit: 500 }),
       ]);
-      setDepartments(deptRes.data.data || []);
-      setAllUsers(userRes.data.data || []);
+      setDepartments(deptRes.data?.data || []);
+      setAllUsers(userRes.data?.data || []);
 
       if (['super_admin', 'admin'].includes(user?.role)) {
         const colRes = await organizationAPI.getColleges();
-        setColleges(colRes.data.data || []);
+        setColleges(colRes.data?.data || []);
       }
     } catch {
       toast.error('Failed to load departments');
@@ -344,14 +404,31 @@ export default function Departments() {
             <p className="text-sm text-gray-500">{departments.length} departments</p>
           </div>
         </div>
-        {canManage(user) && (
-          <button
-            onClick={() => setModal({ dept: null })}
-            className="btn-primary flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" /> New Department
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {canManage(user) && colleges.length === 0 && (
+            <button
+              onClick={() => setCollegeModal(true)}
+              className="btn-secondary flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" /> Create College First
+            </button>
+          )}
+          {canManage(user) && (
+            <button
+              onClick={() => {
+                if (colleges.length === 0) {
+                  setCollegeModal(true);
+                  toast('Create a college first before adding departments.', { icon: '🏫' });
+                } else {
+                  setModal({ dept: null });
+                }
+              }}
+              className="btn-primary flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" /> New Department
+            </button>
+          )}
+        </div>
       </div>
 
       {/* List */}
@@ -456,6 +533,13 @@ export default function Departments() {
 
       {teacherPanel && (
         <TeacherPanel dept={teacherPanel} onClose={() => setTeacherPanel(null)} />
+      )}
+
+      {collegeModal && (
+        <CollegeModal
+          onClose={() => setCollegeModal(false)}
+          onCreated={load}
+        />
       )}
     </div>
   );

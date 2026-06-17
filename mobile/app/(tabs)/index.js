@@ -66,12 +66,10 @@ export default function HomeScreen() {
       const stats = await TeacherLiveTrackingService.getStats();
       setTrackingStats(stats);
     } else {
-      // Auto-start silently only when permissions are already granted
-      // (avoids showing background-location education dialog on every launch)
+      // Auto-start silently if foreground permission is already granted
       try {
         const fg = await Location.getForegroundPermissionsAsync();
-        const bg = await Location.getBackgroundPermissionsAsync();
-        if (fg.status === 'granted' && bg.status === 'granted') {
+        if (fg.status === 'granted') {
           const result = await TeacherLiveTrackingService.startTracking();
           if (result.success) {
             setBackgroundTracking(true);
@@ -226,17 +224,14 @@ export default function HomeScreen() {
         const result = await TeacherLiveTrackingService.startTracking();
         if (result.success) {
           setBackgroundTracking(true);
-          Alert.alert(
-            'Tracking Started',
-            `Live movement tracking is active. Native geofences registered: ${result.geofences || 0}.`,
-            [{ text: 'OK' }]
-          );
-          
-          // Load stats
+          const msg = result.foregroundOnly
+            ? `Tracking active while app is open.\n\nTo enable background tracking, go to:\nSettings → Location → "Allow all the time"`
+            : `Live tracking is active.\nGeofences registered: ${result.geofences || 0}.`;
+          Alert.alert('Tracking Started', result.warning || msg, [{ text: 'OK' }]);
           const stats = await TeacherLiveTrackingService.getStats();
           setTrackingStats(stats);
         } else {
-          Alert.alert('Error', result.error || 'Failed to start tracking');
+          Alert.alert('Cannot Start Tracking', result.error || 'Failed to start tracking');
         }
       }
     } catch (error) {

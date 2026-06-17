@@ -67,29 +67,38 @@ export default function MapScreen() {
   const [speed, setSpeed] = useState(0);
   const [walkingState, setWalkingState] = useState('UNKNOWN');
 
-  // Jump the camera to last known position as soon as the map is ready
-  const onMapReady = useCallback(() => {
-    Location.getLastKnownPositionAsync({}).then(pos => {
-      if (pos && !hasInitialCameraRef.current) {
-        hasInitialCameraRef.current = true;
-        const coord = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
-        setInitialRegion({ ...coord, latitudeDelta: 0.008, longitudeDelta: 0.008 });
-        mapRef.current?.animateCamera({ center: coord, zoom: 18 }, { duration: 400 });
-      } else if (!pos) {
-        setInitialRegion(DEFAULT_REGION);
+  // Jump the camera as soon as the map is ready.
+  // Does NOT touch hasInitialCameraRef — the location effect owns that flag.
+  const onMapReady = useCallback(async () => {
+    try {
+      // Try cache first (instant), then fresh fix if cache is empty
+      let pos = await Location.getLastKnownPositionAsync({}).catch(() => null);
+      if (!pos) {
+        pos = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        }).catch(() => null);
       }
-    }).catch(() => setInitialRegion(DEFAULT_REGION));
+      if (pos && mapRef.current) {
+        const coord = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+        isFollowingRef.current = true;
+        mapRef.current.animateCamera({ center: coord, zoom: 18 }, { duration: 400 });
+      }
+    } catch {
+      // Stay at DEFAULT_REGION
+    }
   }, []);
 
   useEffect(() => {
     // Load geofences and activity detection in background — map renders immediately
-
     loadGeofences();
     startActivityDetection();
 
     return () => {
       stopTracking();
       AndroidGeofencing.stopWalkingDetection().catch(() => null);
+      // Reset so re-opening the tab gets a fresh camera jump
+      hasInitialCameraRef.current = false;
+      isFollowingRef.current = true;
     };
   }, []);
 
@@ -139,11 +148,11 @@ export default function MapScreen() {
     const newCoord = { latitude: location.latitude, longitude: location.longitude };
     const prev = prevLocationRef.current;
 
-    // First GPS fix → jump camera instantly (catches case where onMapReady fired before GPS)
-    if (!hasInitialCameraRef.current && mapRef.current) {
+    if (!hasInitialCameraRef.current) {
+      // First real GPS fix — always re-enable following and jump the camera
       hasInitialCameraRef.current = true;
-      setInitialRegion({ ...newCoord, latitudeDelta: 0.008, longitudeDelta: 0.008 });
-      mapRef.current.animateCamera({ center: newCoord, zoom: 18 }, { duration: 0 });
+      isFollowingRef.current = true;
+      mapRef.current?.animateCamera({ center: newCoord, zoom: 18 }, { duration: 0 });
     }
 
     if (prev) {
@@ -165,7 +174,7 @@ export default function MapScreen() {
       markerRef.current.animateMarkerToCoordinate(newCoord, 800);
     }
 
-    // Smooth camera follow
+    // Smooth camera follow (re-enabled automatically on each new map open)
     if (isFollowingRef.current) {
       mapRef.current?.animateCamera(
         { center: newCoord, zoom: 18 },
