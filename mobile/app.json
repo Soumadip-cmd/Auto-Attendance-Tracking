@@ -23,6 +23,11 @@
     "android": {
       "package": "com.geoattendance.freelixe",
       "icon": "./src/assets/immigration.png",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyAbnGDpJYWJDlON9N4Fbk9_3BOT07FRjxI"
+        }
+      },
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
