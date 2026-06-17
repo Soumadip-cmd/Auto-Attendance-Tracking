@@ -51,25 +51,31 @@ export default function HomeScreen() {
 
   const initializeApp = async () => {
     await initializeScreen();
-    
     setupWebSocketListeners();
-    
-    // Request permissions first
+
     if (!hasPermission) {
       await requestPermissions();
     }
-    
-    // Start location tracking
     await getCurrentLocation();
-    
-    // Check if background tracking is active
+
     const isTracking = await TeacherLiveTrackingService.isTracking();
     setBackgroundTracking(isTracking);
-    
-    // Load tracking stats
+
     if (isTracking) {
       const stats = await TeacherLiveTrackingService.getStats();
       setTrackingStats(stats);
+    } else {
+      // Auto-start live tracking on every launch
+      try {
+        const result = await TeacherLiveTrackingService.startTracking();
+        if (result.success) {
+          setBackgroundTracking(true);
+          const stats = await TeacherLiveTrackingService.getStats();
+          setTrackingStats(stats);
+        }
+      } catch (e) {
+        console.warn('Auto-start tracking failed:', e?.message);
+      }
     }
   };
 

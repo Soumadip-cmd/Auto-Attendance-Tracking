@@ -46,6 +46,10 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
         val geofences = event.triggeringGeofences ?: return
 
         for (geofence in geofences) {
+            // Skip if this geofence is already in this state (GPS oscillation guard)
+            if (isSameState(context, geofence.requestId, transitionType)) continue
+            saveState(context, geofence.requestId, transitionType)
+
             val data = mapOf<String, Any?>(
                 "identifier" to geofence.requestId,
                 "transitionType" to transitionType,
@@ -60,9 +64,22 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
             // Persist for when the app is killed — drained via getPendingEvents() on restart
             persistEvent(context, data)
 
-            // Show a heads-up notification so the user and the OS know something happened
-            showNotification(context, transitionType, geofence.requestId)
+            // Only show native notification when JS is NOT listening (app killed).
+            // When JS is alive it handles the notification itself to avoid duplicates.
+            if (AndroidGeofencingModule.onTransition == null) {
+                showNotification(context, transitionType, geofence.requestId)
+            }
         }
+    }
+
+    private fun isSameState(context: Context, geofenceId: String, transitionType: String): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getString("gf_state_$geofenceId", null) == transitionType
+    }
+
+    private fun saveState(context: Context, geofenceId: String, transitionType: String) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putString("gf_state_$geofenceId", transitionType).apply()
     }
 
     private fun persistEvent(context: Context, data: Map<String, Any?>) {

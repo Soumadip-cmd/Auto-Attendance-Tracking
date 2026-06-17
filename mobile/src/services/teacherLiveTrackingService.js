@@ -152,6 +152,9 @@ class TeacherLiveTrackingService {
     this.unsubscribeViolation = null;
     this.unsubscribePermissionApproved = null;
     this.unsubscribePermissionRejected = null;
+    // Tracks last known transition per geofence — prevents duplicate notifications
+    // when GPS oscillates near a boundary (enter→exit→enter in quick succession)
+    this._lastGeofenceState = {};
   }
 
   showBackgroundLocationEducation() {
@@ -411,6 +414,12 @@ class TeacherLiveTrackingService {
     if (Platform.OS === 'android' && !this.unsubscribeNativeGeofence) {
       this.unsubscribeNativeGeofence = AndroidGeofencing.addTransitionListener(async (event) => {
         const { identifier, transitionType, latitude, longitude, timestamp } = event;
+
+        // Skip if already in this state — native deduplicates too, but JS listener
+        // is an extra safety net against rapid GPS oscillation duplicates
+        if (this._lastGeofenceState[identifier] === transitionType) return;
+        this._lastGeofenceState[identifier] = transitionType;
+
         const title = transitionType === 'exit' ? 'Outside allowed area' : 'Inside allowed area';
         const body = transitionType === 'exit'
           ? 'Your HOD/admin may be notified if this movement is not approved.'
@@ -472,6 +481,8 @@ class TeacherLiveTrackingService {
       this.unsubscribePermissionRejected();
       this.unsubscribePermissionRejected = null;
     }
+
+    this._lastGeofenceState = {};
 
     await liveTrackingAPI.stopTracking().catch(() => null);
     await AsyncStorage.removeItem(TRACKING_SESSION_KEY);
