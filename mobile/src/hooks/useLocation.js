@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import locationService from '../services/locationService';
 
 export const useLocation = () => {
@@ -7,10 +7,19 @@ export const useLocation = () => {
   const [hasPermission, setHasPermission] = useState(false);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const trackingCallbackRef = useRef(null);
+  const externalUpdateRef = useRef(null);
 
   // Check permissions on mount
   useEffect(() => {
     checkPermissions();
+
+    return () => {
+      if (trackingCallbackRef.current) {
+        locationService.stopTracking(trackingCallbackRef.current).catch(() => {});
+        trackingCallbackRef.current = null;
+      }
+    };
   }, []);
 
   const checkPermissions = async () => {
@@ -56,12 +65,18 @@ export const useLocation = () => {
   const startTracking = useCallback(async (onLocationUpdate) => {
     try {
       setError(null);
-      await locationService.startTracking((newLocation) => {
-        setLocation(newLocation);
-        if (onLocationUpdate) {
-          onLocationUpdate(newLocation);
-        }
-      });
+      externalUpdateRef.current = onLocationUpdate;
+
+      if (!trackingCallbackRef.current) {
+        trackingCallbackRef.current = (newLocation) => {
+          setLocation(newLocation);
+          if (externalUpdateRef.current) {
+            externalUpdateRef.current(newLocation);
+          }
+        };
+      }
+
+      await locationService.startTracking(trackingCallbackRef.current);
       setIsTracking(true);
     } catch (err) {
       setError(err.message);
@@ -70,7 +85,10 @@ export const useLocation = () => {
 
   const stopTracking = useCallback(async () => {
     try {
-      await locationService.stopTracking();
+      if (trackingCallbackRef.current) {
+        await locationService.stopTracking(trackingCallbackRef.current);
+        trackingCallbackRef.current = null;
+      }
       setIsTracking(false);
     } catch (err) {
       setError(err.message);

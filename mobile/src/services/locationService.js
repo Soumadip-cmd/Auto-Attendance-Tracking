@@ -11,6 +11,7 @@ class LocationService {
     this.locationSubscription = null;
     this.currentLocation = null;
     this.isTracking = false;
+    this.locationListeners = new Set();
   }
 
   async requestPermissions(options = {}) {
@@ -60,7 +61,18 @@ class LocationService {
       coords: location.coords,
     };
 
+    this.notifyListeners(this.currentLocation);
     return this.currentLocation;
+  }
+
+  notifyListeners(location) {
+    this.locationListeners.forEach((listener) => {
+      try {
+        listener(location);
+      } catch (error) {
+        console.warn('Location listener failed:', error?.message);
+      }
+    });
   }
 
   async startTracking(onLocationUpdate) {
@@ -68,6 +80,13 @@ class LocationService {
 
     if (!hasPermission) {
       throw new Error('Location permission not granted');
+    }
+
+    if (onLocationUpdate) {
+      this.locationListeners.add(onLocationUpdate);
+      if (this.currentLocation) {
+        onLocationUpdate(this.currentLocation);
+      }
     }
 
     if (this.isTracking && this.locationSubscription) {
@@ -91,16 +110,24 @@ class LocationService {
           timestamp: location.timestamp,
         };
 
-        if (onLocationUpdate) {
-          onLocationUpdate(this.currentLocation);
-        }
+        this.notifyListeners(this.currentLocation);
       }
     );
 
     this.isTracking = true;
   }
 
-  async stopTracking() {
+  async stopTracking(onLocationUpdate) {
+    if (onLocationUpdate) {
+      this.locationListeners.delete(onLocationUpdate);
+    } else {
+      this.locationListeners.clear();
+    }
+
+    if (this.locationListeners.size > 0) {
+      return;
+    }
+
     if (this.locationSubscription) {
       this.locationSubscription.remove();
       this.locationSubscription = null;

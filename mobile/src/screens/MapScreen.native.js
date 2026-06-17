@@ -26,7 +26,7 @@ const DEFAULT_REGION = { latitude: 20.5937, longitude: 78.9629, latitudeDelta: 1
 
 const { width, height } = Dimensions.get('window');
 const MAX_TRAIL_POINTS = 120;
-const MIN_MOVE_METERS = 2;
+const MIN_MOVE_METERS = 1;
 
 const STATUS_META = {
   info: { icon: 'information-circle', color: '#2563eb', backgroundColor: '#dbeafe' },
@@ -77,7 +77,15 @@ const getBearing = (lat1, lon1, lat2, lon2) => {
 };
 
 export default function MapScreen() {
-  const { location, getCurrentLocation, startTracking, stopTracking, hasPermission, requestPermissions } = useLocation();
+  const {
+    location,
+    getCurrentLocation,
+    startTracking,
+    stopTracking,
+    hasPermission,
+    requestPermissions,
+    error: locationError,
+  } = useLocation();
   const { theme } = useTheme();
   const mapRef = useRef(null);
   const markerRef = useRef(null);
@@ -88,6 +96,7 @@ export default function MapScreen() {
   const [geofences, setGeofences] = useState([]);
   const [geofencesLoading, setGeofencesLoading] = useState(false);
   const [statusPopup, setStatusPopup] = useState(null);
+  const [isMapReady, setIsMapReady] = useState(false);
   const [distance, setDistance] = useState(null);
   const [nearestGeofence, setNearestGeofence] = useState(null);
   const [showDetails, setShowDetails] = useState(true);
@@ -165,6 +174,7 @@ export default function MapScreen() {
   // Does NOT touch hasInitialCameraRef — the location effect owns that flag.
   const onMapReady = useCallback(async () => {
     try {
+      setIsMapReady(true);
       showStatusPopup('success', 'Map loaded', 'Waiting for your current location.');
       // Try cache first (instant), then fresh fix if cache is empty
       let pos = await Location.getLastKnownPositionAsync({}).catch(() => null);
@@ -180,6 +190,7 @@ export default function MapScreen() {
         showStatusPopup('success', 'Map loaded', 'Current location centered on the map.');
       }
     } catch (error) {
+      setIsMapReady(true);
       showStatusPopup('warning', 'Map loaded', error?.message || 'GPS fix is not ready yet.');
     }
   }, [showStatusPopup]);
@@ -206,6 +217,12 @@ export default function MapScreen() {
       startTracking();
     }
   }, [hasPermission, startTracking]);
+
+  useEffect(() => {
+    if (locationError) {
+      showStatusPopup('error', 'Location error', locationError, true);
+    }
+  }, [locationError, showStatusPopup]);
 
   // Google Activity Recognition listener
   useEffect(() => {
@@ -296,6 +313,7 @@ export default function MapScreen() {
 
     setSpeed(location.speed > 0 ? location.speed : 0);
     prevLocationRef.current = newCoord;
+    setMarkerCoord(newCoord);
 
     // Smooth marker slide (native interpolation, avoids React re-render jumps)
     if (markerRef.current?.animateMarkerToCoordinate) {
@@ -380,6 +398,10 @@ export default function MapScreen() {
         showsMyLocationButton={false}
         showsCompass={true}
         showsTraffic={false}
+        mapType="standard"
+        loadingEnabled={true}
+        loadingIndicatorColor="#6366f1"
+        loadingBackgroundColor="#f8fafc"
         initialRegion={DEFAULT_REGION}
         onMapReady={onMapReady}
         onPanDrag={() => { isFollowingRef.current = false; }}
@@ -506,7 +528,7 @@ export default function MapScreen() {
       )}
 
       {/* Pulsing live-dot overlay (center of screen, shows tracking is active) */}
-      {markerCoord && (
+      {!markerCoord && (
         <View style={styles.pulseDotContainer} pointerEvents="none">
           <Animated.View style={[styles.pulseDotRing, { transform: [{ scale: pulseAnim }] }]} />
           <View style={styles.pulseDot} />
@@ -517,6 +539,32 @@ export default function MapScreen() {
       <View style={[styles.header, { backgroundColor: theme.colors.card }]}>
         <Text style={[styles.title, { color: theme.colors.text }]}>Live Location</Text>
         <View style={styles.headerPills}>
+          <View style={[styles.pill, { backgroundColor: isMapReady ? '#dbeafe' : '#f3f4f6' }]}>
+            <Ionicons
+              name={isMapReady ? 'map' : 'hourglass'}
+              size={14}
+              color={isMapReady ? '#2563eb' : '#6b7280'}
+            />
+            <Text style={[styles.pillText, { color: isMapReady ? '#2563eb' : '#6b7280' }]}>
+              {isMapReady ? 'Map ready' : 'Map loading'}
+            </Text>
+          </View>
+          {markerCoord && (
+            <View style={[styles.pill, { backgroundColor: '#eef2ff' }]}>
+              <Ionicons name="navigate" size={14} color="#4f46e5" />
+              <Text style={[styles.pillText, { color: '#4f46e5' }]}>
+                {accuracy !== null ? `GPS ${Math.round(accuracy)}m` : 'GPS live'}
+              </Text>
+            </View>
+          )}
+          {locationHistory.length > 1 && (
+            <View style={[styles.pill, { backgroundColor: '#ede9fe' }]}>
+              <Ionicons name="git-branch" size={14} color="#7c3aed" />
+              <Text style={[styles.pillText, { color: '#7c3aed' }]}>
+                Trail {locationHistory.length}
+              </Text>
+            </View>
+          )}
           {nearestGeofence && (
             <View style={[styles.pill, { backgroundColor: isInside ? '#dcfce7' : '#fee2e2' }]}>
               <Ionicons
@@ -683,6 +731,7 @@ const styles = StyleSheet.create({
   },
   headerPills: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
   pill: {
