@@ -12,10 +12,16 @@ const PORT = process.env.PORT || 5000;
 // without coordinates — these break the 2dsphere index.
 mongoose.connection.once('open', async () => {
   try {
-    // Clean any College document where location exists but has no valid coordinates.
-    // This covers: { type:'Point' } (old default bug), {}, { type, coordinates:[] }, etc.
     const db = mongoose.connection.db;
-    const result = await db.collection('colleges').updateMany(
+
+    // Drop the 2dsphere index on colleges if it still exists from old schema.
+    // We no longer run geo queries on colleges, so the index is unnecessary,
+    // and it rejects any document where location.coordinates is absent.
+    await db.collection('colleges').dropIndex('location_2dsphere').catch(() => null);
+
+    // Clean any college document that has an incomplete location field
+    // (i.e. { type:'Point' } without valid coordinates array).
+    const cleaned = await db.collection('colleges').updateMany(
       {
         location: { $exists: true },
         $or: [
@@ -26,11 +32,11 @@ mongoose.connection.once('open', async () => {
       },
       { $unset: { location: '' } }
     );
-    if (result.modifiedCount > 0) {
-      logger.info(`✅ Migration: cleared incomplete location from ${result.modifiedCount} college(s)`);
+    if (cleaned.modifiedCount > 0) {
+      logger.info(`✅ Migration: cleared incomplete location from ${cleaned.modifiedCount} college(s)`);
     }
   } catch (e) {
-    logger.warn('College location migration skipped:', e.message);
+    logger.warn('College startup migration skipped:', e.message);
   }
 });
 
