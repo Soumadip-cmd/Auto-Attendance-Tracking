@@ -7,6 +7,8 @@ import * as SplashScreen from 'expo-splash-screen';
 import * as Updates from 'expo-updates';
 import AnimatedSplashScreen from './splash';
 import { useAuthStore } from '../src/store/authStore';
+import websocketService from '../src/services/websocket';
+import notificationService from '../src/services/notificationService';
 
 // Keep the splash screen visible while we check auth
 SplashScreen.preventAutoHideAsync();
@@ -27,6 +29,49 @@ function RootLayoutNav() {
       console.log('App initialization complete');
     });
   }, [initAuth]);
+
+  // Global WebSocket listener — fires permission notifications regardless of tracking state
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    let unsubApproved, unsubRejected;
+
+    const connect = async () => {
+      try {
+        await notificationService.configureChannel();
+        await websocketService.connect();
+
+        unsubApproved = websocketService.on('movement-permission:approved', async (data) => {
+          const endStr = data.endTime
+            ? new Date(data.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            : '';
+          const grantedBy = data.grantedBy ? ` by ${data.grantedBy}` : '';
+          await notificationService.scheduleNotification(
+            'Movement permission granted',
+            `Your request was approved${grantedBy}. Valid until ${endStr}. Stay within ${data.radius}m.`,
+            { type: 'movement_permission_approved', id: data.id }
+          );
+        });
+
+        unsubRejected = websocketService.on('movement-permission:rejected', async (data) => {
+          await notificationService.scheduleNotification(
+            'Movement permission rejected',
+            data?.decisionNotes || 'Your movement permission request was not approved.',
+            { type: 'movement_permission_rejected', id: data.id }
+          );
+        });
+      } catch (e) {
+        console.warn('Permission notification listener setup failed:', e?.message);
+      }
+    };
+
+    connect();
+
+    return () => {
+      unsubApproved?.();
+      unsubRejected?.();
+    };
+  }, [isAuthenticated]);
 
   useEffect(() => {
     let isMounted = true;

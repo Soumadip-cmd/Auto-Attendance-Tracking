@@ -81,21 +81,30 @@ exports.createRequest = asyncHandler(async (req, res) => {
   });
 
   await Event.log({
-    eventType: 'movement-permission.requested',
+    eventType: isDirectGrant ? 'movement-permission.granted' : 'movement-permission.requested',
     actor: req.user._id,
-    target: req.user._id,
+    target: targetTeacherId,
     resource: { type: 'movement-permission', id: permission._id },
-    details: {
-      reason,
-      latitude,
-      longitude,
-      radius,
-      startTime,
-      endTime
-    },
+    details: { reason, latitude, longitude, radius, startTime, endTime },
     ipAddress: req.ip,
     userAgent: req.get('user-agent')
   });
+
+  // Notify teacher via WebSocket when admin/HOD grants directly
+  if (isDirectGrant) {
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`user:${targetTeacherId}`).emit('movement-permission:approved', {
+        id: permission._id,
+        radius: permission.radius,
+        startTime: permission.startTime,
+        endTime: permission.endTime,
+        reason: permission.reason,
+        decisionNotes: permission.decisionNotes,
+        grantedBy: `${req.user.firstName} ${req.user.lastName}`,
+      });
+    }
+  }
 
   res.status(201).json({
     success: true,

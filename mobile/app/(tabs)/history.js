@@ -1,12 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   RefreshControl,
   TouchableOpacity,
   FlatList,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
@@ -15,6 +15,133 @@ import { useAttendance } from '../../src/hooks/useAttendance';
 import { Card } from '../../src/components/common/Card';
 import { Loading } from '../../src/components/common/Loading';
 import MovementHistory from '../../src/components/MovementHistory';
+import { movementPermissionAPI } from '../../src/services/api';
+
+// ── Permission History component ──────────────────────────────────────────────
+function PermissionHistory({ theme }) {
+  const [permissions, setPermissions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const load = useCallback(async (showRefreshing = false) => {
+    if (showRefreshing) setRefreshing(true); else setLoading(true);
+    try {
+      const res = await movementPermissionAPI.getAll();
+      if (res?.success) setPermissions(res.data || []);
+    } catch (e) {
+      console.warn('Failed to load permissions:', e?.message);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const statusConfig = {
+    approved:  { color: '#10b981', bg: '#d1fae5', icon: 'checkmark-circle' },
+    pending:   { color: '#f59e0b', bg: '#fef3c7', icon: 'time' },
+    rejected:  { color: '#ef4444', bg: '#fee2e2', icon: 'close-circle' },
+    expired:   { color: '#9ca3af', bg: '#f3f4f6', icon: 'timer-outline' },
+    cancelled: { color: '#9ca3af', bg: '#f3f4f6', icon: 'ban' },
+  };
+
+  const fmtDT = (v) => {
+    if (!v) return '--';
+    return format(new Date(v), 'MMM d, h:mm a');
+  };
+
+  const renderItem = ({ item }) => {
+    const cfg = statusConfig[item.status] || statusConfig.pending;
+    const coords = item.allowedLocation?.coordinates;
+    const lat = coords?.[1]?.toFixed(4);
+    const lng = coords?.[0]?.toFixed(4);
+
+    return (
+      <Card style={[styles.permCard, { borderLeftColor: cfg.color, borderLeftWidth: 4 }]}>
+        {/* Status badge */}
+        <View style={styles.permHeader}>
+          <View style={[styles.statusBadge, { backgroundColor: cfg.bg }]}>
+            <Ionicons name={cfg.icon} size={14} color={cfg.color} />
+            <Text style={[styles.statusText, { color: cfg.color }]}>
+              {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+            </Text>
+          </View>
+          <Text style={[styles.permDate, { color: theme.colors.textSecondary }]}>
+            {fmtDT(item.createdAt)}
+          </Text>
+        </View>
+
+        {/* Reason */}
+        <Text style={[styles.permReason, { color: theme.colors.text }]} numberOfLines={2}>
+          {item.reason}
+        </Text>
+
+        {/* Time window */}
+        <View style={styles.permRow}>
+          <Ionicons name="time-outline" size={14} color={theme.colors.textSecondary} />
+          <Text style={[styles.permDetail, { color: theme.colors.textSecondary }]}>
+            {fmtDT(item.startTime)} → {fmtDT(item.endTime)}
+          </Text>
+        </View>
+
+        {/* Location + radius */}
+        {lat && (
+          <View style={styles.permRow}>
+            <Ionicons name="location-outline" size={14} color={theme.colors.textSecondary} />
+            <Text style={[styles.permDetail, { color: theme.colors.textSecondary }]}>
+              {lat}, {lng}  ·  {item.radius}m radius
+            </Text>
+          </View>
+        )}
+
+        {/* Decision notes */}
+        {item.decisionNotes ? (
+          <View style={[styles.notesBg, { backgroundColor: theme.colors.background }]}>
+            <Text style={[styles.notesText, { color: theme.colors.textSecondary }]}>
+              💬 {item.decisionNotes}
+            </Text>
+          </View>
+        ) : null}
+
+        {/* Approved by */}
+        {item.approvedBy && (
+          <Text style={[styles.approvedBy, { color: theme.colors.textSecondary }]}>
+            Granted by {item.approvedBy.firstName} {item.approvedBy.lastName}
+          </Text>
+        )}
+      </Card>
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.centerBox}>
+        <ActivityIndicator color={theme.colors.primary} />
+      </View>
+    );
+  }
+
+  return (
+    <FlatList
+      data={permissions}
+      renderItem={renderItem}
+      keyExtractor={(p) => p._id}
+      contentContainerStyle={styles.listContent}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={theme.colors.primary} />
+      }
+      ListEmptyComponent={
+        <View style={styles.emptyContainer}>
+          <Ionicons name="shield-checkmark-outline" size={64} color={theme.colors.textSecondary} />
+          <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+            No movement permissions yet
+          </Text>
+        </View>
+      }
+    />
+  );
+}
 
 export default function HistoryScreen() {
   const { theme } = useTheme();
@@ -22,7 +149,7 @@ export default function HistoryScreen() {
   
   const [refreshing, setRefreshing] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
-  const [activeTab, setActiveTab] = useState('attendance'); // 'attendance' or 'movement'
+  const [activeTab, setActiveTab] = useState('attendance'); // 'attendance' | 'movement' | 'permissions'
 
   useEffect(() => {
     loadHistory();
@@ -272,10 +399,10 @@ export default function HistoryScreen() {
             ]}
             onPress={() => setActiveTab('movement')}
           >
-            <Ionicons 
-              name="footsteps" 
-              size={18} 
-              color={activeTab === 'movement' ? '#fff' : theme.colors.textSecondary} 
+            <Ionicons
+              name="footsteps"
+              size={18}
+              color={activeTab === 'movement' ? '#fff' : theme.colors.textSecondary}
             />
             <Text style={[
               styles.tabText,
@@ -285,9 +412,31 @@ export default function HistoryScreen() {
               Movement
             </Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.tab,
+              activeTab === 'permissions' && styles.activeTab,
+              activeTab === 'permissions' && { backgroundColor: theme.colors.primary }
+            ]}
+            onPress={() => setActiveTab('permissions')}
+          >
+            <Ionicons
+              name="shield-checkmark-outline"
+              size={18}
+              color={activeTab === 'permissions' ? '#fff' : theme.colors.textSecondary}
+            />
+            <Text style={[
+              styles.tabText,
+              activeTab === 'permissions' && styles.activeTabText,
+              { color: activeTab === 'permissions' ? '#fff' : theme.colors.textSecondary }
+            ]}>
+              Permits
+            </Text>
+          </TouchableOpacity>
         </View>
         
-        {/* Month Selector - Only for Attendance */}
+        {/* Month Selector – only for Attendance tab */}
         {activeTab === 'attendance' && (
           <View style={styles.monthSelector}>
             <TouchableOpacity
@@ -312,7 +461,7 @@ export default function HistoryScreen() {
       </View>
 
       {/* Content */}
-      {activeTab === 'attendance' ? (
+      {activeTab === 'attendance' && (
         <FlatList
           data={attendanceHistory}
           renderItem={renderHistoryItem}
@@ -334,9 +483,9 @@ export default function HistoryScreen() {
             </View>
           }
         />
-      ) : (
-        <MovementHistory />
       )}
+      {activeTab === 'movement' && <MovementHistory />}
+      {activeTab === 'permissions' && <PermissionHistory theme={theme} />}
     </View>
   );
 }
@@ -499,5 +648,52 @@ const styles = StyleSheet.create({
   },
   activeTabText: {
     color: '#fff',
+  },
+  // ── PermissionHistory styles ──────────────────────────────────────────────────
+  centerBox: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+  },
+  permCard: {
+    marginBottom: 14,
+    padding: 14,
+    borderRadius: 12,
+  },
+  permHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  permDate: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  permReason: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  permRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  permDetail: {
+    fontSize: 12,
+    flex: 1,
+  },
+  notesBg: {
+    borderRadius: 8,
+    padding: 8,
+    marginTop: 8,
+  },
+  approvedBy: {
+    fontSize: 11,
+    marginTop: 6,
+    fontStyle: 'italic',
   },
 });
