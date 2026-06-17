@@ -1,8 +1,8 @@
 import Constants from 'expo-constants';
 
 // Read from environment variables (from .env file)
-const API_URL_FROM_ENV = Constants.expoConfig?.extra?.API_URL || process.env.EXPO_PUBLIC_API_URL;
-const WS_URL_FROM_ENV = Constants.expoConfig?.extra?.WS_URL || process.env.EXPO_PUBLIC_WS_URL;
+const API_URL_FROM_ENV = Constants.expoConfig?.extra?.API_URL || process.env.EXPO_PUBLIC_API_URL || process.env.API_URL;
+const WS_URL_FROM_ENV = Constants.expoConfig?.extra?.WS_URL || process.env.EXPO_PUBLIC_WS_URL || process.env.WS_URL;
 
 const ENV = {
   dev: {

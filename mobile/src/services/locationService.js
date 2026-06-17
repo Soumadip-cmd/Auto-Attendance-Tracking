@@ -9,240 +9,161 @@ const BACKGROUND_LOCATION_TASK = 'background-location-task';
 class LocationService {
   constructor() {
     this.locationSubscription = null;
-    this. currentLocation = null;
-    this. isTracking = false;
+    this.currentLocation = null;
+    this.isTracking = false;
   }
 
-  /**
-   * Request location permissions
-   */
-  async requestPermissions() {
-    try {
-      console.log('📍 Requesting location permissions...');
-      
-      // Request foreground permissions
-      const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
-      console.log('  ├─ Foreground permission:', foregroundStatus);
-      
-      if (foregroundStatus !== 'granted') {
-        console.error('❌ Foreground location permission denied');
-        throw new Error('Foreground location permission denied');
-      }
+  async requestPermissions(options = {}) {
+    const { background = false } = options;
+    const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
 
-      // Request background permissions (optional)
-      const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
-      console.log('  └─ Background permission:', backgroundStatus);
-      
-      return {
-        foreground: foregroundStatus === 'granted',
-        background: backgroundStatus === 'granted',
-      };
-    } catch (error) {
-      console.error('❌ Error requesting location permissions:', error);
-      throw error;
+    if (foregroundStatus !== 'granted') {
+      throw new Error('Foreground location permission denied');
     }
+
+    let backgroundStatus = 'undetermined';
+    if (background) {
+      const result = await Location.requestBackgroundPermissionsAsync();
+      backgroundStatus = result.status;
+    }
+
+    return {
+      foreground: foregroundStatus === 'granted',
+      background: backgroundStatus === 'granted',
+    };
   }
 
-  /**
-   * Check if location permissions are granted
-   */
   async hasPermissions() {
     const { status } = await Location.getForegroundPermissionsAsync();
     return status === 'granted';
   }
 
-  /**
-   * Get current location (one-time)
-   */
   async getCurrentLocation() {
-    try {
-      const hasPermission = await this.hasPermissions();
-      
-      if (!hasPermission) {
-        console.error('❌ Location permission not granted');
-        throw new Error('Location permission not granted');
-      }
+    const hasPermission = await this.hasPermissions();
 
-      console.log('📍 Getting current location with HIGH accuracy...');
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-      });
-
-      console.log('📍 Raw Location Object:', JSON.stringify(location, null, 2));
-
-      this.currentLocation = {
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-        accuracy: location.coords.accuracy,
-        altitude: location.coords.altitude,
-        heading: location.coords.heading,
-        speed: location.coords.speed,
-        timestamp: location.timestamp,
-        coords: location.coords, // Keep full coords object
-      };
-
-      console.log('✅ Location obtained:');
-      console.log('  ├─ Latitude:', this.currentLocation.latitude);
-      console.log('  ├─ Longitude:', this.currentLocation.longitude);
-      console.log('  ├─ Accuracy:', this.currentLocation.accuracy, 'm');
-      console.log('  ├─ Altitude:', this.currentLocation.altitude);
-      console.log('  ├─ Speed:', this.currentLocation.speed);
-      console.log('  ├─ Heading:', this.currentLocation.heading);
-      console.log('  └─ Timestamp:', new Date(this.currentLocation.timestamp).toLocaleString());
-
-      return this.currentLocation;
-    } catch (error) {
-      console.error('❌ Error getting current location:', error);
-      throw error;
+    if (!hasPermission) {
+      throw new Error('Location permission not granted');
     }
+
+    const location = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.High,
+    });
+
+    this.currentLocation = {
+      latitude: location.coords.latitude,
+      longitude: location.coords.longitude,
+      accuracy: location.coords.accuracy,
+      altitude: location.coords.altitude,
+      heading: location.coords.heading,
+      speed: location.coords.speed,
+      timestamp: location.timestamp,
+      coords: location.coords,
+    };
+
+    return this.currentLocation;
   }
 
-  /**
-   * Start tracking location (foreground)
-   */
   async startTracking(onLocationUpdate) {
-    try {
-      const hasPermission = await this.hasPermissions();
-      
-      if (! hasPermission) {
-        throw new Error('Location permission not granted');
-      }
+    const hasPermission = await this.hasPermissions();
 
-      if (this.isTracking) {
-        console.warn('Location tracking already started');
-        return;
-      }
-
-      this.locationSubscription = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.BestForNavigation,
-          distanceInterval: 1, // Update every 1 meter of movement
-          timeInterval: 1000, // Update every 1 second for real-time tracking
-        },
-        (location) => {
-          this.currentLocation = {
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
-            accuracy: location.coords.accuracy,
-            altitude: location.coords.altitude,
-            heading: location.coords.heading,
-            speed: location.coords.speed,
-            timestamp: location.timestamp,
-          };
-
-          console.log('🔄 Location update:', location.coords.latitude.toFixed(6), location.coords.longitude.toFixed(6));
-
-          if (onLocationUpdate) {
-            onLocationUpdate(this.currentLocation);
-          }
-        }
-      );
-
-      this.isTracking = true;
-      console. log('✅ Location tracking started');
-    } catch (error) {
-      console.error('Error starting location tracking:', error);
-      throw error;
+    if (!hasPermission) {
+      throw new Error('Location permission not granted');
     }
+
+    if (this.isTracking && this.locationSubscription) {
+      return;
+    }
+
+    this.locationSubscription = await Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.BestForNavigation,
+        distanceInterval: 1,
+        timeInterval: 1000,
+      },
+      (location) => {
+        this.currentLocation = {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+          accuracy: location.coords.accuracy,
+          altitude: location.coords.altitude,
+          heading: location.coords.heading,
+          speed: location.coords.speed,
+          timestamp: location.timestamp,
+        };
+
+        if (onLocationUpdate) {
+          onLocationUpdate(this.currentLocation);
+        }
+      }
+    );
+
+    this.isTracking = true;
   }
 
   async stopTracking() {
     if (this.locationSubscription) {
       this.locationSubscription.remove();
       this.locationSubscription = null;
-      this.isTracking = false;
-      console.log('🛑 Location tracking stopped');
     }
+    this.isTracking = false;
   }
 
-  /**
-   * Start background location tracking (use BackgroundLocationService instead)
-   */
   async startBackgroundTracking() {
-    try {
-      const { background } = await this.requestPermissions();
-      
-      if (!background) {
-        throw new Error('Background location permission not granted');
-      }
+    const { background } = await this.requestPermissions({ background: true });
 
-      await Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK, {
-        accuracy: Location.Accuracy.Balanced,
-        distanceInterval: APP_CONFIG.LOCATION_DISTANCE_FILTER,
-        timeInterval: APP_CONFIG.BACKGROUND_LOCATION_INTERVAL,
-        foregroundService: {
-          notificationTitle: 'Attendance Tracker',
-          notificationBody: 'Tracking your location for attendance',
-          notificationColor: '#6366f1',
-        },
-      });
-
-      console.log('✅ Background location tracking started');
-    } catch (error) {
-      console.error('Error starting background tracking:', error);
-      throw error;
+    if (!background) {
+      throw new Error('Background location permission not granted');
     }
+
+    await Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK, {
+      accuracy: Location.Accuracy.Balanced,
+      distanceInterval: APP_CONFIG.LOCATION_DISTANCE_FILTER,
+      timeInterval: APP_CONFIG.BACKGROUND_LOCATION_INTERVAL,
+      foregroundService: {
+        notificationTitle: 'Attendance Tracker',
+        notificationBody: 'Tracking your location for attendance',
+        notificationColor: '#6366f1',
+      },
+    });
   }
 
-  /**
-   * Stop background location tracking
-   */
   async stopBackgroundTracking() {
-    try {
-      const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_LOCATION_TASK);
-      
-      if (isRegistered) {
-        await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
-        console.log('🛑 Background location tracking stopped');
-      }
-    } catch (error) {
-      console.error('Error stopping background tracking:', error);
+    const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_LOCATION_TASK);
+
+    if (isRegistered) {
+      await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
     }
   }
 
-  /**
-   * Check if location is within geofence
-   */
   isWithinGeofence(currentLocation, geofenceCenter, radiusMeters) {
     const distance = calculateDistance(
-      currentLocation. latitude,
+      currentLocation.latitude,
       currentLocation.longitude,
-      geofenceCenter. latitude,
+      geofenceCenter.latitude,
       geofenceCenter.longitude
     );
 
     return distance <= radiusMeters;
   }
 
-  /**
-   * Send location to backend
-   */
   async trackLocation(additionalData = {}) {
-    try {
-      const location = await this.getCurrentLocation();
-      
-      const locationData = {
-        latitude: location.latitude,
-        longitude: location.longitude,
-        accuracy: location.accuracy,
-        altitude: location.altitude,
-        heading: location.heading,
-        speed: location.speed,
-        timestamp: new Date(location.timestamp).toISOString(),
-        ...additionalData,
-      };
+    const location = await this.getCurrentLocation();
 
-      await locationAPI.track(locationData);
-      return locationData;
-    } catch (error) {
-      console.error('Error tracking location:', error);
-      throw error;
-    }
+    const locationData = {
+      latitude: location.latitude,
+      longitude: location.longitude,
+      accuracy: location.accuracy,
+      altitude: location.altitude,
+      heading: location.heading,
+      speed: location.speed,
+      timestamp: new Date(location.timestamp).toISOString(),
+      ...additionalData,
+    };
+
+    await locationAPI.track(locationData);
+    return locationData;
   }
 
-  /**
-   * Get location address (reverse geocoding)
-   */
   async getLocationAddress(latitude, longitude) {
     try {
       const addresses = await Location.reverseGeocodeAsync({
@@ -258,7 +179,7 @@ class LocationService {
           region: address.region,
           country: address.country,
           postalCode: address.postalCode,
-          formattedAddress: `${address.street || ''}, ${address.city || ''}, ${address.region || ''} ${address.postalCode || ''}`,
+          formattedAddress: `${address.street || ''}, ${address.city || ''}, ${address.region || ''} ${address.postalCode || ''}`.trim(),
         };
       }
 
@@ -270,30 +191,26 @@ class LocationService {
   }
 }
 
-// Define background location task
 TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
   if (error) {
     console.error('Background location task error:', error);
     return;
   }
 
-  if (data) {
-    const { locations } = data;
-    
-    // Send locations to backend
-    try {
-      for (const location of locations) {
-        await locationAPI.track({
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-          accuracy: location.coords.accuracy,
-          timestamp: new Date(location.timestamp).toISOString(),
-          isBackground: true,
-        });
-      }
-    } catch (error) {
-      console.error('Error sending background location:', error);
+  const locations = data?.locations || [];
+
+  try {
+    for (const location of locations) {
+      await locationAPI.track({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        accuracy: location.coords.accuracy,
+        timestamp: new Date(location.timestamp).toISOString(),
+        isBackground: true,
+      });
     }
+  } catch (sendError) {
+    console.error('Error sending background location:', sendError);
   }
 });
 

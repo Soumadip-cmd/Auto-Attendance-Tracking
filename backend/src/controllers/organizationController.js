@@ -11,6 +11,25 @@ const buildCollegeScope = (user, requestedCollege) => {
   return collegeId ? { _id: collegeId } : {};
 };
 
+const hasValidCoordinates = (latitude, longitude) => {
+  const lat = Number(latitude);
+  const lng = Number(longitude);
+  return Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180;
+};
+
+const normalizeCollegeAddress = (address) => {
+  if (!address) return undefined;
+  if (typeof address === 'string') {
+    return { formatted: address };
+  }
+  return address;
+};
+
 exports.createCollege = asyncHandler(async (req, res) => {
   const {
     name,
@@ -26,13 +45,13 @@ exports.createCollege = asyncHandler(async (req, res) => {
   const collegeData = {
     name,
     code,
-    address,
+    address: normalizeCollegeAddress(address),
     phoneNumber,
     email,
     isActive,
     createdBy: req.user._id,
   };
-  if (latitude && longitude) {
+  if (hasValidCoordinates(latitude, longitude)) {
     collegeData.location = {
       type: 'Point',
       coordinates: [Number(longitude), Number(latitude)],
@@ -78,14 +97,18 @@ exports.updateCollege = asyncHandler(async (req, res) => {
 
   const allowedFields = ['name', 'code', 'address', 'phoneNumber', 'email', 'isActive'];
   allowedFields.forEach((field) => {
-    if (req.body[field] !== undefined) college[field] = req.body[field];
+    if (req.body[field] !== undefined) {
+      college[field] = field === 'address' ? normalizeCollegeAddress(req.body[field]) : req.body[field];
+    }
   });
 
-  if (req.body.latitude && req.body.longitude) {
+  if (hasValidCoordinates(req.body.latitude, req.body.longitude)) {
     college.location = {
       type: 'Point',
       coordinates: [Number(req.body.longitude), Number(req.body.latitude)]
     };
+  } else if (req.body.latitude === '' || req.body.longitude === '' || req.body.location === null) {
+    college.location = undefined;
   }
 
   college.updatedBy = req.user._id;

@@ -18,6 +18,12 @@ router.get(
 );
 
 router.get(
+  '/me/active',
+  protect,
+  movementPermissionController.getMyActivePermission
+);
+
+router.get(
   '/:id',
   protect,
   authorize('teacher', 'staff', 'hod', 'admin', 'manager', 'super_admin'),
@@ -43,12 +49,6 @@ router.put(
   protect,
   authorize('teacher', 'staff', 'hod', 'admin', 'manager', 'super_admin'),
   movementPermissionController.cancelRequest
-);
-
-router.get(
-  '/me/active',
-  protect,
-  movementPermissionController.getMyActivePermission
 );
 
 module.exports = router;

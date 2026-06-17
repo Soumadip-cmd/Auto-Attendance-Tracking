@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocation } from '../hooks/useLocation';
 import { useTheme } from '../hooks/useTheme';
 import { geofenceAPI } from '../services/api';
+import TeacherLiveTrackingService from '../services/teacherLiveTrackingService';
 import { Card } from '../components/common/Card';
 import * as AndroidGeofencing from 'android-geofencing';
 
@@ -26,6 +27,33 @@ const DEFAULT_REGION = { latitude: 20.5937, longitude: 78.9629, latitudeDelta: 1
 const { width, height } = Dimensions.get('window');
 const MAX_TRAIL_POINTS = 120;
 const MIN_MOVE_METERS = 2;
+
+const STATUS_META = {
+  info: { icon: 'information-circle', color: '#2563eb', backgroundColor: '#dbeafe' },
+  success: { icon: 'checkmark-circle', color: '#16a34a', backgroundColor: '#dcfce7' },
+  warning: { icon: 'warning', color: '#d97706', backgroundColor: '#fef3c7' },
+  error: { icon: 'alert-circle', color: '#dc2626', backgroundColor: '#fee2e2' },
+};
+
+const withTimeout = (promise, ms, message = 'Request timed out') => (
+  Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(message)), ms);
+    }),
+  ])
+);
+
+const normalizeGeofenceList = (response) => {
+  const list = response?.data?.data || response?.data || response?.geofences || [];
+  return Array.isArray(list)
+    ? list.filter((geofence) =>
+        geofence?.center?.coordinates?.length === 2 &&
+        Number.isFinite(Number(geofence.center.coordinates[0])) &&
+        Number.isFinite(Number(geofence.center.coordinates[1]))
+      )
+    : [];
+};
 
 const getDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371000;
@@ -59,6 +87,7 @@ export default function MapScreen() {
 
   const [geofences, setGeofences] = useState([]);
   const [geofencesLoading, setGeofencesLoading] = useState(false);
+  const [statusPopup, setStatusPopup] = useState(null);
   const [distance, setDistance] = useState(null);
   const [nearestGeofence, setNearestGeofence] = useState(null);
   const [showDetails, setShowDetails] = useState(true);
@@ -75,9 +104,51 @@ export default function MapScreen() {
   // the native view re-renders with the updated rotation.
   const [tracksViewChanges, setTracksViewChanges] = useState(true);
   const tracksTimerRef = useRef(null);
+  const statusTimerRef = useRef(null);
+  const hasShownMovementRef = useRef(false);
 
   // Pulsing accuracy circle animation
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  const showStatusPopup = useCallback((type, title, message, persistent = false) => {
+    if (statusTimerRef.current) {
+      clearTimeout(statusTimerRef.current);
+      statusTimerRef.current = null;
+    }
+
+    setStatusPopup({ type, title, message });
+
+    if (!persistent) {
+      statusTimerRef.current = setTimeout(() => {
+        setStatusPopup(null);
+        statusTimerRef.current = null;
+      }, 3500);
+    }
+  }, []);
+
+  const initializeLiveMap = useCallback(async () => {
+    try {
+      showStatusPopup('info', 'Starting live map', 'Getting GPS and live movement ready.');
+      const permission = hasPermission ? { foreground: true } : await requestPermissions();
+      if (!permission?.foreground) {
+        showStatusPopup('error', 'Location blocked', 'Allow location permission to move the marker.', true);
+        Alert.alert('Location permission needed', 'Allow location permission to show live movement on the map.');
+        return;
+      }
+
+      await getCurrentLocation();
+      await startTracking();
+      showStatusPopup('success', 'Live movement active', 'Marker will follow your current location.');
+
+      TeacherLiveTrackingService.startTracking().catch((error) => {
+        console.warn('Live tracking stream could not start:', error?.message);
+        showStatusPopup('warning', 'Server stream issue', error?.message || 'Live admin stream could not start.');
+      });
+    } catch (error) {
+      console.warn('Map live tracking init failed:', error?.message);
+      showStatusPopup('error', 'Live map error', error?.message || 'Could not start live location.', true);
+    }
+  }, [getCurrentLocation, hasPermission, requestPermissions, showStatusPopup, startTracking]);
 
   useEffect(() => {
     const pulse = Animated.loop(
@@ -94,6 +165,7 @@ export default function MapScreen() {
   // Does NOT touch hasInitialCameraRef — the location effect owns that flag.
   const onMapReady = useCallback(async () => {
     try {
+      showStatusPopup('success', 'Map loaded', 'Waiting for your current location.');
       // Try cache first (instant), then fresh fix if cache is empty
       let pos = await Location.getLastKnownPositionAsync({}).catch(() => null);
       if (!pos) {
@@ -105,14 +177,16 @@ export default function MapScreen() {
         const coord = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
         isFollowingRef.current = true;
         mapRef.current.animateCamera({ center: coord, zoom: 18 }, { duration: 400 });
+        showStatusPopup('success', 'Map loaded', 'Current location centered on the map.');
       }
-    } catch {
-      // Stay at DEFAULT_REGION
+    } catch (error) {
+      showStatusPopup('warning', 'Map loaded', error?.message || 'GPS fix is not ready yet.');
     }
-  }, []);
+  }, [showStatusPopup]);
 
   useEffect(() => {
     // Load geofences and activity detection in background — map renders immediately
+    initializeLiveMap();
     loadGeofences();
     startActivityDetection();
 
@@ -120,6 +194,7 @@ export default function MapScreen() {
       stopTracking();
       AndroidGeofencing.stopWalkingDetection().catch(() => null);
       if (tracksTimerRef.current) clearTimeout(tracksTimerRef.current);
+      if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
       // Reset so re-opening the tab gets a fresh camera jump
       hasInitialCameraRef.current = false;
       isFollowingRef.current = true;
@@ -130,7 +205,7 @@ export default function MapScreen() {
     if (hasPermission) {
       startTracking();
     }
-  }, [hasPermission]);
+  }, [hasPermission, startTracking]);
 
   // Google Activity Recognition listener
   useEffect(() => {
@@ -183,6 +258,11 @@ export default function MapScreen() {
       prevLocationRef.current = newCoord;
       setSpeed(location.speed > 0 ? location.speed : 0);
       setAccuracy(location.accuracy ?? null);
+      showStatusPopup(
+        'success',
+        'Marker ready',
+        `GPS accuracy ${Math.round(location.accuracy ?? 0)}m. Start moving to see the marker slide.`
+      );
       return;
     }
 
@@ -208,6 +288,10 @@ export default function MapScreen() {
 
     if (dist >= MIN_MOVE_METERS) {
       setLocationHistory(h => [...h.slice(-(MAX_TRAIL_POINTS - 1)), newCoord]);
+      if (!hasShownMovementRef.current) {
+        hasShownMovementRef.current = true;
+        showStatusPopup('success', 'Movement detected', 'Marker is moving with your live location.');
+      }
     }
 
     setSpeed(location.speed > 0 ? location.speed : 0);
@@ -249,15 +333,24 @@ export default function MapScreen() {
   const loadGeofences = async () => {
     setGeofencesLoading(true);
     try {
-      if (!hasPermission) await requestPermissions();
-      const response = await geofenceAPI.getAll();
-      if (response.success && response.data.length > 0) {
-        setGeofences(response.data);
-      } else {
+      const response = await withTimeout(
+        geofenceAPI.getAll({ isActive: true }),
+        8000,
+        'Geofence loading timed out'
+      );
+      const zones = normalizeGeofenceList(response);
+      setGeofences(zones);
+      if (zones.length === 0) {
+        showStatusPopup('warning', 'No zones found', 'Ask admin to create office geofences.');
         Alert.alert('No Office Locations', 'Please contact admin to set up office locations.');
+      } else {
+        showStatusPopup('success', 'Zones loaded', `${zones.length} geofence${zones.length === 1 ? '' : 's'} ready.`);
       }
     } catch (e) {
-      Alert.alert('Error', 'Failed to load office locations');
+      console.warn('Failed to load geofences:', e?.message);
+      setGeofences([]);
+      showStatusPopup('error', 'Zone loading failed', e?.message || 'Failed to load office locations.', true);
+      Alert.alert('Error', e?.message || 'Failed to load office locations');
     } finally {
       setGeofencesLoading(false);
     }
@@ -274,6 +367,7 @@ export default function MapScreen() {
 
   const isInside = nearestGeofence?.isInside;
   const speedKmh = Math.round((speed || 0) * 3.6);
+  const statusMeta = STATUS_META[statusPopup?.type] || STATUS_META.info;
 
   return (
     <View style={styles.container}>
@@ -388,6 +482,29 @@ export default function MapScreen() {
         </View>
       )}
 
+      {statusPopup && (
+        <View style={[
+          styles.statusPopup,
+          {
+            backgroundColor: statusMeta.backgroundColor,
+            top: geofencesLoading ? 162 : 112,
+          },
+        ]}>
+          <Ionicons name={statusMeta.icon} size={18} color={statusMeta.color} />
+          <View style={styles.statusPopupText}>
+            <Text style={[styles.statusPopupTitle, { color: statusMeta.color }]} numberOfLines={1}>
+              {statusPopup.title}
+            </Text>
+            <Text style={styles.statusPopupMessage} numberOfLines={2}>
+              {statusPopup.message}
+            </Text>
+          </View>
+          <TouchableOpacity onPress={() => setStatusPopup(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="close" size={18} color={statusMeta.color} />
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Pulsing live-dot overlay (center of screen, shows tracking is active) */}
       {markerCoord && (
         <View style={styles.pulseDotContainer} pointerEvents="none">
@@ -456,7 +573,11 @@ export default function MapScreen() {
       {/* Refresh button */}
       <TouchableOpacity
         style={[styles.refreshBtn, { backgroundColor: theme.colors.primary }]}
-        onPress={async () => { await getCurrentLocation(); await loadGeofences(); }}
+        onPress={async () => {
+          showStatusPopup('info', 'Refreshing map', 'Updating GPS and geofence zones.');
+          await getCurrentLocation();
+          await loadGeofences();
+        }}
       >
         <Ionicons name="refresh" size={22} color="#fff" />
       </TouchableOpacity>
@@ -729,6 +850,35 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#6366f1',
+  },
+  statusPopup: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.16,
+    shadowRadius: 5,
+  },
+  statusPopupText: {
+    flex: 1,
+  },
+  statusPopupTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  statusPopupMessage: {
+    marginTop: 2,
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#374151',
   },
 
   // Pulsing live-location dot (center of screen, camera always follows user)

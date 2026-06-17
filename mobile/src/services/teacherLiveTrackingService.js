@@ -249,6 +249,18 @@ class TeacherLiveTrackingService {
   }
 
   async startTracking() {
+    const alreadyTracking = await this.isTracking().catch(() => !!this.foregroundSubscription);
+    if (alreadyTracking) {
+      await websocketService.connect();
+      this.subscribeToServerEvents();
+      this._startPermissionMonitor();
+      return {
+        success: true,
+        alreadyTracking: true,
+        message: 'Teacher live tracking already active',
+      };
+    }
+
     const permissions = await this.ensurePermissions();
     if (!permissions.success) return permissions;
 
@@ -363,6 +375,8 @@ class TeacherLiveTrackingService {
   }
 
   _startPermissionMonitor() {
+    if (this._permCheckInterval) return;
+
     this._fetchActivePermission();
     // Refresh active permission every 2 minutes
     this._permCheckInterval = setInterval(() => {

@@ -38,6 +38,8 @@ const eventSchema = new mongoose.Schema({
       'department.created',
       'department.updated',
       'department.hod-assigned',
+      'department.teacher-assigned',
+      'department.teacher-removed',
       // Movement permission events
       'movement-permission.requested',
       'movement-permission.approved',

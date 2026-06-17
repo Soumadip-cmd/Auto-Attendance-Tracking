@@ -1,5 +1,9 @@
 import 'dotenv/config';
 
+const API_URL = process.env.EXPO_PUBLIC_API_URL || process.env.API_URL || "https://attendance.freelixe.com/api/v1";
+const WS_URL = process.env.EXPO_PUBLIC_WS_URL || process.env.WS_URL || "https://attendance.freelixe.com";
+const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || "AIzaSyAMtx40m6yOIrtxQa7SOF3xNWUzrYldOkI";
+
 export default {
   expo: { 
     name: "GEO Attendance Tracker",
@@ -45,7 +49,7 @@ export default {
       },
       config: {
         googleMaps: {
-          apiKey: process.env.GOOGLE_MAPS_API_KEY || "AIzaSyAMtx40m6yOIrtxQa7SOF3xNWUzrYldOkI"
+          apiKey: GOOGLE_MAPS_API_KEY
         }
       }
     },
@@ -77,9 +81,9 @@ export default {
     },
     scheme: "attendancetracker",
     extra: {
-      API_URL: "https://attendance.freelixe.com/api/v1",
-      WS_URL: "https://attendance.freelixe.com",
-      GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY || "AIzaSyAMtx40m6yOIrtxQa7SOF3xNWUzrYldOkI",
+      API_URL,
+      WS_URL,
+      GOOGLE_MAPS_API_KEY,
       eas: {
         projectId: "d33612ab-4b02-41a7-8a38-257a681de251"
       }

@@ -24,11 +24,11 @@ export const useLocation = () => {
     }
   };
 
-  const requestPermissions = async () => {
+  const requestPermissions = async (options) => {
     try {
       setIsLoading(true);
-      const permissions = await locationService.requestPermissions();
-      setHasPermission(permissions. foreground);
+      const permissions = await locationService.requestPermissions(options);
+      setHasPermission(permissions.foreground);
       setIsLoading(false);
       return permissions;
     } catch (err) {
@@ -47,7 +47,7 @@ export const useLocation = () => {
       setIsLoading(false);
       return loc;
     } catch (err) {
-      setError(err. message);
+      setError(err.message);
       setIsLoading(false);
       return null;
     }
