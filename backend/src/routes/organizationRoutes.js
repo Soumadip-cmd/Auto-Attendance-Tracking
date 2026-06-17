@@ -45,4 +45,18 @@ router.put(
   organizationController.updateDepartment
 );
 
+router.get(
+  '/departments/:id/teachers',
+  protect,
+  authorize('super_admin', 'admin', 'manager', 'hod'),
+  organizationController.getTeachersInDepartment
+);
+
+router.post(
+  '/departments/:id/teachers',
+  protect,
+  authorize('super_admin', 'admin', 'manager', 'hod'),
+  organizationController.assignTeacherToDepartment
+);
+
 module.exports = router;

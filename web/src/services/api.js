@@ -218,6 +218,9 @@ export const organizationAPI = {
   getDepartments: (params) => api.get('/organization/departments', { params }),
   createDepartment: (data) => api.post('/organization/departments', data),
   updateDepartment: (id, data) => api.put(`/organization/departments/${id}`, data),
+  getDepartmentTeachers: (id) => api.get(`/organization/departments/${id}/teachers`),
+  assignTeacher: (id, teacherId, action = 'assign') =>
+    api.post(`/organization/departments/${id}/teachers`, { teacherId, action }),
 };
 
 // Export aliases for backward compatibility

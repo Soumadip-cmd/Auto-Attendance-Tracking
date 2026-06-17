@@ -192,6 +192,61 @@ exports.getDepartments = asyncHandler(async (req, res) => {
   });
 });
 
+exports.getTeachersInDepartment = asyncHandler(async (req, res) => {
+  const department = await Department.findById(req.params.id);
+  if (!department) {
+    return res.status(404).json({ success: false, message: 'Department not found' });
+  }
+
+  const teachers = await User.find({ departmentRef: department._id })
+    .select('firstName lastName email employeeId role teacherCode isActive')
+    .sort({ firstName: 1 });
+
+  res.json({ success: true, count: teachers.length, data: teachers });
+});
+
+exports.assignTeacherToDepartment = asyncHandler(async (req, res) => {
+  const { teacherId, action = 'assign' } = req.body;
+
+  const department = await Department.findById(req.params.id).populate('college', 'name');
+  if (!department) {
+    return res.status(404).json({ success: false, message: 'Department not found' });
+  }
+
+  const teacher = await User.findById(teacherId);
+  if (!teacher) {
+    return res.status(404).json({ success: false, message: 'Teacher not found' });
+  }
+
+  if (action === 'remove') {
+    await User.findByIdAndUpdate(teacherId, {
+      $unset: { departmentRef: '' },
+      department: '',
+    });
+  } else {
+    await User.findByIdAndUpdate(teacherId, {
+      departmentRef: department._id,
+      department: department.name,
+      college: department.college._id || department.college,
+    });
+  }
+
+  await Event.log({
+    eventType: action === 'remove' ? 'department.teacher-removed' : 'department.teacher-assigned',
+    actor: req.user._id,
+    target: teacherId,
+    resource: { type: 'department', id: department._id },
+    details: { department: department.name },
+    ipAddress: req.ip,
+    userAgent: req.get('user-agent'),
+  });
+
+  res.json({
+    success: true,
+    message: `Teacher ${action === 'remove' ? 'removed from' : 'assigned to'} department`,
+  });
+});
+
 exports.updateDepartment = asyncHandler(async (req, res) => {
   const department = await Department.findById(req.params.id);
 

@@ -16,6 +16,9 @@ const MANAGEMENT_ROLES = ['super_admin', 'admin', 'manager', 'hod'];
 router.get('/', protect, authorize(...MANAGEMENT_ROLES), async (req, res, next) => {
   try {
     const query = buildScopedUserFilter(req.user);
+    if (req.query.role) query.role = req.query.role;
+    if (req.query.departmentRef) query.departmentRef = req.query.departmentRef;
+    if (req.query.noDepartment === 'true') query.departmentRef = { $exists: false };
     const users = await User.find(query)
       .select('-password')
       .populate('college', 'name code')

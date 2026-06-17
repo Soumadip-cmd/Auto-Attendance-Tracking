@@ -1,6 +1,6 @@
 const { asyncHandler } = require('../middleware/errorHandler');
 const { Event, MovementPermission, User } = require('../models');
-const { getUserCollegeId, getUserDepartmentId, isAdminLike, isHod } = require('../utils/roleUtils');
+const { getUserCollegeId, getUserDepartmentId, isAdminLike, isHod, isSuperAdmin } = require('../utils/roleUtils');
 
 const canDecidePermission = (actor, permission) => {
   if (isAdminLike(actor)) return true;
@@ -41,13 +41,31 @@ exports.createRequest = asyncHandler(async (req, res) => {
     longitude,
     radius = 100,
     startTime,
-    endTime
+    endTime,
+    teacher: bodyTeacherId,
   } = req.body;
 
+  const canCreateForOthers = isAdminLike(req.user) || isHod(req.user);
+  const targetTeacherId = canCreateForOthers && bodyTeacherId ? bodyTeacherId : req.user._id;
+
+  let targetCollege = getUserCollegeId(req.user);
+  let targetDepartment = getUserDepartmentId(req.user);
+
+  if (targetTeacherId.toString() !== req.user._id.toString()) {
+    const teacherUser = await User.findById(targetTeacherId);
+    if (teacherUser) {
+      targetCollege = getUserCollegeId(teacherUser) || targetCollege;
+      targetDepartment = teacherUser.departmentRef || targetDepartment;
+    }
+  }
+
+  // Admin/HOD creating on behalf of a teacher = pre-approved
+  const isDirectGrant = canCreateForOthers && bodyTeacherId;
+
   const permission = await MovementPermission.create({
-    teacher: req.user._id,
-    college: getUserCollegeId(req.user),
-    department: getUserDepartmentId(req.user),
+    teacher: targetTeacherId,
+    college: targetCollege,
+    department: targetDepartment,
     reason,
     allowedLocation: {
       type: 'Point',
@@ -56,7 +74,10 @@ exports.createRequest = asyncHandler(async (req, res) => {
     radius,
     startTime,
     endTime,
-    createdBy: req.user._id
+    status: isDirectGrant ? 'approved' : 'pending',
+    approvedBy: isDirectGrant ? req.user._id : undefined,
+    approvedAt: isDirectGrant ? new Date() : undefined,
+    createdBy: req.user._id,
   });
 
   await Event.log({
