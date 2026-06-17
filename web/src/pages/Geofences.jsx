@@ -84,7 +84,9 @@ export default function Geofences() {
     enableWorkingHours: false,
     startTime: '09:00',
     endTime: '18:00',
-    gracePeriod: 15
+    gracePeriod: 15,
+    autoCheckIn: false,
+    autoCheckOut: false,
   });
 
   const [stats, setStats] = useState({
@@ -182,7 +184,11 @@ export default function Geofences() {
           gracePeriod: parseInt(formData.gracePeriod)
         } : {
           enabled: false
-        }
+        },
+        autoAttendance: {
+          checkIn: formData.autoCheckIn,
+          checkOut: formData.autoCheckOut,
+        },
       };
 
       console.log('📤 Sending payload:', JSON.stringify(payload, null, 2));
@@ -239,7 +245,9 @@ export default function Geofences() {
       enableWorkingHours: geofence.workingHours?.enabled || false,
       startTime: geofence.workingHours?.startTime || '09:00',
       endTime: geofence.workingHours?.endTime || '18:00',
-      gracePeriod: geofence.workingHours?.gracePeriod || 15
+      gracePeriod: geofence.workingHours?.gracePeriod || 15,
+      autoCheckIn: geofence.autoAttendance?.checkIn || false,
+      autoCheckOut: geofence.autoAttendance?.checkOut || false,
     });
     setClickedLocation([
       geofence.center.coordinates[1],
@@ -265,6 +273,8 @@ export default function Geofences() {
       enableWorkingHours: false,
       startTime: '09:00',
       endTime: '18:00',
+      autoCheckIn: false,
+      autoCheckOut: false,
       gracePeriod: 15
     });
     setEditingGeofence(null);
@@ -672,6 +682,44 @@ export default function Geofences() {
                   )}
                 </div>
 
+                {/* Auto Attendance Section */}
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-2">
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                    Auto Attendance (Geofence Triggered)
+                  </p>
+                  <div className="space-y-2 pl-1">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="autoCheckIn"
+                        checked={formData.autoCheckIn}
+                        onChange={(e) => setFormData({ ...formData, autoCheckIn: e.target.checked })}
+                        className="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500 dark:focus:ring-primary-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                      />
+                      <label htmlFor="autoCheckIn" className="text-sm text-gray-700 dark:text-gray-300">
+                        Auto Check-In when teacher enters this geofence
+                      </label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="autoCheckOut"
+                        checked={formData.autoCheckOut}
+                        onChange={(e) => setFormData({ ...formData, autoCheckOut: e.target.checked })}
+                        className="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500 dark:focus:ring-primary-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                      />
+                      <label htmlFor="autoCheckOut" className="text-sm text-gray-700 dark:text-gray-300">
+                        Auto Check-Out when teacher exits this geofence
+                      </label>
+                    </div>
+                    {(formData.autoCheckIn || formData.autoCheckOut) && (
+                      <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                        Works even when the app is closed — teacher gets a notification automatically.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
                 <div className="flex gap-3 pt-4">
                   <button
                     type="submit"
@@ -729,9 +777,21 @@ export default function Geofences() {
                           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                             {geofence.description || 'No description'}
                           </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
-                            {geofence.radius}m radius • {geofence.type}
-                          </p>
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            <span className="text-xs text-gray-500 dark:text-gray-500">
+                              {geofence.radius}m radius • {geofence.type}
+                            </span>
+                            {geofence.autoAttendance?.checkIn && (
+                              <span className="px-1.5 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs rounded">
+                                Auto Check-In
+                              </span>
+                            )}
+                            {geofence.autoAttendance?.checkOut && (
+                              <span className="px-1.5 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs rounded">
+                                Auto Check-Out
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <div className="flex gap-2">
                           <button

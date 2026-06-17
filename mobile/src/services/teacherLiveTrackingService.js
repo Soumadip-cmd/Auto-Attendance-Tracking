@@ -2,7 +2,7 @@ import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert, Linking, Platform } from 'react-native';
-import { geofenceAPI, liveTrackingAPI } from './api';
+import { attendanceAPI, geofenceAPI, liveTrackingAPI } from './api';
 import websocketService from './websocket';
 import notificationService from './notificationService';
 import * as AndroidGeofencing from 'android-geofencing';
@@ -483,6 +483,42 @@ class TeacherLiveTrackingService {
       } catch (e) {
         console.error('Failed to drain pending geofence event:', e);
       }
+
+      // Auto attendance for killed-app events; use native timestamp so
+      // checkout time reflects when teacher actually left, not when app opened
+      try {
+        if (event.transitionType === 'enter') {
+          const res = await attendanceAPI.autoCheckIn({
+            geofenceId: event.identifier,
+            latitude: event.latitude,
+            longitude: event.longitude,
+            eventTimestamp: event.timestamp,
+          });
+          if (res?.success && !res?.skipped) {
+            await notificationService.scheduleNotification(
+              'Auto Check-In (Restored)',
+              `Campus entry at ${new Date(event.timestamp || Date.now()).toLocaleTimeString()} has been recorded.`,
+              { type: 'auto_checkin', geofenceId: event.identifier }
+            );
+          }
+        } else if (event.transitionType === 'exit') {
+          const res = await attendanceAPI.autoCheckOut({
+            geofenceId: event.identifier,
+            latitude: event.latitude,
+            longitude: event.longitude,
+            eventTimestamp: event.timestamp,
+          });
+          if (res?.success && !res?.skipped) {
+            await notificationService.scheduleNotification(
+              'Auto Check-Out (Restored)',
+              `Campus exit at ${new Date(event.timestamp || Date.now()).toLocaleTimeString()} has been recorded.`,
+              { type: 'auto_checkout', geofenceId: event.identifier }
+            );
+          }
+        }
+      } catch (attendanceError) {
+        console.error('Auto attendance drain failed for event:', event.identifier, attendanceError?.message);
+      }
     }
   }
 
@@ -521,20 +557,11 @@ class TeacherLiveTrackingService {
       this.unsubscribeNativeGeofence = AndroidGeofencing.addTransitionListener(async (event) => {
         const { identifier, transitionType, latitude, longitude, timestamp } = event;
 
-        // Skip if already in this state — native deduplicates too, but JS listener
-        // is an extra safety net against rapid GPS oscillation duplicates
+        // Skip if already in this state — extra JS-side dedup on top of native dedup
         if (this._lastGeofenceState[identifier] === transitionType) return;
         this._lastGeofenceState[identifier] = transitionType;
 
-        const title = transitionType === 'exit' ? 'Outside allowed area' : 'Inside allowed area';
-        const body = transitionType === 'exit'
-          ? 'Your HOD/admin may be notified if this movement is not approved.'
-          : 'Your attendance location is back inside the allowed geofence.';
-        await notificationService.scheduleNotification(title, body, {
-          type: 'native_geofence',
-          eventType: transitionType,
-          geofenceId: identifier,
-        });
+        // Submit to live-tracking backend
         try {
           await liveTrackingAPI.submitGeofenceEvent({
             geofenceId: identifier,
@@ -545,6 +572,53 @@ class TeacherLiveTrackingService {
           });
         } catch (sendError) {
           console.error('Failed to send native geofence event:', sendError);
+        }
+
+        // Auto attendance
+        try {
+          if (transitionType === 'enter') {
+            const res = await attendanceAPI.autoCheckIn({
+              geofenceId: identifier,
+              latitude,
+              longitude,
+              eventTimestamp: timestamp,
+            });
+            if (res?.success && !res?.skipped) {
+              await notificationService.scheduleNotification(
+                'Auto Check-In',
+                `You've entered campus. Checked in at ${new Date(timestamp || Date.now()).toLocaleTimeString()}.`,
+                { type: 'auto_checkin', geofenceId: identifier }
+              );
+            } else {
+              await notificationService.scheduleNotification(
+                'Campus Entered',
+                'You are inside the campus geofence.',
+                { type: 'geofence_enter', geofenceId: identifier }
+              );
+            }
+          } else if (transitionType === 'exit') {
+            const res = await attendanceAPI.autoCheckOut({
+              geofenceId: identifier,
+              latitude,
+              longitude,
+              eventTimestamp: timestamp,
+            });
+            if (res?.success && !res?.skipped) {
+              await notificationService.scheduleNotification(
+                'Auto Check-Out',
+                `You've left campus. Checked out at ${new Date(timestamp || Date.now()).toLocaleTimeString()}.`,
+                { type: 'auto_checkout', geofenceId: identifier }
+              );
+            } else {
+              await notificationService.scheduleNotification(
+                'Campus Exited',
+                'You are outside the campus geofence.',
+                { type: 'geofence_exit', geofenceId: identifier }
+              );
+            }
+          }
+        } catch (attendanceError) {
+          console.error('Auto attendance failed:', attendanceError?.message);
         }
       });
     }

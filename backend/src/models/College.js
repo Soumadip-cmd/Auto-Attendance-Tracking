@@ -22,25 +22,14 @@ const collegeSchema = new mongoose.Schema({
     postalCode: String,
     formatted: String
   },
+  // Using Mixed so Mongoose never auto-initialises the location sub-path.
+  // An incomplete { type:'Point' } without coordinates causes a MongoDB
+  // "Can't extract geo keys" error on the 2dsphere index even with sparse:true,
+  // so we must ensure the field is ABSENT (not just null/undefined) when
+  // coordinates are not provided.
   location: {
-    type: {
-      type: String,
-      enum: ['Point'],
-      // No default — an incomplete { type:'Point' } without coordinates
-      // breaks the 2dsphere index.
-    },
-    coordinates: {
-      type: [Number],
-      validate: {
-        validator: function(coords) {
-          if (!coords || coords.length === 0) return true;
-          return coords.length === 2 &&
-            coords[0] >= -180 && coords[0] <= 180 &&
-            coords[1] >= -90 && coords[1] <= 90;
-        },
-        message: 'Invalid college coordinates'
-      }
-    }
+    type: mongoose.Schema.Types.Mixed,
+    default: undefined,
   },
   phoneNumber: String,
   email: {
@@ -64,24 +53,43 @@ const collegeSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// sparse: true → documents without valid coordinates are excluded from the
-// geo index instead of causing an "invalid GeoJSON" error.
+// sparse: true → documents without a location field are skipped by the index.
+// Documents with an INVALID location (no coordinates) would still cause an error
+// even with sparse — the pre-save hook below prevents that from ever happening.
 collegeSchema.index({ location: '2dsphere' }, { sparse: true });
 collegeSchema.index({ isActive: 1 });
 
-// Remove incomplete location subdocument before saving so the sparse index
-// never sees { type:'Point' } without coordinates.
-collegeSchema.pre('save', function (next) {
-  if (this.location && (!this.location.coordinates || this.location.coordinates.length !== 2)) {
-    this.location = undefined;
+// Strip location from the raw document before any save so the 2dsphere index
+// never sees an incomplete GeoJSON object.
+function _stripBadLocation(doc) {
+  const loc = doc._doc ? doc._doc.location : doc.location;
+  if (loc !== undefined && loc !== null) {
+    if (
+      typeof loc !== 'object' ||
+      !Array.isArray(loc.coordinates) ||
+      loc.coordinates.length !== 2
+    ) {
+      if (doc._doc) {
+        delete doc._doc.location;
+      } else {
+        delete doc.location;
+      }
+      if (typeof doc.markModified === 'function') {
+        doc.markModified('location');
+      }
+    }
   }
+}
+
+collegeSchema.pre('save', function (next) {
+  _stripBadLocation(this);
   next();
 });
 
 collegeSchema.pre('findOneAndUpdate', function (next) {
   const upd = this.getUpdate();
   const loc = upd?.location ?? upd?.$set?.location;
-  if (loc && (!loc.coordinates || loc.coordinates.length !== 2)) {
+  if (loc && (!Array.isArray(loc.coordinates) || loc.coordinates.length !== 2)) {
     if (upd.location) delete upd.location;
     if (upd.$set?.location) delete upd.$set.location;
   }

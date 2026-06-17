@@ -183,6 +183,10 @@ const schemas = {
       violationAlert: Joi.boolean().default(true),
       notifyManagers: Joi.boolean().default(true)
     }).optional(),
+    autoAttendance: Joi.object({
+      checkIn: Joi.boolean().default(false),
+      checkOut: Joi.boolean().default(false),
+    }).optional(),
     color: Joi.string().pattern(/^#[0-9A-F]{6}$/i).optional(),
     assignedUsers: Joi.array().items(Joi.string()).optional(),
     isActive: Joi.boolean().optional()
@@ -221,6 +225,10 @@ const schemas = {
       exitAlert: Joi.boolean().optional(),
       violationAlert: Joi.boolean().optional(),
       notifyManagers: Joi.boolean().optional()
+    }).optional(),
+    autoAttendance: Joi.object({
+      checkIn: Joi.boolean().optional(),
+      checkOut: Joi.boolean().optional(),
     }).optional(),
     isActive: Joi.boolean().optional(),
     color: Joi.string().pattern(/^#[0-9A-F]{6}$/i).optional(),

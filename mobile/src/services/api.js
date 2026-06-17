@@ -108,6 +108,8 @@ export const attendanceAPI = {
   getHistory: (params) => api.get('/attendance/history', { params }),
   getById: (id) => api.get(`/attendance/${id}`),
   getStats: (params) => api.get('/attendance/stats', { params }),
+  autoCheckIn: (data) => api.post('/attendance/auto-checkin', data),
+  autoCheckOut: (data) => api.post('/attendance/auto-checkout', data),
 };
 
 export const locationAPI = {

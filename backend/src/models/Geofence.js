@@ -117,6 +117,18 @@ const geofenceSchema = new mongoose.Schema({
     default: '#3b82f6', // Blue
     match: [/^#[0-9A-F]{6}$/i, 'Please provide a valid hex color code']
   },
+  // Automatic attendance: check-in on ENTER, check-out on EXIT
+  autoAttendance: {
+    checkIn: {
+      type: Boolean,
+      default: false
+    },
+    checkOut: {
+      type: Boolean,
+      default: false
+    },
+  },
+
   alerts: {
     entryAlert: {
       type: Boolean,

@@ -21,6 +21,7 @@ exports.createGeofence = asyncHandler(async (req, res) => {
     workingHours,
     color,
     alerts,
+    autoAttendance,
     assignedUsers
   } = req.body;
 
@@ -40,6 +41,7 @@ exports.createGeofence = asyncHandler(async (req, res) => {
     workingHours,
     color,
     alerts,
+    autoAttendance,
     assignedUsers,
     createdBy: req.user._id
   });
@@ -152,6 +154,7 @@ exports.updateGeofence = asyncHandler(async (req, res) => {
     workingHours,
     color,
     alerts,
+    autoAttendance,
     assignedUsers,
     isActive
   } = req.body;
@@ -173,6 +176,7 @@ exports.updateGeofence = asyncHandler(async (req, res) => {
   if (workingHours !== undefined) geofence.workingHours = workingHours;
   if (color !== undefined) geofence.color = color;
   if (alerts !== undefined) geofence.alerts = alerts;
+  if (autoAttendance !== undefined) geofence.autoAttendance = autoAttendance;
   if (assignedUsers !== undefined) geofence.assignedUsers = assignedUsers;
   if (isActive !== undefined) geofence.isActive = isActive;
   geofence.updatedBy = req.user._id;

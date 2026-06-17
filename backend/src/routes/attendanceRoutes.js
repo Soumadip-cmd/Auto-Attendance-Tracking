@@ -591,6 +591,194 @@ router.get('/stats/dashboard', protect, authorize('super_admin', 'admin', 'manag
 });
 
 /**
+ * @route   POST /api/v1/attendance/auto-checkin
+ * @desc    Auto check-in triggered by native geofence ENTER event
+ * @access  Private (teacher)
+ * Body: { geofenceId, latitude, longitude, eventTimestamp? }
+ */
+router.post('/auto-checkin', protect, async (req, res, next) => {
+  try {
+    const { geofenceId, latitude, longitude, eventTimestamp } = req.body;
+
+    const Geofence = require('../models/Geofence');
+    const geofence = await Geofence.findById(geofenceId);
+    if (!geofence) {
+      return res.status(404).json({ success: false, message: 'Geofence not found' });
+    }
+
+    // Respect admin toggle — if admin hasn't enabled auto check-in, silently skip
+    if (!geofence.autoAttendance?.checkIn) {
+      return res.status(200).json({
+        success: true,
+        skipped: true,
+        message: 'Auto check-in is not enabled for this geofence',
+      });
+    }
+
+    // Use the event timestamp (when they actually entered), not now
+    const checkInTime = eventTimestamp ? new Date(eventTimestamp) : new Date();
+    const dateKey = new Date(checkInTime);
+    dateKey.setHours(0, 0, 0, 0);
+
+    // Idempotent: already checked in today → skip
+    const existing = await Attendance.findOne({ user: req.user._id, date: dateKey });
+    if (existing?.checkIn?.time) {
+      return res.status(200).json({
+        success: true,
+        skipped: true,
+        message: 'Already checked in today',
+        data: existing,
+      });
+    }
+
+    // Determine if late
+    const now = checkInTime;
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    let lateThreshold = 9 * 60 + 15;
+    let expectedMinutes = 9 * 60;
+
+    if (geofence.workingHours?.enabled && geofence.workingHours?.startTime) {
+      const [h, m] = geofence.workingHours.startTime.split(':').map(Number);
+      expectedMinutes = h * 60 + m;
+      lateThreshold = expectedMinutes + (geofence.workingHours.gracePeriod || 15);
+    }
+
+    const isLate = currentMinutes > lateThreshold;
+    const lateBy = isLate ? Math.max(0, currentMinutes - expectedMinutes) : 0;
+
+    let expectedHours = 9;
+    if (geofence.workingHours?.enabled && geofence.workingHours?.startTime && geofence.workingHours?.endTime) {
+      const [sh, sm] = geofence.workingHours.startTime.split(':').map(Number);
+      const [eh, em] = geofence.workingHours.endTime.split(':').map(Number);
+      expectedHours = (eh * 60 + em - sh * 60 - sm) / 60;
+    }
+
+    const attendance = await Attendance.create({
+      user: req.user._id,
+      date: dateKey,
+      checkIn: {
+        time: checkInTime,
+        location: latitude && longitude ? {
+          type: 'Point',
+          coordinates: [Number(longitude), Number(latitude)],
+        } : undefined,
+        method: 'automatic',
+        geofence: geofence._id,
+      },
+      status: isLate ? 'late' : 'present',
+      isLate,
+      lateBy,
+      expectedHours,
+    });
+
+    // Real-time push to admin dashboard
+    if (req.app.get('io')) {
+      req.app.get('io').to('admin-room').emit('attendance:checkin', {
+        userId: req.user._id,
+        userName: `${req.user.firstName} ${req.user.lastName}`,
+        time: checkInTime,
+        method: 'automatic',
+      });
+    }
+
+    res.status(201).json({ success: true, data: attendance });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @route   POST /api/v1/attendance/auto-checkout
+ * @desc    Auto check-out triggered by native geofence EXIT event
+ * @access  Private (teacher)
+ * Body: { geofenceId, latitude, longitude, eventTimestamp? }
+ */
+router.post('/auto-checkout', protect, async (req, res, next) => {
+  try {
+    const { geofenceId, latitude, longitude, eventTimestamp } = req.body;
+
+    const Geofence = require('../models/Geofence');
+    const geofence = await Geofence.findById(geofenceId);
+    if (!geofence) {
+      return res.status(404).json({ success: false, message: 'Geofence not found' });
+    }
+
+    if (!geofence.autoAttendance?.checkOut) {
+      return res.status(200).json({
+        success: true,
+        skipped: true,
+        message: 'Auto check-out is not enabled for this geofence',
+      });
+    }
+
+    // Use event timestamp = when they actually left campus
+    const checkOutTime = eventTimestamp ? new Date(eventTimestamp) : new Date();
+    const dateKey = new Date(checkOutTime);
+    dateKey.setHours(0, 0, 0, 0);
+
+    const attendance = await Attendance.findOne({
+      user: req.user._id,
+      date: dateKey,
+      'checkIn.time': { $exists: true, $ne: null },
+    });
+
+    if (!attendance) {
+      return res.status(200).json({
+        success: true,
+        skipped: true,
+        message: 'No check-in found for today — skipping auto check-out',
+      });
+    }
+
+    if (attendance.checkOut?.time) {
+      return res.status(200).json({
+        success: true,
+        skipped: true,
+        message: 'Already checked out today',
+        data: attendance,
+      });
+    }
+
+    attendance.checkOut = {
+      time: checkOutTime,
+      location: latitude && longitude ? {
+        type: 'Point',
+        coordinates: [Number(longitude), Number(latitude)],
+      } : undefined,
+      method: 'automatic',
+      geofence: geofence._id,
+    };
+
+    if (attendance.checkIn?.time) {
+      const durationMs = checkOutTime - new Date(attendance.checkIn.time);
+      attendance.duration = Math.round(durationMs / (1000 * 60));
+      attendance.actualHours = Math.round((durationMs / (1000 * 60 * 60)) * 100) / 100;
+
+      let expectedHours = attendance.expectedHours || 9;
+      if (attendance.actualHours < expectedHours * 0.5) {
+        attendance.status = 'half-day';
+      }
+    }
+
+    await attendance.save();
+
+    if (req.app.get('io')) {
+      req.app.get('io').to('admin-room').emit('attendance:checkout', {
+        userId: req.user._id,
+        userName: `${req.user.firstName} ${req.user.lastName}`,
+        time: checkOutTime,
+        method: 'automatic',
+        duration: attendance.duration,
+      });
+    }
+
+    res.status(200).json({ success: true, data: attendance });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * @route   POST /api/v1/attendance
  * @desc    Manually create attendance record (for admins)
  * @access  Private/Admin

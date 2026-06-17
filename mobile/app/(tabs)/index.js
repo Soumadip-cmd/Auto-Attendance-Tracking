@@ -24,6 +24,7 @@ import { CheckInButton } from '../../src/components/attendance/CheckInButton';
 import { StatsCard } from '../../src/components/attendance/StatsCard';
 import { StatusBadge } from '../../src/components/attendance/StatusBadge';
 import TeacherLiveTrackingService from '../../src/services/teacherLiveTrackingService';
+import { geofenceAPI } from '../../src/services/api';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -45,6 +46,7 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [backgroundTracking, setBackgroundTracking] = useState(false);
   const [trackingStats, setTrackingStats] = useState(null);
+  const [geofences, setGeofences] = useState([]);
 
   useEffect(() => {
     initializeApp();
@@ -86,18 +88,23 @@ export default function HomeScreen() {
 
 
   const initializeScreen = async () => {
-    // Only fetch if not already loading or in error state
-    // This prevents continuous failed API calls
     if (!isLoading) {
       try {
         await getTodayAttendance();
         await getStats({ period: 'month' });
       } catch (error) {
-        // Silently handle - error is already logged
         console.log('Failed to initialize data - check network connection');
       }
     }
-    
+
+    try {
+      const res = await geofenceAPI.getAll({ isActive: true, limit: 20 });
+      const list = res?.data || res?.geofences || [];
+      setGeofences(Array.isArray(list) ? list : []);
+    } catch (e) {
+      // geofences not critical for dashboard
+    }
+
     if (!hasPermission) {
       await requestPermissions();
     }
@@ -116,6 +123,11 @@ export default function HomeScreen() {
     setRefreshing(true);
     await getTodayAttendance();
     await getStats({ period: 'month' });
+    try {
+      const res = await geofenceAPI.getAll({ isActive: true, limit: 20 });
+      const list = res?.data || res?.geofences || [];
+      setGeofences(Array.isArray(list) ? list : []);
+    } catch (e) {}
     setRefreshing(false);
   };
 
@@ -458,6 +470,57 @@ export default function HomeScreen() {
           </View>
         </View>
 
+        {/* Auto Attendance / Work Schedule Info */}
+        {(() => {
+          const gf = geofences.find(g => g.autoAttendance?.checkIn || g.autoAttendance?.checkOut || g.workingHours?.enabled);
+          const autoOn = gf && (gf.autoAttendance?.checkIn || gf.autoAttendance?.checkOut);
+          return (
+            <View style={styles.section}>
+              <Card style={[styles.scheduleCard, {
+                backgroundColor: autoOn ? theme.colors.success + '10' : theme.colors.warning + '10',
+                borderColor: autoOn ? theme.colors.success + '40' : theme.colors.warning + '40',
+                borderWidth: 1,
+              }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                  <Ionicons
+                    name={autoOn ? 'shield-checkmark' : 'information-circle-outline'}
+                    size={20}
+                    color={autoOn ? theme.colors.success : theme.colors.warning}
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text style={[styles.scheduleTitle, { color: theme.colors.text }]}>
+                    {autoOn ? 'Auto Attendance Active' : 'Auto Attendance'}
+                  </Text>
+                </View>
+                {gf ? (
+                  <>
+                    {gf.workingHours?.enabled && (
+                      <Text style={[styles.scheduleDetail, { color: theme.colors.textSecondary }]}>
+                        Schedule: {gf.workingHours.startTime} – {gf.workingHours.endTime}
+                      </Text>
+                    )}
+                    <Text style={[styles.scheduleDetail, { color: theme.colors.textSecondary }]}>
+                      Check-In: {gf.autoAttendance?.checkIn ? '✓ Automatic on entry' : '✗ Manual only'}
+                    </Text>
+                    <Text style={[styles.scheduleDetail, { color: theme.colors.textSecondary }]}>
+                      Check-Out: {gf.autoAttendance?.checkOut ? '✓ Automatic on exit' : '✗ Manual only'}
+                    </Text>
+                    {autoOn && (
+                      <Text style={[styles.scheduleNote, { color: theme.colors.success }]}>
+                        Works even when app is closed
+                      </Text>
+                    )}
+                  </>
+                ) : (
+                  <Text style={[styles.scheduleDetail, { color: theme.colors.textSecondary }]}>
+                    Admin has not configured auto check-in/out yet. Ask your admin to enable it in Geofence settings.
+                  </Text>
+                )}
+              </Card>
+            </View>
+          );
+        })()}
+
         {/* Live Tracking */}
         <View style={styles.section}>
           <Card style={[styles.trackingCard, { backgroundColor: backgroundTracking ? theme.colors.success + '10' : theme.colors.card }]}>
@@ -737,5 +800,22 @@ const styles = StyleSheet.create({
   trackingStatValue: {
     fontSize: 18,
     fontWeight: '700',
+  },
+  scheduleCard: {
+    padding: 14,
+    borderRadius: 12,
+  },
+  scheduleTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  scheduleDetail: {
+    fontSize: 13,
+    marginTop: 4,
+  },
+  scheduleNote: {
+    fontSize: 12,
+    marginTop: 6,
+    fontWeight: '500',
   },
 });

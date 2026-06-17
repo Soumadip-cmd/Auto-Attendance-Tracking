@@ -12,13 +12,16 @@ const PORT = process.env.PORT || 5000;
 // without coordinates — these break the 2dsphere index.
 mongoose.connection.once('open', async () => {
   try {
-    const College = require('./models/College');
-    const result = await College.updateMany(
+    // Clean any College document where location exists but has no valid coordinates.
+    // This covers: { type:'Point' } (old default bug), {}, { type, coordinates:[] }, etc.
+    const db = mongoose.connection.db;
+    const result = await db.collection('colleges').updateMany(
       {
-        'location.type': 'Point',
+        location: { $exists: true },
         $or: [
           { 'location.coordinates': { $exists: false } },
           { 'location.coordinates': { $size: 0 } },
+          { 'location.type': { $exists: true }, 'location.coordinates': { $not: { $size: 2 } } },
         ],
       },
       { $unset: { location: '' } }
