@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Animated,
   Dimensions,
   Platform,
   PermissionsAndroid,
@@ -58,14 +59,36 @@ export default function MapScreen() {
 
   const [geofences, setGeofences] = useState([]);
   const [geofencesLoading, setGeofencesLoading] = useState(false);
-  const [initialRegion, setInitialRegion] = useState(null);
   const [distance, setDistance] = useState(null);
   const [nearestGeofence, setNearestGeofence] = useState(null);
   const [showDetails, setShowDetails] = useState(true);
   const [locationHistory, setLocationHistory] = useState([]);
   const [heading, setHeading] = useState(0);
   const [speed, setSpeed] = useState(0);
+  const [accuracy, setAccuracy] = useState(null);
   const [walkingState, setWalkingState] = useState('UNKNOWN');
+
+  // Stable coordinate for the Marker's coordinate prop — set once, never changed.
+  // All subsequent movement is done via animateMarkerToCoordinate (smooth slide).
+  const [markerCoord, setMarkerCoord] = useState(null);
+  // tracksViewChanges must be true briefly whenever rotation/heading changes so
+  // the native view re-renders with the updated rotation.
+  const [tracksViewChanges, setTracksViewChanges] = useState(true);
+  const tracksTimerRef = useRef(null);
+
+  // Pulsing accuracy circle animation
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.6, duration: 1200, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1,   duration: 1200, useNativeDriver: true }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [pulseAnim]);
 
   // Jump the camera as soon as the map is ready.
   // Does NOT touch hasInitialCameraRef — the location effect owns that flag.
@@ -96,6 +119,7 @@ export default function MapScreen() {
     return () => {
       stopTracking();
       AndroidGeofencing.stopWalkingDetection().catch(() => null);
+      if (tracksTimerRef.current) clearTimeout(tracksTimerRef.current);
       // Reset so re-opening the tab gets a fresh camera jump
       hasInitialCameraRef.current = false;
       isFollowingRef.current = true;
@@ -148,38 +172,55 @@ export default function MapScreen() {
     const newCoord = { latitude: location.latitude, longitude: location.longitude };
     const prev = prevLocationRef.current;
 
+    // ── First real GPS fix ─────────────────────────────────────────────────────
     if (!hasInitialCameraRef.current) {
-      // First real GPS fix — always re-enable following and jump the camera
       hasInitialCameraRef.current = true;
       isFollowingRef.current = true;
+      // Pin the marker's stable coordinate (never updated again; animation drives movement)
+      setMarkerCoord(newCoord);
+      setLocationHistory([newCoord]);
       mapRef.current?.animateCamera({ center: newCoord, zoom: 18 }, { duration: 0 });
+      prevLocationRef.current = newCoord;
+      setSpeed(location.speed > 0 ? location.speed : 0);
+      setAccuracy(location.accuracy ?? null);
+      return;
     }
 
-    if (prev) {
-      const dist = getDistance(prev.latitude, prev.longitude, newCoord.latitude, newCoord.longitude);
-      if (dist >= MIN_MOVE_METERS) {
-        const newBearing = getBearing(prev.latitude, prev.longitude, newCoord.latitude, newCoord.longitude);
-        setHeading(newBearing);
-        setLocationHistory(h => [...h.slice(-(MAX_TRAIL_POINTS - 1)), newCoord]);
-      }
-    } else {
-      setLocationHistory([newCoord]);
+    // ── Subsequent updates ─────────────────────────────────────────────────────
+    setAccuracy(location.accuracy ?? null);
+    const dist = prev ? getDistance(prev.latitude, prev.longitude, newCoord.latitude, newCoord.longitude) : 0;
+
+    // Update heading: prefer live GPS heading (device compass), fall back to calculated bearing
+    const gpsHeading = typeof location.heading === 'number' && location.heading >= 0
+      ? location.heading
+      : null;
+    const newHeading = gpsHeading ?? (prev && dist >= MIN_MOVE_METERS
+      ? getBearing(prev.latitude, prev.longitude, newCoord.latitude, newCoord.longitude)
+      : heading);
+
+    if (newHeading !== heading) {
+      setHeading(newHeading);
+      // Briefly enable tracksViewChanges so the native marker re-renders the rotated arrow
+      setTracksViewChanges(true);
+      if (tracksTimerRef.current) clearTimeout(tracksTimerRef.current);
+      tracksTimerRef.current = setTimeout(() => setTracksViewChanges(false), 200);
+    }
+
+    if (dist >= MIN_MOVE_METERS) {
+      setLocationHistory(h => [...h.slice(-(MAX_TRAIL_POINTS - 1)), newCoord]);
     }
 
     setSpeed(location.speed > 0 ? location.speed : 0);
     prevLocationRef.current = newCoord;
 
-    // Smooth marker animation (Android native method)
+    // Smooth marker slide (native interpolation, avoids React re-render jumps)
     if (markerRef.current?.animateMarkerToCoordinate) {
       markerRef.current.animateMarkerToCoordinate(newCoord, 800);
     }
 
-    // Smooth camera follow (re-enabled automatically on each new map open)
+    // Smooth camera follow
     if (isFollowingRef.current) {
-      mapRef.current?.animateCamera(
-        { center: newCoord, zoom: 18 },
-        { duration: 800 }
-      );
+      mapRef.current?.animateCamera({ center: newCoord, zoom: 18 }, { duration: 800 });
     }
   }, [location]);
 
@@ -308,15 +349,27 @@ export default function MapScreen() {
           />
         )}
 
-        {/* Custom live-position marker (Zomato-style arrow) */}
-        {location && (
+        {/* GPS accuracy circle — shows how precise the fix is */}
+        {location && accuracy !== null && accuracy < 200 && (
+          <Circle
+            center={{ latitude: location.latitude, longitude: location.longitude }}
+            radius={Math.max(accuracy, 8)}
+            fillColor="rgba(99,102,241,0.10)"
+            strokeColor="rgba(99,102,241,0.35)"
+            strokeWidth={1}
+          />
+        )}
+
+        {/* Zomato-style animated navigation marker */}
+        {markerCoord && (
           <Marker
             ref={markerRef}
-            coordinate={{ latitude: location.latitude, longitude: location.longitude }}
+            coordinate={markerCoord}
             anchor={{ x: 0.5, y: 0.5 }}
             flat={true}
             rotation={heading}
-            tracksViewChanges={false}
+            tracksViewChanges={tracksViewChanges}
+            zIndex={10}
           >
             <View style={styles.youMarkerOuter}>
               <View style={styles.youMarkerInner}>
@@ -332,6 +385,14 @@ export default function MapScreen() {
         <View style={styles.geofenceLoader}>
           <ActivityIndicator size="small" color="#6366f1" />
           <Text style={styles.geofenceLoaderText}>Loading zones…</Text>
+        </View>
+      )}
+
+      {/* Pulsing live-dot overlay (center of screen, shows tracking is active) */}
+      {markerCoord && (
+        <View style={styles.pulseDotContainer} pointerEvents="none">
+          <Animated.View style={[styles.pulseDotRing, { transform: [{ scale: pulseAnim }] }]} />
+          <View style={styles.pulseDot} />
         </View>
       )}
 
@@ -668,5 +729,38 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#6366f1',
+  },
+
+  // Pulsing live-location dot (center of screen, camera always follows user)
+  pulseDotContainer: {
+    position: 'absolute',
+    // Centered in the map area below the header
+    top: '50%',
+    left: '50%',
+    width: 0,
+    height: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pulseDotRing: {
+    position: 'absolute',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(99,102,241,0.22)',
+  },
+  pulseDot: {
+    position: 'absolute',
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#6366f1',
+    borderWidth: 2.5,
+    borderColor: '#fff',
+    elevation: 8,
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.6,
+    shadowRadius: 4,
   },
 });
