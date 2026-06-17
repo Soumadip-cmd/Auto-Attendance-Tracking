@@ -23,19 +23,22 @@ exports.createCollege = asyncHandler(async (req, res) => {
     isActive
   } = req.body;
 
-  const college = await College.create({
+  const collegeData = {
     name,
     code,
     address,
     phoneNumber,
     email,
     isActive,
-    location: latitude && longitude ? {
+    createdBy: req.user._id,
+  };
+  if (latitude && longitude) {
+    collegeData.location = {
       type: 'Point',
-      coordinates: [Number(longitude), Number(latitude)]
-    } : undefined,
-    createdBy: req.user._id
-  });
+      coordinates: [Number(longitude), Number(latitude)],
+    };
+  }
+  const college = await College.create(collegeData);
 
   await Event.log({
     eventType: 'college.created',

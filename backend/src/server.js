@@ -7,6 +7,30 @@ const mongoose = require('mongoose');
 
 const PORT = process.env.PORT || 5000;
 
+// ── One-time startup migration ────────────────────────────────────────────────
+// Fix any existing College documents that have location: { type:'Point' }
+// without coordinates — these break the 2dsphere index.
+mongoose.connection.once('open', async () => {
+  try {
+    const College = require('./models/College');
+    const result = await College.updateMany(
+      {
+        'location.type': 'Point',
+        $or: [
+          { 'location.coordinates': { $exists: false } },
+          { 'location.coordinates': { $size: 0 } },
+        ],
+      },
+      { $unset: { location: '' } }
+    );
+    if (result.modifiedCount > 0) {
+      logger.info(`✅ Migration: cleared incomplete location from ${result.modifiedCount} college(s)`);
+    }
+  } catch (e) {
+    logger.warn('College location migration skipped:', e.message);
+  }
+});
+
 // Start server - Listen on all network interfaces
 server.listen(PORT, '0.0.0.0', () => {
   logger.info(`🚀 Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);

@@ -26,7 +26,8 @@ const collegeSchema = new mongoose.Schema({
     type: {
       type: String,
       enum: ['Point'],
-      default: 'Point'
+      // No default — an incomplete { type:'Point' } without coordinates
+      // breaks the 2dsphere index.
     },
     coordinates: {
       type: [Number],
@@ -63,7 +64,28 @@ const collegeSchema = new mongoose.Schema({
   timestamps: true
 });
 
-collegeSchema.index({ location: '2dsphere' });
+// sparse: true → documents without valid coordinates are excluded from the
+// geo index instead of causing an "invalid GeoJSON" error.
+collegeSchema.index({ location: '2dsphere' }, { sparse: true });
 collegeSchema.index({ isActive: 1 });
+
+// Remove incomplete location subdocument before saving so the sparse index
+// never sees { type:'Point' } without coordinates.
+collegeSchema.pre('save', function (next) {
+  if (this.location && (!this.location.coordinates || this.location.coordinates.length !== 2)) {
+    this.location = undefined;
+  }
+  next();
+});
+
+collegeSchema.pre('findOneAndUpdate', function (next) {
+  const upd = this.getUpdate();
+  const loc = upd?.location ?? upd?.$set?.location;
+  if (loc && (!loc.coordinates || loc.coordinates.length !== 2)) {
+    if (upd.location) delete upd.location;
+    if (upd.$set?.location) delete upd.$set.location;
+  }
+  next();
+});
 
 module.exports = mongoose.model('College', collegeSchema);
