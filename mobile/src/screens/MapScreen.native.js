@@ -4,19 +4,23 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  ActivityIndicator,
   Alert,
   Dimensions,
   Platform,
   PermissionsAndroid,
 } from 'react-native';
 import MapView, { Marker, Circle, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocation } from '../hooks/useLocation';
 import { useTheme } from '../hooks/useTheme';
 import { geofenceAPI } from '../services/api';
-import { Loading } from '../components/common/Loading';
 import { Card } from '../components/common/Card';
 import * as AndroidGeofencing from 'android-geofencing';
+
+// Fallback region shown while waiting for real GPS (centre of India)
+const DEFAULT_REGION = { latitude: 20.5937, longitude: 78.9629, latitudeDelta: 10, longitudeDelta: 10 };
 
 const { width, height } = Dimensions.get('window');
 const MAX_TRAIL_POINTS = 120;
@@ -52,18 +56,35 @@ export default function MapScreen() {
   const isFollowingRef = useRef(true);
 
   const [geofences, setGeofences] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [geofencesLoading, setGeofencesLoading] = useState(false);
+  const [initialRegion, setInitialRegion] = useState(null);
   const [distance, setDistance] = useState(null);
   const [nearestGeofence, setNearestGeofence] = useState(null);
   const [showDetails, setShowDetails] = useState(true);
   const [locationHistory, setLocationHistory] = useState([]);
   const [heading, setHeading] = useState(0);
   const [speed, setSpeed] = useState(0);
-  const [walkingState, setWalkingState] = useState('UNKNOWN'); // WALKING | STILL | RUNNING | UNKNOWN
+  const [walkingState, setWalkingState] = useState('UNKNOWN');
 
   useEffect(() => {
+    // 1. Get last known position instantly (no GPS wait) → map renders immediately
+    Location.getLastKnownPositionAsync({}).then(pos => {
+      if (pos) {
+        setInitialRegion({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          latitudeDelta: 0.008,
+          longitudeDelta: 0.008,
+        });
+      } else {
+        setInitialRegion(DEFAULT_REGION);
+      }
+    }).catch(() => setInitialRegion(DEFAULT_REGION));
+
+    // 2. Load geofences in background — doesn't block map render
     loadGeofences();
     startActivityDetection();
+
     return () => {
       stopTracking();
       AndroidGeofencing.stopWalkingDetection().catch(() => null);
@@ -168,9 +189,9 @@ export default function MapScreen() {
   }, [location, geofences]);
 
   const loadGeofences = async () => {
+    setGeofencesLoading(true);
     try {
       if (!hasPermission) await requestPermissions();
-      await getCurrentLocation();
       const response = await geofenceAPI.getAll();
       if (response.success && response.data.length > 0) {
         setGeofences(response.data);
@@ -180,7 +201,7 @@ export default function MapScreen() {
     } catch (e) {
       Alert.alert('Error', 'Failed to load office locations');
     } finally {
-      setLoading(false);
+      setGeofencesLoading(false);
     }
   };
 
@@ -193,14 +214,12 @@ export default function MapScreen() {
     );
   }, [location]);
 
-  if (loading) return <Loading />;
-
   const isInside = nearestGeofence?.isInside;
   const speedKmh = Math.round((speed || 0) * 3.6);
 
   return (
     <View style={styles.container}>
-      {/* Map */}
+      {/* Map renders immediately with last known position or fallback */}
       <MapView
         ref={mapRef}
         provider={PROVIDER_GOOGLE}
@@ -209,12 +228,7 @@ export default function MapScreen() {
         showsMyLocationButton={false}
         showsCompass={true}
         showsTraffic={false}
-        initialRegion={location ? {
-          latitude: location.latitude,
-          longitude: location.longitude,
-          latitudeDelta: 0.008,
-          longitudeDelta: 0.008,
-        } : undefined}
+        initialRegion={initialRegion ?? DEFAULT_REGION}
         onPanDrag={() => { isFollowingRef.current = false; }}
       >
         {/* Walking trail */}
@@ -294,6 +308,14 @@ export default function MapScreen() {
           </Marker>
         )}
       </MapView>
+
+      {/* Small overlay while geofences load — doesn't block map */}
+      {geofencesLoading && (
+        <View style={styles.geofenceLoader}>
+          <ActivityIndicator size="small" color="#6366f1" />
+          <Text style={styles.geofenceLoaderText}>Loading zones…</Text>
+        </View>
+      )}
 
       {/* Top header strip */}
       <View style={[styles.header, { backgroundColor: theme.colors.card }]}>
@@ -606,5 +628,27 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '700',
+  },
+  geofenceLoader: {
+    position: 'absolute',
+    top: 110,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+  },
+  geofenceLoaderText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6366f1',
   },
 });
