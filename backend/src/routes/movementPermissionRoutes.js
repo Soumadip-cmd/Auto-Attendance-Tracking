@@ -45,4 +45,10 @@ router.put(
   movementPermissionController.cancelRequest
 );
 
+router.get(
+  '/me/active',
+  protect,
+  movementPermissionController.getMyActivePermission
+);
+
 module.exports = router;

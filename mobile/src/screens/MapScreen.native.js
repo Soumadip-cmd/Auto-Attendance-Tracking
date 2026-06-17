@@ -54,6 +54,7 @@ export default function MapScreen() {
   const markerRef = useRef(null);
   const prevLocationRef = useRef(null);
   const isFollowingRef = useRef(true);
+  const hasInitialCameraRef = useRef(false); // jumps map on very first GPS fix
 
   const [geofences, setGeofences] = useState([]);
   const [geofencesLoading, setGeofencesLoading] = useState(false);
@@ -66,22 +67,23 @@ export default function MapScreen() {
   const [speed, setSpeed] = useState(0);
   const [walkingState, setWalkingState] = useState('UNKNOWN');
 
-  useEffect(() => {
-    // 1. Get last known position instantly (no GPS wait) → map renders immediately
+  // Jump the camera to last known position as soon as the map is ready
+  const onMapReady = useCallback(() => {
     Location.getLastKnownPositionAsync({}).then(pos => {
-      if (pos) {
-        setInitialRegion({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-          latitudeDelta: 0.008,
-          longitudeDelta: 0.008,
-        });
-      } else {
+      if (pos && !hasInitialCameraRef.current) {
+        hasInitialCameraRef.current = true;
+        const coord = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+        setInitialRegion({ ...coord, latitudeDelta: 0.008, longitudeDelta: 0.008 });
+        mapRef.current?.animateCamera({ center: coord, zoom: 18 }, { duration: 400 });
+      } else if (!pos) {
         setInitialRegion(DEFAULT_REGION);
       }
     }).catch(() => setInitialRegion(DEFAULT_REGION));
+  }, []);
 
-    // 2. Load geofences in background — doesn't block map render
+  useEffect(() => {
+    // Load geofences and activity detection in background — map renders immediately
+
     loadGeofences();
     startActivityDetection();
 
@@ -137,9 +139,15 @@ export default function MapScreen() {
     const newCoord = { latitude: location.latitude, longitude: location.longitude };
     const prev = prevLocationRef.current;
 
+    // First GPS fix → jump camera instantly (catches case where onMapReady fired before GPS)
+    if (!hasInitialCameraRef.current && mapRef.current) {
+      hasInitialCameraRef.current = true;
+      setInitialRegion({ ...newCoord, latitudeDelta: 0.008, longitudeDelta: 0.008 });
+      mapRef.current.animateCamera({ center: newCoord, zoom: 18 }, { duration: 0 });
+    }
+
     if (prev) {
       const dist = getDistance(prev.latitude, prev.longitude, newCoord.latitude, newCoord.longitude);
-
       if (dist >= MIN_MOVE_METERS) {
         const newBearing = getBearing(prev.latitude, prev.longitude, newCoord.latitude, newCoord.longitude);
         setHeading(newBearing);
@@ -228,7 +236,8 @@ export default function MapScreen() {
         showsMyLocationButton={false}
         showsCompass={true}
         showsTraffic={false}
-        initialRegion={initialRegion ?? DEFAULT_REGION}
+        initialRegion={DEFAULT_REGION}
+        onMapReady={onMapReady}
         onPanDrag={() => { isFollowingRef.current = false; }}
       >
         {/* Walking trail */}

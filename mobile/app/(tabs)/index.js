@@ -12,6 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
+import * as Location from 'expo-location';
 import { useAuth } from '../../src/hooks/useAuth';
 import { useAttendance } from '../../src/hooks/useAttendance';
 import { useLocation } from '../../src/hooks/useLocation';
@@ -65,13 +66,18 @@ export default function HomeScreen() {
       const stats = await TeacherLiveTrackingService.getStats();
       setTrackingStats(stats);
     } else {
-      // Auto-start live tracking on every launch
+      // Auto-start silently only when permissions are already granted
+      // (avoids showing background-location education dialog on every launch)
       try {
-        const result = await TeacherLiveTrackingService.startTracking();
-        if (result.success) {
-          setBackgroundTracking(true);
-          const stats = await TeacherLiveTrackingService.getStats();
-          setTrackingStats(stats);
+        const fg = await Location.getForegroundPermissionsAsync();
+        const bg = await Location.getBackgroundPermissionsAsync();
+        if (fg.status === 'granted' && bg.status === 'granted') {
+          const result = await TeacherLiveTrackingService.startTracking();
+          if (result.success) {
+            setBackgroundTracking(true);
+            const stats = await TeacherLiveTrackingService.getStats();
+            setTrackingStats(stats);
+          }
         }
       } catch (e) {
         console.warn('Auto-start tracking failed:', e?.message);

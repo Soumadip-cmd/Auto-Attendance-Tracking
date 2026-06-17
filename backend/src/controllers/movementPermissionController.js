@@ -258,6 +258,11 @@ exports.rejectRequest = asyncHandler(async (req, res) => {
   });
 });
 
+exports.getMyActivePermission = asyncHandler(async (req, res) => {
+  const permission = await MovementPermission.findActiveForTeacher(req.user._id);
+  res.json({ success: true, data: permission || null });
+});
+
 exports.cancelRequest = asyncHandler(async (req, res) => {
   const permission = await MovementPermission.findById(req.params.id);
 

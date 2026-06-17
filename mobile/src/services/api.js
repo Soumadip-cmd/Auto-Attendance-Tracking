@@ -122,6 +122,7 @@ export const liveTrackingAPI = {
   stopTracking: () => api.post('/live-tracking/stop'),
   getLive: (params) => api.get('/live-tracking/live', { params }),
   getTeacherTrail: (teacherId, params) => api.get(`/live-tracking/teacher/${teacherId}/trail`, { params }),
+  getActivePermission: () => api.get('/movement-permissions/me/active'),
 };
 
 export const movementPermissionAPI = {
@@ -131,6 +132,7 @@ export const movementPermissionAPI = {
   approve: (id, data) => api.put(`/movement-permissions/${id}/approve`, data),
   reject: (id, data) => api.put(`/movement-permissions/${id}/reject`, data),
   cancel: (id, data) => api.put(`/movement-permissions/${id}/cancel`, data),
+  getActivePermission: () => api.get('/movement-permissions/me/active'),
 };
 
 export const notificationAPI = {

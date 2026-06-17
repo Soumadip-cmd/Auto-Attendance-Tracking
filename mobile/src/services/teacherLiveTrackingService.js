@@ -14,6 +14,15 @@ const TRACKING_STATS_KEY = '@teacher_live_tracking_stats';
 const MAX_ANDROID_GEOFENCES = 100;
 const ANDROID_BACKGROUND_PERMISSION_LABEL = 'Allow all the time';
 
+const haversineMeters = (lat1, lon1, lat2, lon2) => {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
 const defaultStats = {
   total: 0,
   synced: 0,
@@ -152,9 +161,12 @@ class TeacherLiveTrackingService {
     this.unsubscribeViolation = null;
     this.unsubscribePermissionApproved = null;
     this.unsubscribePermissionRejected = null;
-    // Tracks last known transition per geofence — prevents duplicate notifications
-    // when GPS oscillates near a boundary (enter→exit→enter in quick succession)
     this._lastGeofenceState = {};
+    // Movement-permission monitoring state
+    this._activePermission = null;        // currently active approved permission
+    this._permViolationSent = false;      // fired violation once; reset on re-enter
+    this._permExpiryAlerted = false;      // fired 10-min expiry warning once
+    this._permCheckInterval = null;       // setInterval handle
   }
 
   showBackgroundLocationEducation() {
@@ -264,6 +276,7 @@ class TeacherLiveTrackingService {
     await this.startForegroundWatch(trackingSessionId);
     await this.startBackgroundUpdates();
     const geofenceResult = await this.startNativeGeofenceMonitoring();
+    this._startPermissionMonitor();
 
     if (Platform.OS === 'android') {
       this.drainPendingGeofenceEvents().catch(() => null);
@@ -277,6 +290,99 @@ class TeacherLiveTrackingService {
     };
   }
 
+  // ── Movement-Permission monitoring ─────────────────────────────────────────
+
+  async _fetchActivePermission() {
+    try {
+      const res = await liveTrackingAPI.getActivePermission?.();
+      this._activePermission = res?.data?.data || null;
+    } catch {
+      this._activePermission = null;
+    }
+  }
+
+  _checkPermissionViolation(lat, lon) {
+    const p = this._activePermission;
+    if (!p) return;
+
+    const now = Date.now();
+    const endMs = new Date(p.endTime).getTime();
+    if (now > endMs) {
+      // Permission expired — clear and alert
+      if (!this._permExpiryAlerted) {
+        this._permExpiryAlerted = true;
+        notificationService.scheduleNotification(
+          'Movement permission expired',
+          'Your temporary access window has ended. Please return to campus.',
+          { type: 'permission_expired' }
+        ).catch(() => null);
+      }
+      this._activePermission = null;
+      this._permViolationSent = false;
+      this._permExpiryAlerted = false;
+      return;
+    }
+
+    // Warn 10 minutes before expiry
+    const minsLeft = (endMs - now) / 60000;
+    if (minsLeft <= 10 && !this._permExpiryAlerted) {
+      this._permExpiryAlerted = true;
+      notificationService.scheduleNotification(
+        'Permission expires soon',
+        `Your movement permission expires in ${Math.ceil(minsLeft)} minutes.`,
+        { type: 'permission_expiring' }
+      ).catch(() => null);
+    }
+
+    const [lng, lt] = p.allowedLocation.coordinates;
+    const dist = haversineMeters(lat, lon, lt, lng);
+    const isOutside = dist > p.radius;
+
+    if (isOutside && !this._permViolationSent) {
+      this._permViolationSent = true;
+      notificationService.scheduleNotification(
+        'Outside approved zone',
+        `You have moved ${Math.round(dist - p.radius)}m outside your approved location.`,
+        { type: 'permission_violation' }
+      ).catch(() => null);
+      // Report violation to server
+      liveTrackingAPI.submitGeofenceEvent?.({
+        geofenceId: p._id,
+        eventType: 'exit',
+        latitude: lat,
+        longitude: lon,
+        timestamp: new Date().toISOString(),
+        isPermissionViolation: true,
+      }).catch(() => null);
+    } else if (!isOutside && this._permViolationSent) {
+      // Back inside the approved zone
+      this._permViolationSent = false;
+      notificationService.scheduleNotification(
+        'Back inside approved zone',
+        'You are back within your approved movement area.',
+        { type: 'permission_violation_cleared' }
+      ).catch(() => null);
+    }
+  }
+
+  _startPermissionMonitor() {
+    this._fetchActivePermission();
+    // Refresh active permission every 2 minutes
+    this._permCheckInterval = setInterval(() => {
+      this._fetchActivePermission();
+    }, 2 * 60 * 1000);
+  }
+
+  _stopPermissionMonitor() {
+    if (this._permCheckInterval) {
+      clearInterval(this._permCheckInterval);
+      this._permCheckInterval = null;
+    }
+    this._activePermission = null;
+    this._permViolationSent = false;
+    this._permExpiryAlerted = false;
+  }
+
   async startForegroundWatch(trackingSessionId) {
     if (this.foregroundSubscription) return;
 
@@ -288,6 +394,9 @@ class TeacherLiveTrackingService {
       },
       async (location) => {
         const payload = normalizeLocation(location, 'foreground', trackingSessionId);
+
+        // Check movement-permission zone compliance on every update
+        this._checkPermissionViolation(payload.latitude, payload.longitude);
 
         try {
           await sendLiveLocation(payload);
@@ -483,6 +592,7 @@ class TeacherLiveTrackingService {
     }
 
     this._lastGeofenceState = {};
+    this._stopPermissionMonitor();
 
     await liveTrackingAPI.stopTracking().catch(() => null);
     await AsyncStorage.removeItem(TRACKING_SESSION_KEY);

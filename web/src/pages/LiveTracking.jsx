@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { io } from 'socket.io-client';
-import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
+import { Circle, MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import {
@@ -12,7 +12,8 @@ import {
   Navigation,
   Radio,
   RefreshCw,
-  Route
+  Route,
+  X,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import api, { liveTrackingAPI } from '../services/api';
@@ -260,8 +261,36 @@ export default function LiveTracking() {
     }
   }, [fetchTrail, locations, selectedTeacherId]);
 
+  const violations = useMemo(() => locations.filter((l) => l.violation), [locations]);
+  const [dismissedViolations, setDismissedViolations] = useState(new Set());
+  const activeViolations = violations.filter((v) => !dismissedViolations.has(v.userId));
+
   return (
     <div className="space-y-5">
+      {/* Violation alert banner */}
+      {activeViolations.length > 0 && (
+        <div className="rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-red-800 dark:text-red-200">
+                {activeViolations.length} teacher{activeViolations.length > 1 ? 's' : ''} outside allowed zone
+              </p>
+              <div className="mt-1 flex flex-wrap gap-2">
+                {activeViolations.map((v) => (
+                  <span key={v.userId} className="inline-flex items-center gap-1 text-xs bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 px-2 py-1 rounded-full font-medium">
+                    {formatTeacherName(v)}
+                    <button onClick={() => setDismissedViolations((s) => new Set([...s, v.userId]))}>
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="card">
           <div className="flex items-center justify-between">
@@ -345,25 +374,44 @@ export default function LiveTracking() {
               )}
 
               {locations.map((location) => (
-                <Marker
-                  key={location.userId}
-                  position={[location.latitude, location.longitude]}
-                  icon={makeMarkerIcon(location)}
-                  eventHandlers={{
-                    click: () => handleSelectTeacher(location)
-                  }}
-                >
-                  <Popup>
-                    <div className="space-y-1">
-                      <p className="font-semibold">{formatTeacherName(location)}</p>
-                      <p className="text-xs">Accuracy: {Math.round(location.accuracy || 0)}m</p>
-                      <p className="text-xs">Last seen: {formatLastSeen(location.lastSeenAt)}</p>
-                      {location.violation && (
-                        <p className="text-xs text-red-600">Outside assigned geofence</p>
-                      )}
-                    </div>
-                  </Popup>
-                </Marker>
+                <React.Fragment key={location.userId}>
+                  {/* Accuracy circle (only for selected teacher) */}
+                  {location.userId === selectedTeacherId && location.accuracy > 0 && (
+                    <Circle
+                      center={[location.latitude, location.longitude]}
+                      radius={location.accuracy}
+                      pathOptions={{
+                        color: location.violation ? '#dc2626' : '#2563eb',
+                        fillColor: location.violation ? '#fca5a5' : '#bfdbfe',
+                        fillOpacity: 0.25,
+                        weight: 1.5,
+                      }}
+                    />
+                  )}
+                  <Marker
+                    position={[location.latitude, location.longitude]}
+                    icon={makeMarkerIcon(location)}
+                    eventHandlers={{ click: () => handleSelectTeacher(location) }}
+                  >
+                    <Popup>
+                      <div style={{ minWidth: 180 }} className="space-y-1">
+                        <p className="font-semibold">{formatTeacherName(location)}</p>
+                        <p className="text-xs text-gray-600">Dept: {location.teacher?.department || '—'}</p>
+                        <p className="text-xs">📡 Accuracy: ±{Math.round(location.accuracy || 0)}m</p>
+                        <p className="text-xs">🕐 Last seen: {formatLastSeen(location.lastSeenAt)}</p>
+                        {location.speed > 0 && (
+                          <p className="text-xs">🚶 Speed: {Math.round(location.speed * 3.6)} km/h</p>
+                        )}
+                        <p className={`text-xs font-semibold ${location.violation ? 'text-red-600' : 'text-green-600'}`}>
+                          {location.violation ? '🚨 Outside allowed zone' : '✅ Inside campus'}
+                        </p>
+                        {location.insideTemporaryPermission && (
+                          <p className="text-xs text-amber-600">🔑 Active movement permission</p>
+                        )}
+                      </div>
+                    </Popup>
+                  </Marker>
+                </React.Fragment>
               ))}
             </MapContainer>
           </div>
