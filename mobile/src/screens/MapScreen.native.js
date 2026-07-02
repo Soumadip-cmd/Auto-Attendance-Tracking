@@ -11,7 +11,7 @@ import {
   Platform,
   PermissionsAndroid,
 } from 'react-native';
-import MapView, { Marker, Circle, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, Circle, Polyline, UrlTile, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocation } from '../hooks/useLocation';
@@ -27,6 +27,8 @@ const DEFAULT_REGION = { latitude: 20.5937, longitude: 78.9629, latitudeDelta: 1
 const { width, height } = Dimensions.get('window');
 const MAX_TRAIL_POINTS = 120;
 const MIN_MOVE_METERS = 1;
+const MAP_TILE_TIMEOUT_MS = 12000;
+const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
 const STATUS_META = {
   info: { icon: 'information-circle', color: '#2563eb', backgroundColor: '#dbeafe' },
@@ -97,6 +99,8 @@ export default function MapScreen() {
   const [geofencesLoading, setGeofencesLoading] = useState(false);
   const [statusPopup, setStatusPopup] = useState(null);
   const [isMapReady, setIsMapReady] = useState(false);
+  const [mapTilesLoaded, setMapTilesLoaded] = useState(false);
+  const [useOsmFallback, setUseOsmFallback] = useState(false);
   const [distance, setDistance] = useState(null);
   const [nearestGeofence, setNearestGeofence] = useState(null);
   const [showDetails, setShowDetails] = useState(true);
@@ -114,6 +118,7 @@ export default function MapScreen() {
   const [tracksViewChanges, setTracksViewChanges] = useState(true);
   const tracksTimerRef = useRef(null);
   const statusTimerRef = useRef(null);
+  const mapTileTimerRef = useRef(null);
   const hasShownMovementRef = useRef(false);
 
   // Pulsing accuracy circle animation
@@ -176,6 +181,16 @@ export default function MapScreen() {
     try {
       setIsMapReady(true);
       showStatusPopup('success', 'Map loaded', 'Waiting for your current location.');
+      if (mapTileTimerRef.current) clearTimeout(mapTileTimerRef.current);
+      mapTileTimerRef.current = setTimeout(() => {
+        setUseOsmFallback(true);
+        showStatusPopup(
+          'warning',
+          'Google tiles blocked',
+          'Showing fallback map. Check Maps SDK, billing, and EAS SHA-1.',
+          true
+        );
+      }, MAP_TILE_TIMEOUT_MS);
       // Try cache first (instant), then fresh fix if cache is empty
       let pos = await Location.getLastKnownPositionAsync({}).catch(() => null);
       if (!pos) {
@@ -195,6 +210,17 @@ export default function MapScreen() {
     }
   }, [showStatusPopup]);
 
+  const onMapLoaded = useCallback(() => {
+    setMapTilesLoaded(true);
+    if (mapTileTimerRef.current) {
+      clearTimeout(mapTileTimerRef.current);
+      mapTileTimerRef.current = null;
+    }
+    if (!useOsmFallback) {
+      showStatusPopup('success', 'Map tiles loaded', 'Google map tiles are visible.');
+    }
+  }, [showStatusPopup, useOsmFallback]);
+
   useEffect(() => {
     // Load geofences and activity detection in background — map renders immediately
     initializeLiveMap();
@@ -206,6 +232,7 @@ export default function MapScreen() {
       AndroidGeofencing.stopWalkingDetection().catch(() => null);
       if (tracksTimerRef.current) clearTimeout(tracksTimerRef.current);
       if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
+      if (mapTileTimerRef.current) clearTimeout(mapTileTimerRef.current);
       // Reset so re-opening the tab gets a fresh camera jump
       hasInitialCameraRef.current = false;
       isFollowingRef.current = true;
@@ -315,11 +342,6 @@ export default function MapScreen() {
     prevLocationRef.current = newCoord;
     setMarkerCoord(newCoord);
 
-    // Smooth marker slide (native interpolation, avoids React re-render jumps)
-    if (markerRef.current?.animateMarkerToCoordinate) {
-      markerRef.current.animateMarkerToCoordinate(newCoord, 800);
-    }
-
     // Smooth camera follow
     if (isFollowingRef.current) {
       mapRef.current?.animateCamera({ center: newCoord, zoom: 18 }, { duration: 800 });
@@ -386,6 +408,7 @@ export default function MapScreen() {
   const isInside = nearestGeofence?.isInside;
   const speedKmh = Math.round((speed || 0) * 3.6);
   const statusMeta = STATUS_META[statusPopup?.type] || STATUS_META.info;
+  const activeMapType = Platform.OS === 'android' && useOsmFallback ? 'none' : 'standard';
 
   return (
     <View style={styles.container}>
@@ -398,14 +421,23 @@ export default function MapScreen() {
         showsMyLocationButton={false}
         showsCompass={true}
         showsTraffic={false}
-        mapType="standard"
-        loadingEnabled={true}
+        mapType={activeMapType}
+        loadingEnabled={false}
         loadingIndicatorColor="#6366f1"
         loadingBackgroundColor="#f8fafc"
         initialRegion={DEFAULT_REGION}
         onMapReady={onMapReady}
+        onMapLoaded={onMapLoaded}
         onPanDrag={() => { isFollowingRef.current = false; }}
       >
+        {useOsmFallback && (
+          <UrlTile
+            urlTemplate={OSM_TILE_URL}
+            maximumZ={19}
+            zIndex={-1}
+          />
+        )}
+
         {/* Walking trail */}
         {locationHistory.length > 1 && (
           <Polyline
@@ -541,12 +573,12 @@ export default function MapScreen() {
         <View style={styles.headerPills}>
           <View style={[styles.pill, { backgroundColor: isMapReady ? '#dbeafe' : '#f3f4f6' }]}>
             <Ionicons
-              name={isMapReady ? 'map' : 'hourglass'}
+              name={useOsmFallback ? 'map-outline' : isMapReady ? 'map' : 'hourglass'}
               size={14}
-              color={isMapReady ? '#2563eb' : '#6b7280'}
+              color={useOsmFallback ? '#d97706' : isMapReady ? '#2563eb' : '#6b7280'}
             />
-            <Text style={[styles.pillText, { color: isMapReady ? '#2563eb' : '#6b7280' }]}>
-              {isMapReady ? 'Map ready' : 'Map loading'}
+            <Text style={[styles.pillText, { color: useOsmFallback ? '#d97706' : isMapReady ? '#2563eb' : '#6b7280' }]}>
+              {useOsmFallback ? 'Fallback map' : mapTilesLoaded ? 'Tiles loaded' : isMapReady ? 'Map ready' : 'Map loading'}
             </Text>
           </View>
           {markerCoord && (
@@ -701,6 +733,12 @@ export default function MapScreen() {
             {isInside ? 'Inside zone' : Math.round(distance) + 'm away'}
           </Text>
         </TouchableOpacity>
+      )}
+
+      {useOsmFallback && (
+        <View style={styles.mapAttribution} pointerEvents="none">
+          <Text style={styles.mapAttributionText}>OpenStreetMap fallback</Text>
+        </View>
       )}
     </View>
   );
@@ -899,6 +937,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#6366f1',
+  },
+  mapAttribution: {
+    position: 'absolute',
+    left: 10,
+    bottom: 110,
+    backgroundColor: 'rgba(255,255,255,0.88)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  mapAttributionText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#374151',
   },
   statusPopup: {
     position: 'absolute',

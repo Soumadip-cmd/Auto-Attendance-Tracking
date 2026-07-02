@@ -60,7 +60,7 @@ class NotificationService {
       console.log('📱 Expo Push Token:', token. data);
       return token.data;
     } catch (error) {
-      console.error('Error getting push token:', error);
+      console.warn('Push token unavailable:', error?.message || error);
       return null;
     }
   }
