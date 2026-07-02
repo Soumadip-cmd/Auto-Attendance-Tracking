@@ -25,7 +25,7 @@
       "icon": "./src/assets/immigration.png",
       "config": {
         "googleMaps": {
-          "apiKey": "AIzaSyAMtx40m6yOIrtxQa7SOF3xNWUzrYldOkI"
+          "apiKey": "AIzaSyAbnGDpJYWJDlON9N4Fbk9_3BOT07FRjxI"
         }
       },
       "permissions": [

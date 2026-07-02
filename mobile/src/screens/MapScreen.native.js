@@ -114,6 +114,8 @@ export default function MapScreen() {
   const statusTimerRef = useRef(null);
   const mapTileTimerRef = useRef(null);
   const hasShownMovementRef = useRef(false);
+  const mountedAtRef = useRef(Date.now());
+  const mapLoadedAtRef = useRef(null);
   const toastAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
@@ -176,16 +178,6 @@ export default function MapScreen() {
   const onMapReady = useCallback(async () => {
     try {
       setIsMapReady(true);
-      if (mapTileTimerRef.current) clearTimeout(mapTileTimerRef.current);
-      mapTileTimerRef.current = setTimeout(() => {
-        setUseOsmFallback(true);
-        showStatusPopup(
-          'warning',
-          'Using OpenStreetMap',
-          'Google Maps tiles unavailable. Rebuild the app with a valid Maps API key.',
-          true
-        );
-      }, MAP_TILE_TIMEOUT_MS);
       let pos = await Location.getLastKnownPositionAsync({}).catch(() => null);
       if (!pos) {
         pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }).catch(() => null);
@@ -198,20 +190,39 @@ export default function MapScreen() {
     } catch (error) {
       setIsMapReady(true);
     }
-  }, [showStatusPopup]);
+  }, []);
 
   const onMapLoaded = useCallback(() => {
     setMapTilesLoaded(true);
-    if (mapTileTimerRef.current) {
+    mapLoadedAtRef.current = Date.now();
+    // Don't cancel the OSM timer here — on Android, onMapLoaded fires when
+    // the SDK initialises, NOT when tiles actually render. We cancel only
+    // if the SDK came up fast enough that tiles are presumably rendering.
+    const elapsed = Date.now() - mountedAtRef.current;
+    if (elapsed < 8000 && mapTileTimerRef.current) {
       clearTimeout(mapTileTimerRef.current);
       mapTileTimerRef.current = null;
-    }
-    if (!useOsmFallback) {
       showStatusPopup('success', 'Google Maps loaded', 'Map tiles are ready.');
     }
-  }, [showStatusPopup, useOsmFallback]);
+  }, [showStatusPopup]);
 
   useEffect(() => {
+    mountedAtRef.current = Date.now();
+
+    // Start the OSM fallback timer from mount. onMapLoaded (which fires when
+    // the Google Maps SDK initialises, not when tiles render) will cancel this
+    // only if it fires within 8 s — i.e. Google Maps authenticated quickly.
+    mapTileTimerRef.current = setTimeout(() => {
+      mapTileTimerRef.current = null;
+      setUseOsmFallback(true);
+      showStatusPopup(
+        'warning',
+        'Using OpenStreetMap',
+        'Google Maps tiles unavailable. Register your SHA-1 in Google Cloud Console.',
+        true
+      );
+    }, MAP_TILE_TIMEOUT_MS);
+
     initializeLiveMap();
     loadGeofences();
     startActivityDetection();
@@ -356,10 +367,23 @@ export default function MapScreen() {
 
   const retryMapTiles = useCallback(() => {
     if (mapTileTimerRef.current) { clearTimeout(mapTileTimerRef.current); mapTileTimerRef.current = null; }
+    mountedAtRef.current = Date.now();
+    mapLoadedAtRef.current = null;
     setUseOsmFallback(false);
     setMapTilesLoaded(false);
     setIsMapReady(false);
     setMapInstanceKey(k => k + 1);
+    // Restart the OSM fallback timer for the new attempt
+    mapTileTimerRef.current = setTimeout(() => {
+      mapTileTimerRef.current = null;
+      setUseOsmFallback(true);
+      showStatusPopup(
+        'warning',
+        'Using OpenStreetMap',
+        'Google Maps tiles unavailable. Register your SHA-1 in Google Cloud Console.',
+        true
+      );
+    }, MAP_TILE_TIMEOUT_MS);
     showStatusPopup('info', 'Retrying Google Maps', 'Checking if tiles are available now.');
   }, [showStatusPopup]);
 
