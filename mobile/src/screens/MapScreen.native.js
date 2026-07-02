@@ -101,6 +101,7 @@ export default function MapScreen() {
   const [isMapReady, setIsMapReady] = useState(false);
   const [mapTilesLoaded, setMapTilesLoaded] = useState(false);
   const [useOsmFallback, setUseOsmFallback] = useState(false);
+  const [mapInstanceKey, setMapInstanceKey] = useState(0);
   const [distance, setDistance] = useState(null);
   const [nearestGeofence, setNearestGeofence] = useState(null);
   const [showDetails, setShowDetails] = useState(true);
@@ -405,6 +406,18 @@ export default function MapScreen() {
     );
   }, [location]);
 
+  const retryMapTiles = useCallback(() => {
+    if (mapTileTimerRef.current) {
+      clearTimeout(mapTileTimerRef.current);
+      mapTileTimerRef.current = null;
+    }
+    setUseOsmFallback(false);
+    setMapTilesLoaded(false);
+    setIsMapReady(false);
+    setMapInstanceKey((key) => key + 1);
+    showStatusPopup('info', 'Retrying Google map', 'Checking Google tiles again.');
+  }, [showStatusPopup]);
+
   const isInside = nearestGeofence?.isInside;
   const speedKmh = Math.round((speed || 0) * 3.6);
   const statusMeta = STATUS_META[statusPopup?.type] || STATUS_META.info;
@@ -414,6 +427,7 @@ export default function MapScreen() {
     <View style={styles.container}>
       {/* Map renders immediately with last known position or fallback */}
       <MapView
+        key={mapInstanceKey}
         ref={mapRef}
         provider={PROVIDER_GOOGLE}
         style={styles.map}
@@ -658,7 +672,7 @@ export default function MapScreen() {
       <TouchableOpacity
         style={[styles.refreshBtn, { backgroundColor: theme.colors.primary }]}
         onPress={async () => {
-          showStatusPopup('info', 'Refreshing map', 'Updating GPS and geofence zones.');
+          retryMapTiles();
           await getCurrentLocation();
           await loadGeofences();
         }}
