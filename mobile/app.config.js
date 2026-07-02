@@ -34,6 +34,8 @@ export default {
       package: "com.geoattendance.freelixe",
       runtimeVersion: "1.0.0",
       permissions: [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION",
