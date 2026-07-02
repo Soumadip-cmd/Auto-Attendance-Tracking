@@ -433,8 +433,12 @@ export default function MapScreen() {
         {useOsmFallback && (
           <UrlTile
             urlTemplate={OSM_TILE_URL}
+            tileSize={256}
+            minimumZ={0}
             maximumZ={19}
-            zIndex={-1}
+            maximumNativeZ={19}
+            opacity={1}
+            zIndex={100}
           />
         )}
 
