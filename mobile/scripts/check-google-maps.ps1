@@ -1,6 +1,7 @@
 param(
   [switch]$CollectLogcat,
-  [switch]$RunGradleSigningReport
+  [switch]$RunGradleSigningReport,
+  [string]$ApkPath
 )
 
 $ErrorActionPreference = 'Continue'
@@ -57,6 +58,36 @@ function Find-Adb {
   }
 
   return $null
+}
+
+function Find-BuildTool($toolName) {
+  $cmd = Get-Command $toolName -ErrorAction SilentlyContinue
+  if ($cmd) { return $cmd.Source }
+
+  $candidates = @(
+    $env:ANDROID_HOME,
+    $env:ANDROID_SDK_ROOT,
+    (Join-Path $env:LOCALAPPDATA 'Android\Sdk')
+  ) | Where-Object { $_ -and (Test-Path $_) }
+
+  foreach ($sdk in $candidates) {
+    $buildTools = Join-Path $sdk 'build-tools'
+    if (!(Test-Path $buildTools)) { continue }
+
+    $tool = Get-ChildItem -Path $buildTools -Filter $toolName -Recurse -ErrorAction SilentlyContinue |
+      Sort-Object FullName -Descending |
+      Select-Object -First 1
+    if ($tool) { return $tool.FullName }
+  }
+
+  return $null
+}
+
+function Format-Fingerprint($digest) {
+  if ([string]::IsNullOrWhiteSpace($digest)) { return $null }
+  $hex = ($digest -replace '[^0-9a-fA-F]', '').ToUpperInvariant()
+  if ($hex.Length -ne 40 -and $hex.Length -ne 64) { return $digest.ToUpperInvariant() }
+  return (($hex -split '(.{2})' | Where-Object { $_ }) -join ':')
 }
 
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -164,6 +195,94 @@ if ($RunGradleSigningReport) {
     & .\gradlew.bat signingReport
   } finally {
     Pop-Location
+  }
+}
+
+Write-Section 'Built APK Diagnostics'
+
+if ([string]::IsNullOrWhiteSpace($ApkPath)) {
+  $apkRoot = Join-Path $mobileRoot 'android\app\build\outputs\apk'
+  $latestApk = Get-ChildItem -Path $apkRoot -Recurse -Filter '*.apk' -ErrorAction SilentlyContinue |
+    Sort-Object LastWriteTime -Descending |
+    Select-Object -First 1
+  if ($latestApk) {
+    $ApkPath = $latestApk.FullName
+  }
+}
+
+if ([string]::IsNullOrWhiteSpace($ApkPath) -or !(Test-Path $ApkPath)) {
+  Write-Warn 'No built APK found. Build one with: cd android; .\gradlew.bat :app:assembleDebug'
+} else {
+  $apkItem = Get-Item -LiteralPath $ApkPath
+  Write-Ok "APK: $($apkItem.FullName)"
+  Write-Host "Size: $([math]::Round($apkItem.Length / 1MB, 1)) MB, Modified: $($apkItem.LastWriteTime)" -ForegroundColor Gray
+
+  $apksigner = Find-BuildTool 'apksigner.bat'
+  if (!$apksigner) {
+    Write-Warn 'apksigner.bat not found; cannot read APK signing certificate.'
+  } else {
+    $signerOutput = & $apksigner verify --print-certs $apkItem.FullName 2>&1
+    $apkSha1Raw = ($signerOutput | Select-String -Pattern 'SHA-1 digest:\s*([0-9a-fA-F]+)' | Select-Object -First 1).Matches.Groups[1].Value
+    $apkSha1 = Format-Fingerprint $apkSha1Raw
+    $apkSha256Raw = ($signerOutput | Select-String -Pattern 'SHA-256 digest:\s*([0-9a-fA-F]+)' | Select-Object -First 1).Matches.Groups[1].Value
+    $apkSha256 = Format-Fingerprint $apkSha256Raw
+    if ($apkSha1) {
+      Write-Ok "APK signing SHA-1: $apkSha1"
+      Write-Host "Google Cloud must allow package '$applicationId' with this SHA-1 for this exact APK." -ForegroundColor Gray
+    } else {
+      Write-Warn 'Could not parse APK signing SHA-1 from apksigner output.'
+      $signerOutput | Select-Object -First 30 | ForEach-Object { Write-Host $_ -ForegroundColor Gray }
+    }
+    if ($apkSha256) { Write-Ok "APK signing SHA-256: $apkSha256" }
+  }
+
+  $aapt = Find-BuildTool 'aapt.exe'
+  if (!$aapt) {
+    Write-Warn 'aapt.exe not found; cannot inspect APK manifest.'
+  } else {
+    $badging = & $aapt dump badging $apkItem.FullName 2>&1
+    $apkPackage = ($badging | Select-String -Pattern "package: name='([^']+)'" | Select-Object -First 1).Matches.Groups[1].Value
+    if ($apkPackage) {
+      if ($applicationId -and $apkPackage -eq $applicationId) {
+        Write-Ok "APK package: $apkPackage"
+      } else {
+        Write-Fail "APK package '$apkPackage' does not match expected '$applicationId'"
+      }
+    } else {
+      Write-Warn 'Could not parse APK package name.'
+    }
+
+    foreach ($permission in $requiredPermissions) {
+      if ($badging -match [regex]::Escape("uses-permission: name='$permission'")) {
+        Write-Ok "APK permission: $permission"
+      } else {
+        Write-Fail "APK missing permission: $permission"
+      }
+    }
+
+    $xmlTree = & $aapt dump xmltree $apkItem.FullName AndroidManifest.xml 2>&1
+    $apkManifestKey = $null
+    for ($i = 0; $i -lt $xmlTree.Count; $i += 1) {
+      if ($xmlTree[$i] -match 'com\.google\.android\.geo\.API_KEY') {
+        $end = [Math]::Min($i + 6, $xmlTree.Count - 1)
+        for ($j = $i; $j -le $end; $j += 1) {
+          if ($xmlTree[$j] -match 'android:value.*"([^"]+)"') {
+            $apkManifestKey = $Matches[1]
+            break
+          }
+        }
+      }
+      if ($apkManifestKey) { break }
+    }
+
+    if ($apkManifestKey) {
+      Write-Ok "APK Google Maps key: $(Mask-Key $apkManifestKey)"
+      if ($manifestKey -and $apkManifestKey.Trim() -ne $manifestKey.Trim()) {
+        Write-Fail 'APK Google Maps key differs from source AndroidManifest. Rebuild/reinstall.'
+      }
+    } else {
+      Write-Fail 'APK AndroidManifest is missing com.google.android.geo.API_KEY metadata.'
+    }
   }
 }
 
