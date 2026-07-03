@@ -1,5 +1,25 @@
 import { MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
 
+// Maps our numeric/named fontWeight scale to the loaded Inter font files —
+// RN doesn't synthesize weights for custom fonts, so the family itself must change.
+export const fontFamily = {
+  regular: 'Inter_400Regular',
+  '400': 'Inter_400Regular',
+  normal: 'Inter_400Regular',
+  medium: 'Inter_500Medium',
+  '500': 'Inter_500Medium',
+  semibold: 'Inter_600SemiBold',
+  '600': 'Inter_600SemiBold',
+  bold: 'Inter_700Bold',
+  '700': 'Inter_700Bold',
+  '800': 'Inter_800ExtraBold',
+  extrabold: 'Inter_800ExtraBold',
+  '900': 'Inter_900Black',
+  black: 'Inter_900Black',
+};
+
+export const getFontFamily = (weight) => fontFamily[String(weight)] || fontFamily.regular;
+
 export const lightTheme = {
   ...MD3LightTheme,
   colors: {
@@ -48,6 +68,7 @@ export const lightTheme = {
     semibold: '600',
     bold: '700',
   },
+  fontFamily,
   shadows: {
     sm: {
       shadowColor: '#000',
@@ -95,5 +116,6 @@ export const darkTheme = {
   borderRadius: lightTheme.borderRadius,
   fontSize: lightTheme.fontSize,
   fontWeight: lightTheme.fontWeight,
+  fontFamily,
   shadows: lightTheme.shadows,
 };

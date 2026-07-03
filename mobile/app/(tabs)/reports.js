@@ -1,15 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  RefreshControl,
-  Dimensions,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Dimensions, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
@@ -19,42 +9,48 @@ import { Card } from '../../src/components/common/Card';
 import { StatsCard } from '../../src/components/attendance/StatsCard';
 import { Loading } from '../../src/components/common/Loading';
 import { downloadMyAttendanceReport } from '../../src/services/downloadService';
-
-const { width } = Dimensions. get('window');
-
+const {
+  width
+} = Dimensions.get('window');
 export default function ReportsScreen() {
-  const { stats, getStats, isLoading } = useAttendance();
-  const { theme } = useTheme();
+  const {
+    stats,
+    getStats,
+    isLoading
+  } = useAttendance();
+  const {
+    theme
+  } = useTheme();
   const insets = useSafeAreaInsets();
-
   const [refreshing, setRefreshing] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState('month');
   const [exporting, setExporting] = useState(null);
-
   useEffect(() => {
     fetchStats();
   }, [selectedPeriod]);
-
   const fetchStats = async () => {
-    await getStats({ period: selectedPeriod });
+    await getStats({
+      period: selectedPeriod
+    });
   };
-
   const onRefresh = async () => {
     setRefreshing(true);
     await fetchStats();
     setRefreshing(false);
   };
-
-  const periods = [
-    { key: 'week', label: 'This Week' },
-    { key: 'month', label: 'This Month' },
-    { key: 'year', label: 'This Year' },
-  ];
-
+  const periods = [{
+    key: 'week',
+    label: 'This Week'
+  }, {
+    key: 'month',
+    label: 'This Month'
+  }, {
+    key: 'year',
+    label: 'This Year'
+  }];
   const getExportRange = () => {
     const now = new Date();
     let start = new Date(now);
-
     if (selectedPeriod === 'week') {
       start.setDate(now.getDate() - 6);
     } else if (selectedPeriod === 'year') {
@@ -62,19 +58,17 @@ export default function ReportsScreen() {
     } else {
       start = new Date(now.getFullYear(), now.getMonth(), 1);
     }
-
     return {
       startDate: format(start, 'yyyy-MM-dd'),
-      endDate: format(now, 'yyyy-MM-dd'),
+      endDate: format(now, 'yyyy-MM-dd')
     };
   };
-
-  const handleDownload = async (formatType) => {
+  const handleDownload = async formatType => {
     try {
       setExporting(formatType);
       const uri = await downloadMyAttendanceReport({
         format: formatType,
-        ...getExportRange(),
+        ...getExportRange()
       });
       Alert.alert('Report ready', `Saved report to:\n${uri}`);
     } catch (error) {
@@ -83,60 +77,31 @@ export default function ReportsScreen() {
       setExporting(null);
     }
   };
-
-  const PeriodSelector = () => (
-    <View style={styles.periodSelector}>
-      {periods.map((period) => (
-        <TouchableOpacity
-          key={period.key}
-          style={[
-            styles.periodButton,
-            {
-              backgroundColor: 
-                selectedPeriod === period.key
-                  ? theme. colors.primary
-                  : theme.colors.card,
-            },
-          ]}
-          onPress={() => setSelectedPeriod(period.key)}
-        >
-          <Text
-            style={[
-              styles.periodButtonText,
-              {
-                color: 
-                  selectedPeriod === period.key
-                    ? '#ffffff'
-                    : theme. colors.text,
-              },
-            ]}
-          >
-            {period. label}
+  const PeriodSelector = () => <View style={styles.periodSelector}>
+      {periods.map(period => <TouchableOpacity key={period.key} style={[styles.periodButton, {
+      backgroundColor: selectedPeriod === period.key ? theme.colors.primary : theme.colors.card
+    }]} onPress={() => setSelectedPeriod(period.key)}>
+          <Text style={[styles.periodButtonText, {
+        color: selectedPeriod === period.key ? '#ffffff' : theme.colors.text
+      }]}>
+            {period.label}
           </Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
-
+        </TouchableOpacity>)}
+    </View>;
   if (isLoading && !refreshing) {
     return <Loading message="Loading reports..." />;
   }
-
-  return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 16, paddingBottom: 20 }]}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={theme.colors.primary}
-          />
-        }
-        showsVerticalScrollIndicator={false}
-      >
+  return <View style={[styles.container, {
+    backgroundColor: theme.colors.background
+  }]}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, {
+      paddingTop: insets.top + 16,
+      paddingBottom: 20
+    }]} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />} showsVerticalScrollIndicator={false}>
         <View style={styles.screenHeader}>
-          <Text style={[styles.screenTitle, { color: theme.colors.text }]}>
+          <Text style={[styles.screenTitle, {
+          color: theme.colors.text
+        }]}>
             📊 Reports & Analytics
           </Text>
         </View>
@@ -145,55 +110,42 @@ export default function ReportsScreen() {
 
         {/* Overview Stats */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors. text }]}>
+          <Text style={[styles.sectionTitle, {
+          color: theme.colors.text
+        }]}>
             Overview
           </Text>
 
           <View style={styles.statsGrid}>
-            <StatsCard
-              icon="checkmark-done-circle"
-              label="Present Days"
-              value={stats?. presentDays || 0}
-              color={theme.colors.success}
-              subtitle={`${stats?.attendanceRate || 0}%`}
-            />
+            <StatsCard icon="checkmark-done-circle" label="Present Days" value={stats?.presentDays || 0} color={theme.colors.success} subtitle={`${stats?.attendanceRate || 0}%`} />
 
-            <StatsCard
-              icon="time"
-              label="Late Days"
-              value={stats?. lateDays || 0}
-              color={theme.colors.warning}
-            />
+            <StatsCard icon="time" label="Late Days" value={stats?.lateDays || 0} color={theme.colors.warning} />
 
-            <StatsCard
-              icon="close-circle"
-              label="Absent Days"
-              value={stats?. absentDays || 0}
-              color={theme.colors. error}
-            />
+            <StatsCard icon="close-circle" label="Absent Days" value={stats?.absentDays || 0} color={theme.colors.error} />
 
-            <StatsCard
-              icon="calendar"
-              label="Half Days"
-              value={stats?.halfDays || 0}
-              color={theme.colors.info}
-            />
+            <StatsCard icon="calendar" label="Half Days" value={stats?.halfDays || 0} color={theme.colors.info} />
           </View>
         </View>
 
         {/* Working Hours */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors. text }]}>
+          <Text style={[styles.sectionTitle, {
+          color: theme.colors.text
+        }]}>
             Working Hours
           </Text>
 
           <Card>
-            <View style={styles. workingHoursRow}>
+            <View style={styles.workingHoursRow}>
               <View style={styles.workingHoursItem}>
-                <Text style={[styles.workingHoursLabel, { color: theme. colors.textSecondary }]}>
+                <Text style={[styles.workingHoursLabel, {
+                color: theme.colors.textSecondary
+              }]}>
                   Total Hours
                 </Text>
-                <Text style={[styles.workingHoursValue, { color:  theme.colors.text }]}>
+                <Text style={[styles.workingHoursValue, {
+                color: theme.colors.text
+              }]}>
                   {stats?.totalHours || 0}h
                 </Text>
               </View>
@@ -201,10 +153,14 @@ export default function ReportsScreen() {
               <View style={styles.workingHoursDivider} />
 
               <View style={styles.workingHoursItem}>
-                <Text style={[styles.workingHoursLabel, { color: theme.colors.textSecondary }]}>
+                <Text style={[styles.workingHoursLabel, {
+                color: theme.colors.textSecondary
+              }]}>
                   Average/Day
                 </Text>
-                <Text style={[styles.workingHoursValue, { color:  theme.colors.text }]}>
+                <Text style={[styles.workingHoursValue, {
+                color: theme.colors.text
+              }]}>
                   {stats?.averageHoursPerDay || 0}h
                 </Text>
               </View>
@@ -212,10 +168,14 @@ export default function ReportsScreen() {
               <View style={styles.workingHoursDivider} />
 
               <View style={styles.workingHoursItem}>
-                <Text style={[styles.workingHoursLabel, { color: theme.colors.textSecondary }]}>
+                <Text style={[styles.workingHoursLabel, {
+                color: theme.colors.textSecondary
+              }]}>
                   Required
                 </Text>
-                <Text style={[styles.workingHoursValue, { color: theme.colors.text }]}>
+                <Text style={[styles.workingHoursValue, {
+                color: theme.colors.text
+              }]}>
                   {stats?.requiredHours || 0}h
                 </Text>
               </View>
@@ -225,26 +185,38 @@ export default function ReportsScreen() {
 
         {/* Attendance Rate */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors. text }]}>
+          <Text style={[styles.sectionTitle, {
+          color: theme.colors.text
+        }]}>
             Attendance Rate
           </Text>
 
           <Card>
             <View style={styles.rateContainer}>
               <View style={styles.rateCircle}>
-                <Text style={[styles.rateValue, { color: theme.colors. primary }]}>
+                <Text style={[styles.rateValue, {
+                color: theme.colors.primary
+              }]}>
                   {stats?.attendanceRate || 0}%
                 </Text>
               </View>
               <View style={styles.rateInfo}>
-                <Text style={[styles.rateText, { color: theme.colors. text }]}>
+                <Text style={[styles.rateText, {
+                color: theme.colors.text
+              }]}>
                   Your attendance rate is{' '}
-                  <Text style={{ color: theme.colors.primary, fontWeight: '700' }}>
+                  <Text style={{
+                  color: theme.colors.primary,
+                  fontWeight: '700',
+                  fontFamily: "Inter_700Bold"
+                }}>
                     {stats?.attendanceRate >= 90 ? 'Excellent' : stats?.attendanceRate >= 75 ? 'Good' : 'Needs Improvement'}
                   </Text>
                 </Text>
-                <Text style={[styles.rateSubtext, { color: theme.colors.textSecondary }]}>
-                  {stats?. presentDays || 0} present days out of {stats?.totalWorkingDays || 0} working days
+                <Text style={[styles.rateSubtext, {
+                color: theme.colors.textSecondary
+              }]}>
+                  {stats?.presentDays || 0} present days out of {stats?.totalWorkingDays || 0} working days
                 </Text>
               </View>
             </View>
@@ -253,7 +225,9 @@ export default function ReportsScreen() {
 
         {/* Punctuality */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+          <Text style={[styles.sectionTitle, {
+          color: theme.colors.text
+        }]}>
             Punctuality
           </Text>
 
@@ -261,30 +235,42 @@ export default function ReportsScreen() {
             <View style={styles.punctualityRow}>
               <View style={styles.punctualityItem}>
                 <Ionicons name="checkmark-circle" size={32} color={theme.colors.success} />
-                <Text style={[styles.punctualityValue, { color: theme.colors. text }]}>
+                <Text style={[styles.punctualityValue, {
+                color: theme.colors.text
+              }]}>
                   {stats?.onTimeDays || 0}
                 </Text>
-                <Text style={[styles.punctualityLabel, { color: theme.colors.textSecondary }]}>
+                <Text style={[styles.punctualityLabel, {
+                color: theme.colors.textSecondary
+              }]}>
                   On Time
                 </Text>
               </View>
 
               <View style={styles.punctualityItem}>
                 <Ionicons name="time" size={32} color={theme.colors.warning} />
-                <Text style={[styles.punctualityValue, { color: theme.colors.text }]}>
+                <Text style={[styles.punctualityValue, {
+                color: theme.colors.text
+              }]}>
                   {stats?.lateDays || 0}
                 </Text>
-                <Text style={[styles.punctualityLabel, { color: theme.colors. textSecondary }]}>
+                <Text style={[styles.punctualityLabel, {
+                color: theme.colors.textSecondary
+              }]}>
                   Late
                 </Text>
               </View>
 
               <View style={styles.punctualityItem}>
                 <Ionicons name="alert-circle" size={32} color={theme.colors.error} />
-                <Text style={[styles. punctualityValue, { color:  theme.colors.text }]}>
+                <Text style={[styles.punctualityValue, {
+                color: theme.colors.text
+              }]}>
                   {stats?.earlyCheckouts || 0}
                 </Text>
-                <Text style={[styles.punctualityLabel, { color: theme.colors.textSecondary }]}>
+                <Text style={[styles.punctualityLabel, {
+                color: theme.colors.textSecondary
+              }]}>
                   Early Out
                 </Text>
               </View>
@@ -294,121 +280,119 @@ export default function ReportsScreen() {
 
         {/* Export Options */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors. text }]}>
+          <Text style={[styles.sectionTitle, {
+          color: theme.colors.text
+        }]}>
             Export Report
           </Text>
 
-          <TouchableOpacity
-            onPress={() => handleDownload('pdf')}
-            disabled={!!exporting}
-            style={[styles.exportButton, { backgroundColor: theme.colors. card }]}
-          >
-            {exporting === 'pdf' ? (
-              <ActivityIndicator size="small" color={theme.colors.primary} />
-            ) : (
-              <Ionicons name="download-outline" size={24} color={theme.colors.primary} />
-            )}
-            <Text style={[styles.exportButtonText, { color: theme.colors.text }]}>
+          <TouchableOpacity onPress={() => handleDownload('pdf')} disabled={!!exporting} style={[styles.exportButton, {
+          backgroundColor: theme.colors.card
+        }]}>
+            {exporting === 'pdf' ? <ActivityIndicator size="small" color={theme.colors.primary} /> : <Ionicons name="download-outline" size={24} color={theme.colors.primary} />}
+            <Text style={[styles.exportButtonText, {
+            color: theme.colors.text
+          }]}>
               Download PDF Report
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() => handleDownload('excel')}
-            disabled={!!exporting}
-            style={[styles.exportButton, { backgroundColor: theme.colors.card }]}
-          >
-            {exporting === 'excel' ? (
-              <ActivityIndicator size="small" color={theme.colors.secondary} />
-            ) : (
-              <Ionicons name="document-text-outline" size={24} color={theme.colors.secondary} />
-            )}
-            <Text style={[styles.exportButtonText, { color: theme.colors.text }]}>
+          <TouchableOpacity onPress={() => handleDownload('excel')} disabled={!!exporting} style={[styles.exportButton, {
+          backgroundColor: theme.colors.card
+        }]}>
+            {exporting === 'excel' ? <ActivityIndicator size="small" color={theme.colors.secondary} /> : <Ionicons name="document-text-outline" size={24} color={theme.colors.secondary} />}
+            <Text style={[styles.exportButtonText, {
+            color: theme.colors.text
+          }]}>
               Download Excel Report
             </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </View>
-  );
+    </View>;
 }
-
-const styles = StyleSheet. create({
+const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flex: 1
   },
   scrollContent: {
-    padding: 20,
+    padding: 20
   },
   screenHeader: {
     marginBottom: 20,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
+    borderBottomColor: 'rgba(0,0,0,0.05)'
   },
   screenTitle: {
     fontSize: 24,
     fontWeight: '700',
+    fontFamily: "Inter_700Bold"
   },
   title: {
     fontSize: 28,
     fontWeight: '700',
-    marginBottom: 20,
+    fontFamily: "Inter_700Bold",
+    marginBottom: 20
   },
   periodSelector: {
-    flexDirection:  'row',
+    flexDirection: 'row',
     gap: 12,
-    marginBottom: 24,
+    marginBottom: 24
   },
   periodButton: {
     flex: 1,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 12,
-    alignItems: 'center',
+    alignItems: 'center'
   },
   periodButtonText: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: "Inter_600SemiBold"
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 24
   },
-  sectionTitle:  {
+  sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    marginBottom: 12,
+    fontFamily: "Inter_600SemiBold",
+    marginBottom: 12
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 12
   },
   workingHoursRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-around'
   },
   workingHoursItem: {
-    alignItems:  'center',
-    flex:  1,
+    alignItems: 'center',
+    flex: 1
   },
   workingHoursLabel: {
     fontSize: 12,
     marginBottom: 8,
+    fontFamily: "Inter_400Regular"
   },
   workingHoursValue: {
     fontSize: 24,
     fontWeight: '700',
+    fontFamily: "Inter_700Bold"
   },
   workingHoursDivider: {
     width: 1,
-    backgroundColor: '#e2e8f0',
+    backgroundColor: '#e2e8f0'
   },
   rateContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'center'
   },
-  rateCircle:  {
+  rateCircle: {
     width: 100,
     height: 100,
     borderRadius: 50,
@@ -416,48 +400,54 @@ const styles = StyleSheet. create({
     borderColor: '#6366f1',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 20,
+    marginRight: 20
   },
   rateValue: {
     fontSize: 28,
     fontWeight: '700',
+    fontFamily: "Inter_700Bold"
   },
   rateInfo: {
-    flex: 1,
+    flex: 1
   },
   rateText: {
-    fontSize:  16,
+    fontSize: 16,
     marginBottom: 8,
+    fontFamily: "Inter_400Regular"
   },
   rateSubtext: {
     fontSize: 14,
+    fontFamily: "Inter_400Regular"
   },
   punctualityRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-around'
   },
-  punctualityItem:  {
-    alignItems: 'center',
+  punctualityItem: {
+    alignItems: 'center'
   },
   punctualityValue: {
     fontSize: 24,
     fontWeight: '700',
+    fontFamily: "Inter_700Bold",
     marginTop: 12,
-    marginBottom: 4,
+    marginBottom: 4
   },
-  punctualityLabel:  {
+  punctualityLabel: {
     fontSize: 12,
+    fontFamily: "Inter_400Regular"
   },
-  exportButton:  {
+  exportButton: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
     borderRadius: 12,
-    marginBottom: 12,
+    marginBottom: 12
   },
   exportButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    marginLeft: 12,
-  },
+    fontFamily: "Inter_600SemiBold",
+    marginLeft: 12
+  }
 });

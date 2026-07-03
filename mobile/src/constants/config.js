@@ -30,6 +30,22 @@ const getEnvVars = () => {
 
 export const config = getEnvVars();
 
+// Uploaded files (e.g. profile pictures) are served from the API's origin,
+// not under the /api/v1 prefix — strip it to get the base URL for media.
+export const MEDIA_BASE_URL = config.API_URL.replace(/\/api\/v\d+\/?$/, '');
+
+// Resolves a possibly-relative media path (e.g. "/uploads/profiles/x.jpg")
+// returned by the backend into an absolute URL the app can load.
+export const getMediaUrl = (path) => {
+  if (!path) return null;
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${MEDIA_BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+};
+
+// The backend has stored user photos under a couple of different field
+// names over time (profilePicture is current; profileImage is legacy).
+export const getUserAvatarUri = (user) => getMediaUrl(user?.profilePicture || user?.profileImage);
+
 export const APP_CONFIG = {
   APP_NAME: 'Attendance Tracker',
   APP_VERSION: '1.0.0',

@@ -2,17 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import BackgroundLocationService from '../services/backgroundLocationService';
-
 const MovementHistory = () => {
   const [history, setHistory] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-
   useEffect(() => {
     loadHistory();
   }, []);
-
   const loadHistory = async () => {
     setLoading(true);
     const data = await BackgroundLocationService.getOfflineHistory();
@@ -21,74 +18,53 @@ const MovementHistory = () => {
     setStats(statsData);
     setLoading(false);
   };
-
   const handleSync = async () => {
     setSyncing(true);
     await BackgroundLocationService.syncToServer();
     await loadHistory();
     setSyncing(false);
   };
-
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
     const R = 6371e3; // Earth radius in meters
-    const φ1 = (lat1 * Math.PI) / 180;
-    const φ2 = (lat2 * Math.PI) / 180;
-    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
-
-    const a =
-      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
     return R * c; // Distance in meters
   };
-
-  const formatDistance = (meters) => {
+  const formatDistance = meters => {
     if (meters < 1000) {
       return `${Math.round(meters)}m`;
     }
     return `${(meters / 1000).toFixed(2)}km`;
   };
-
   const renderRoute = () => {
     if (history.length < 2) {
-      return (
-        <View style={styles.emptyState}>
+      return <View style={styles.emptyState}>
           <MaterialIcons name="route" size={48} color="#ccc" />
           <Text style={styles.emptyText}>No movement data yet</Text>
           <Text style={styles.emptySubText}>
             Background tracking will record your path
           </Text>
-        </View>
-      );
+        </View>;
     }
-
     const routes = [];
     let totalDistance = 0;
-
     for (let i = 0; i < history.length - 1; i++) {
       const from = history[i];
       const to = history[i + 1];
-      const distance = calculateDistance(
-        from.latitude,
-        from.longitude,
-        to.latitude,
-        to.longitude
-      );
-
+      const distance = calculateDistance(from.latitude, from.longitude, to.latitude, to.longitude);
       totalDistance += distance;
-
       routes.push({
         from,
         to,
         distance,
-        index: i,
+        index: i
       });
     }
-
-    return (
-      <View>
+    return <View>
         <View style={styles.summary}>
           <View style={styles.summaryItem}>
             <MaterialIcons name="place" size={24} color="#6366f1" />
@@ -109,32 +85,17 @@ const MovementHistory = () => {
           </View>
         </View>
 
-        {stats?.unsynced > 0 && (
-          <TouchableOpacity
-            style={styles.syncButton}
-            onPress={handleSync}
-            disabled={syncing}
-          >
-            {syncing ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
+        {stats?.unsynced > 0 && <TouchableOpacity style={styles.syncButton} onPress={handleSync} disabled={syncing}>
+            {syncing ? <ActivityIndicator color="#fff" /> : <>
                 <MaterialIcons name="sync" size={20} color="#fff" />
                 <Text style={styles.syncText}>
                   Sync {stats.unsynced} Locations
                 </Text>
-              </>
-            )}
-          </TouchableOpacity>
-        )}
+              </>}
+          </TouchableOpacity>}
 
-        <ScrollView 
-          style={styles.routeList}
-          contentContainerStyle={styles.routeListContent}
-          showsVerticalScrollIndicator={true}
-        >
-          {routes.map((route, idx) => (
-            <View key={idx} style={styles.routeCard}>
+        <ScrollView style={styles.routeList} contentContainerStyle={styles.routeListContent} showsVerticalScrollIndicator={true}>
+          {routes.map((route, idx) => <View key={idx} style={styles.routeCard}>
               <View style={styles.routeHeader}>
                 <MaterialIcons name="navigation" size={20} color="#6366f1" />
                 <Text style={styles.routeNumber}>Movement #{idx + 1}</Text>
@@ -155,11 +116,9 @@ const MovementHistory = () => {
                   <Text style={styles.timestamp}>
                     {new Date(route.from.timestamp).toLocaleString()}
                   </Text>
-                  {route.from.speed > 0 && (
-                    <Text style={styles.speed}>
+                  {route.from.speed > 0 && <Text style={styles.speed}>
                       Speed: {(route.from.speed * 3.6).toFixed(1)} km/h
-                    </Text>
-                  )}
+                    </Text>}
                 </View>
               </View>
 
@@ -179,49 +138,35 @@ const MovementHistory = () => {
                   <Text style={styles.timestamp}>
                     {new Date(route.to.timestamp).toLocaleString()}
                   </Text>
-                  {route.to.accuracy && (
-                    <Text style={styles.accuracy}>
+                  {route.to.accuracy && <Text style={styles.accuracy}>
                       Accuracy: ±{route.to.accuracy.toFixed(1)}m
-                    </Text>
-                  )}
+                    </Text>}
                 </View>
               </View>
 
               <View style={styles.syncStatus}>
-                <MaterialIcons
-                  name={route.from.synced ? 'check-circle' : 'cloud-upload'}
-                  size={16}
-                  color={route.from.synced ? '#10b981' : '#f59e0b'}
-                />
-                <Text style={[
-                  styles.syncLabel,
-                  { color: route.from.synced ? '#10b981' : '#f59e0b' }
-                ]}>
+                <MaterialIcons name={route.from.synced ? 'check-circle' : 'cloud-upload'} size={16} color={route.from.synced ? '#10b981' : '#f59e0b'} />
+                <Text style={[styles.syncLabel, {
+              color: route.from.synced ? '#10b981' : '#f59e0b'
+            }]}>
                   {route.from.synced ? 'Synced to server' : 'Pending sync'}
                 </Text>
               </View>
-            </View>
-          ))}
+            </View>)}
         </ScrollView>
-      </View>
-    );
+      </View>;
   };
-
   if (loading) {
-    return (
-      <View style={styles.container}>
+    return <View style={styles.container}>
         <ActivityIndicator size="large" color="#6366f1" />
-      </View>
-    );
+      </View>;
   }
-
   return <View style={styles.container}>{renderRoute()}</View>;
 };
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#f8fafc'
   },
   summary: {
     flexDirection: 'row',
@@ -232,25 +177,30 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e2e8f0',
     elevation: 2,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: {
+      width: 0,
+      height: 1
+    },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowRadius: 2
   },
   summaryItem: {
     alignItems: 'center',
-    gap: 4,
+    gap: 4
   },
   summaryLabel: {
     fontSize: 12,
     color: '#64748b',
     marginTop: 4,
     fontWeight: '500',
+    fontFamily: "Inter_500Medium"
   },
   summaryValue: {
     fontSize: 20,
     fontWeight: 'bold',
+    fontFamily: "Inter_700Bold",
     color: '#1e293b',
-    marginTop: 2,
+    marginTop: 2
   },
   syncButton: {
     flexDirection: 'row',
@@ -264,21 +214,25 @@ const styles = StyleSheet.create({
     gap: 8,
     elevation: 3,
     shadowColor: '#6366f1',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {
+      width: 0,
+      height: 2
+    },
     shadowOpacity: 0.3,
-    shadowRadius: 4,
+    shadowRadius: 4
   },
   syncText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '700',
+    fontFamily: "Inter_700Bold"
   },
   routeList: {
-    flex: 1,
+    flex: 1
   },
   routeListContent: {
     padding: 16,
-    paddingBottom: 100,
+    paddingBottom: 100
   },
   routeCard: {
     backgroundColor: '#fff',
@@ -286,12 +240,15 @@ const styles = StyleSheet.create({
     padding: 18,
     marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: {
+      width: 0,
+      height: 4
+    },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 4,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: '#e2e8f0'
   },
   routeHeader: {
     flexDirection: 'row',
@@ -300,71 +257,77 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
-    gap: 10,
+    gap: 10
   },
   routeNumber: {
     fontSize: 16,
     fontWeight: '700',
+    fontFamily: "Inter_700Bold",
     color: '#1e293b',
-    flex: 1,
+    flex: 1
   },
   routeDistance: {
     fontSize: 14,
     fontWeight: '700',
+    fontFamily: "Inter_700Bold",
     color: '#6366f1',
     backgroundColor: '#eef2ff',
     paddingHorizontal: 14,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: 16
   },
   locationRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
-    marginBottom: 4,
+    marginBottom: 4
   },
   locationIcon: {
-    marginTop: 2,
+    marginTop: 2
   },
   locationInfo: {
-    flex: 1,
+    flex: 1
   },
   locationLabel: {
     fontSize: 13,
     fontWeight: '700',
+    fontFamily: "Inter_700Bold",
     color: '#64748b',
     marginBottom: 6,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.5
   },
   coordinates: {
     fontSize: 14,
     fontWeight: '600',
     color: '#1e293b',
     fontFamily: 'monospace',
-    marginBottom: 4,
+    marginBottom: 4
   },
   timestamp: {
     fontSize: 12,
     color: '#64748b',
     marginTop: 2,
     fontWeight: '500',
+    fontFamily: "Inter_500Medium"
   },
   speed: {
     fontSize: 12,
     color: '#10b981',
     marginTop: 4,
     fontWeight: '600',
+    fontFamily: "Inter_600SemiBold"
   },
   accuracy: {
     fontSize: 12,
     color: '#f59e0b',
     marginTop: 4,
     fontWeight: '600',
+    fontFamily: "Inter_600SemiBold"
   },
   arrow: {
     alignItems: 'center',
-    marginVertical: 12,
+    marginVertical: 12
   },
   syncStatus: {
     flexDirection: 'row',
@@ -373,30 +336,32 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
+    borderTopColor: '#e2e8f0'
   },
   syncLabel: {
     fontSize: 13,
     fontWeight: '600',
+    fontFamily: "Inter_600SemiBold"
   },
   emptyState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
+    padding: 32
   },
   emptyText: {
     fontSize: 18,
     fontWeight: '600',
+    fontFamily: "Inter_600SemiBold",
     color: '#64748b',
-    marginTop: 16,
+    marginTop: 16
   },
   emptySubText: {
     fontSize: 14,
     color: '#94a3b8',
     marginTop: 8,
     textAlign: 'center',
-  },
+    fontFamily: "Inter_400Regular"
+  }
 });
-
 export default MovementHistory;

@@ -48,7 +48,8 @@ export const Avatar = ({
             {
               color: '#ffffff',
               fontSize: size * 0.4,
-              fontWeight: theme. fontWeight.semibold,
+              fontWeight: theme.fontWeight.semibold,
+              fontFamily: theme.fontFamily.semibold,
             },
           ]}
         >

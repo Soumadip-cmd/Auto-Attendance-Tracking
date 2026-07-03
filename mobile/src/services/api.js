@@ -161,9 +161,10 @@ export const userAPI = {
   getById: (id) => api.get(`/users/${id}`),
   update: (id, data) => api.put(`/users/${id}`, data),
   delete: (id) => api.delete(`/users/${id}`),
-  uploadProfilePicture: (formData) => api.post('/users/profile-picture', formData, {
+  uploadProfilePicture: (id, formData) => api.post(`/users/${id}/upload-profile-picture`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),
+  deleteProfilePicture: (id) => api.delete(`/users/${id}/profile-picture`),
 };
 
 export const dashboardAPI = {

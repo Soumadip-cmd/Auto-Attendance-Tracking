@@ -1,16 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Alert,
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { captureRef } from 'react-native-view-shot';
@@ -18,18 +11,13 @@ import { format } from 'date-fns';
 import { useAuth } from '../../src/hooks/useAuth';
 import { useTheme } from '../../src/hooks/useTheme';
 import { attendanceAPI } from '../../src/services/api';
+import { getUserAvatarUri } from '../../src/constants/config';
 import { Avatar } from '../../src/components/common/Avatar';
 
 const getUserId = (user) => user?._id || user?.id || '';
-
 const safeText = (value) => String(value || 'N/A');
-
 const escapeHtml = (value) =>
-  safeText(value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+  safeText(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 export default function IdCardScreen() {
   const router = useRouter();
@@ -59,6 +47,8 @@ export default function IdCardScreen() {
   }, []);
 
   const fullName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Employee';
+  const avatarUri = getUserAvatarUri(user);
+
   const qrPayload = useMemo(() => {
     return JSON.stringify({
       type: 'employee-id',
@@ -75,7 +65,7 @@ export default function IdCardScreen() {
     });
   }, [fullName, stats, user]);
 
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrPayload)}`;
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(qrPayload)}`;
 
   const shareFile = async (uri) => {
     if (await Sharing.isAvailableAsync()) {
@@ -88,10 +78,7 @@ export default function IdCardScreen() {
   const savePng = async () => {
     try {
       setSaving('png');
-      const uri = await captureRef(cardRef, {
-        format: 'png',
-        quality: 1,
-      });
+      const uri = await captureRef(cardRef, { format: 'png', quality: 1 });
       await shareFile(uri);
     } catch (error) {
       Alert.alert('Save failed', error?.message || 'Could not save ID card image.');
@@ -103,7 +90,7 @@ export default function IdCardScreen() {
   const savePdf = async () => {
     try {
       setSaving('pdf');
-      const html = buildCardHtml({ user, fullName, stats, history, qrUrl });
+      const html = buildCardHtml({ user, fullName, stats, history, qrUrl, theme });
       const result = await Print.printToFileAsync({ html });
       await shareFile(result.uri);
     } catch (error) {
@@ -127,48 +114,65 @@ export default function IdCardScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}
         showsVerticalScrollIndicator={false}
       >
-        <View
-          ref={cardRef}
-          collapsable={false}
-          style={[styles.idCard, { backgroundColor: theme.colors.card }]}
-        >
-          <View style={styles.cardTopBand}>
-            <View>
-              <Text style={styles.orgName}>GEO Attendance</Text>
-              <Text style={styles.orgSubtext}>Digital employee identity</Text>
+        <View ref={cardRef} collapsable={false} style={[styles.idCard, { backgroundColor: theme.colors.card }]}>
+          <LinearGradient
+            colors={[theme.colors.primary, theme.colors.secondary]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.cardTopBand}
+          >
+            <View style={styles.punchHole} />
+            <View style={styles.bandRow}>
+              <View style={styles.orgMark}>
+                <Ionicons name="shield-checkmark" size={18} color="#fff" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.orgName}>GEO Attendance</Text>
+                <Text style={styles.orgSubtext}>Digital Employee Identity</Text>
+              </View>
             </View>
-            <Ionicons name="shield-checkmark" size={30} color="#fff" />
+          </LinearGradient>
+
+          <View style={styles.photoWrap}>
+            <View style={[styles.photoRing, { borderColor: theme.colors.card, backgroundColor: theme.colors.card }]}>
+              <Avatar name={fullName} size={92} source={avatarUri ? { uri: avatarUri } : null} />
+            </View>
           </View>
 
-          <View style={styles.cardBody}>
-            <Avatar
-              name={fullName}
-              size={84}
-              source={user?.profileImage || user?.profilePicture ? { uri: user.profileImage || user.profilePicture } : null}
-            />
-            <View style={styles.identityText}>
-              <Text style={styles.nameText}>{fullName}</Text>
-              <Text style={styles.roleText}>{safeText(user?.role).toUpperCase()}</Text>
-              <Text style={styles.employeeText}>{user?.employeeId || 'Employee ID pending'}</Text>
+          <View style={styles.identityBlock}>
+            <Text style={[styles.nameText, { color: theme.colors.text }]}>{fullName}</Text>
+            <View style={[styles.roleBadge, { backgroundColor: theme.colors.primary + '18' }]}>
+              <Text style={[styles.roleBadgeText, { color: theme.colors.primary }]}>
+                {safeText(user?.role).toUpperCase()}
+              </Text>
             </View>
+            <Text style={[styles.employeeText, { color: theme.colors.textSecondary }]}>
+              ID · {user?.employeeId || 'Pending assignment'}
+            </Text>
+          </View>
+
+          <View style={styles.perforation}>
+            <View style={[styles.notch, styles.notchLeft, { backgroundColor: theme.colors.background }]} />
+            <View style={[styles.dashLine, { borderColor: theme.colors.border }]} />
+            <View style={[styles.notch, styles.notchRight, { backgroundColor: theme.colors.background }]} />
           </View>
 
           <View style={styles.detailGrid}>
-            <Info label="Email" value={user?.email} />
-            <Info label="Phone" value={user?.phoneNumber} />
-            <Info label="Department" value={user?.departmentRef?.name || user?.department} />
-            <Info label="Attendance" value={stats ? `${stats.attendanceRate || 0}% this month` : 'Loading'} />
+            <Info theme={theme} icon="mail-outline" label="Email" value={user?.email} />
+            <Info theme={theme} icon="call-outline" label="Phone" value={user?.phoneNumber} />
+            <Info theme={theme} icon="business-outline" label="Department" value={user?.departmentRef?.name || user?.department} />
+            <Info theme={theme} icon="stats-chart-outline" label="Attendance" value={stats ? `${stats.attendanceRate || 0}% this month` : 'Loading'} />
           </View>
 
-          <View style={styles.qrRow}>
+          <View style={[styles.qrCard, { borderColor: theme.colors.border, backgroundColor: theme.colors.background }]}>
             <Image source={{ uri: qrUrl }} style={styles.qrImage} />
             <View style={styles.qrTextWrap}>
-              <Text style={styles.qrTitle}>Scan for details</Text>
-              <Text style={styles.qrText}>
-                Includes identity, phone, department, and current attendance summary.
+              <Text style={[styles.qrTitle, { color: theme.colors.text }]}>Scan to verify</Text>
+              <Text style={[styles.qrText, { color: theme.colors.textSecondary }]}>
+                Identity, contact, department, and current attendance summary.
               </Text>
-              <Text style={styles.generatedText}>
-                Generated {format(new Date(), 'dd MMM yyyy, hh:mm a')}
+              <Text style={[styles.generatedText, { color: theme.colors.textSecondary }]}>
+                Issued {format(new Date(), 'dd MMM yyyy, hh:mm a')}
               </Text>
             </View>
           </View>
@@ -178,18 +182,18 @@ export default function IdCardScreen() {
           <TouchableOpacity
             disabled={!!saving}
             onPress={savePdf}
-            style={[styles.actionButton, { backgroundColor: theme.colors.primary }]}
+            style={[styles.actionButton, { backgroundColor: theme.colors.primary, opacity: saving ? 0.6 : 1 }]}
           >
-            <Ionicons name="document-text-outline" size={20} color="#fff" />
-            <Text style={styles.actionText}>{saving === 'pdf' ? 'Saving...' : 'Save PDF'}</Text>
+            <Ionicons name="document-text-outline" size={19} color="#fff" />
+            <Text style={styles.actionText}>{saving === 'pdf' ? 'Saving…' : 'Save PDF'}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             disabled={!!saving}
             onPress={savePng}
-            style={[styles.actionButton, { backgroundColor: '#111827' }]}
+            style={[styles.actionButton, { backgroundColor: theme.colors.text, opacity: saving ? 0.6 : 1 }]}
           >
-            <Ionicons name="image-outline" size={20} color="#fff" />
-            <Text style={styles.actionText}>{saving === 'png' ? 'Saving...' : 'Save PNG'}</Text>
+            <Ionicons name="image-outline" size={19} color="#fff" />
+            <Text style={styles.actionText}>{saving === 'png' ? 'Saving…' : 'Save Image'}</Text>
           </TouchableOpacity>
         </View>
 
@@ -202,9 +206,7 @@ export default function IdCardScreen() {
               <Text style={[styles.historyDate, { color: theme.colors.text }]}>
                 {item.date ? format(new Date(item.date), 'dd MMM yyyy') : 'N/A'}
               </Text>
-              <Text style={[styles.historyStatus, { color: theme.colors.primary }]}>
-                {item.status || 'N/A'}
-              </Text>
+              <Text style={[styles.historyStatus, { color: theme.colors.primary }]}>{item.status || 'N/A'}</Text>
             </View>
           ))
         )}
@@ -213,40 +215,49 @@ export default function IdCardScreen() {
   );
 }
 
-function Info({ label, value }) {
+function Info({ theme, icon, label, value }) {
   return (
-    <View style={styles.infoBox}>
-      <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue} numberOfLines={2}>{safeText(value)}</Text>
+    <View style={[styles.infoBox, { backgroundColor: theme.colors.background }]}>
+      <Ionicons name={icon} size={14} color={theme.colors.primary} style={{ marginBottom: 4 }} />
+      <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>{label}</Text>
+      <Text style={[styles.infoValue, { color: theme.colors.text }]} numberOfLines={2}>
+        {safeText(value)}
+      </Text>
     </View>
   );
 }
 
-function buildCardHtml({ user, fullName, stats, history, qrUrl }) {
-  const rows = history.map((item) => `
+function buildCardHtml({ user, fullName, stats, history, qrUrl, theme }) {
+  const primary = theme?.colors?.primary || '#6366f1';
+  const secondary = theme?.colors?.secondary || '#8b5cf6';
+  const rows = history
+    .map(
+      (item) => `
     <tr>
       <td>${escapeHtml(item.date ? format(new Date(item.date), 'dd MMM yyyy') : 'N/A')}</td>
       <td>${escapeHtml(item.status || 'N/A')}</td>
     </tr>
-  `).join('');
+  `
+    )
+    .join('');
 
   return `
     <html>
       <head>
         <style>
           body { font-family: Arial, sans-serif; padding: 24px; color: #111827; }
-          .card { border: 1px solid #d1d5db; border-radius: 18px; overflow: hidden; max-width: 520px; }
-          .top { background: #4f46e5; color: white; padding: 20px; }
-          .body { padding: 20px; }
-          h1 { margin: 0; font-size: 24px; }
+          .card { border: 1px solid #d1d5db; border-radius: 18px; overflow: hidden; max-width: 420px; }
+          .top { background: linear-gradient(135deg, ${primary}, ${secondary}); color: white; padding: 20px; }
+          .body { padding: 20px; text-align: center; }
+          h1 { margin: 0; font-size: 22px; }
           .muted { color: #6b7280; }
-          .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; }
+          .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; text-align: left; }
           .box { background: #f3f4f6; border-radius: 12px; padding: 10px; }
           .label { font-size: 11px; color: #6b7280; text-transform: uppercase; }
           .value { font-size: 14px; font-weight: bold; margin-top: 4px; }
-          .qr { display: flex; gap: 16px; align-items: center; margin-top: 18px; }
+          .qr { display: flex; gap: 16px; align-items: center; margin-top: 18px; text-align: left; }
           img { width: 120px; height: 120px; }
-          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; text-align: left; }
           td, th { border-bottom: 1px solid #e5e7eb; padding: 8px; text-align: left; }
         </style>
       </head>
@@ -300,47 +311,127 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerTitle: { fontSize: 18, fontWeight: '800' },
-  content: { padding: 16 },
+  headerTitle: { fontSize: 18, fontWeight: '800', fontFamily: 'Inter_800ExtraBold' },
+  content: { padding: 16, alignItems: 'center' },
   idCard: {
-    borderRadius: 22,
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 26,
     overflow: 'hidden',
-    elevation: 4,
+    elevation: 6,
     shadowColor: '#000',
-    shadowOpacity: 0.16,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 10 },
   },
   cardTopBand: {
-    backgroundColor: '#4f46e5',
-    padding: 18,
+    paddingTop: 14,
+    paddingBottom: 46,
+    paddingHorizontal: 20,
+  },
+  punchHole: {
+    alignSelf: 'center',
+    width: 56,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+    marginBottom: 14,
+  },
+  bandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 10,
   },
-  orgName: { color: '#fff', fontSize: 20, fontWeight: '900' },
-  orgSubtext: { color: '#dbeafe', fontSize: 12, marginTop: 3 },
-  cardBody: {
-    padding: 18,
+  orgMark: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  orgName: { color: '#fff', fontSize: 17, fontWeight: '900', fontFamily: 'Inter_900Black' },
+  orgSubtext: { color: 'rgba(255,255,255,0.85)', fontSize: 11, marginTop: 2, fontFamily: 'Inter_400Regular' },
+  photoWrap: {
+    alignItems: 'center',
+    marginTop: -46,
+  },
+  photoRing: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  identityBlock: {
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+  },
+  nameText: { fontSize: 21, fontWeight: '900', fontFamily: 'Inter_900Black', textAlign: 'center' },
+  roleBadge: {
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  roleBadgeText: { fontSize: 11, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', letterSpacing: 0.5 },
+  employeeText: { fontSize: 13, marginTop: 8, fontFamily: 'Inter_500Medium', fontWeight: '500' },
+  perforation: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    marginTop: 18,
+    marginHorizontal: -1,
   },
-  identityText: { flex: 1 },
-  nameText: { color: '#111827', fontSize: 22, fontWeight: '900' },
-  roleText: { color: '#4f46e5', fontSize: 12, fontWeight: '900', marginTop: 4 },
-  employeeText: { color: '#111827', fontSize: 16, fontWeight: '800', marginTop: 8 },
-  detailGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 18 },
-  infoBox: { width: '48%', backgroundColor: '#f8fafc', borderRadius: 12, padding: 10 },
-  infoLabel: { color: '#64748b', fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
-  infoValue: { color: '#111827', fontSize: 13, fontWeight: '800', marginTop: 4 },
-  qrRow: { flexDirection: 'row', gap: 14, padding: 18, alignItems: 'center' },
-  qrImage: { width: 110, height: 110, backgroundColor: '#fff' },
+  dashLine: {
+    flex: 1,
+    borderBottomWidth: 1.5,
+    borderStyle: 'dashed',
+  },
+  notch: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+  },
+  notchLeft: { marginLeft: -9 },
+  notchRight: { marginRight: -9 },
+  detailGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    padding: 18,
+  },
+  infoBox: {
+    width: '47%',
+    borderRadius: 14,
+    padding: 12,
+  },
+  infoLabel: { fontSize: 10, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', textTransform: 'uppercase', letterSpacing: 0.4 },
+  infoValue: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', marginTop: 3 },
+  qrCard: {
+    flexDirection: 'row',
+    gap: 14,
+    margin: 18,
+    marginTop: 0,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  qrImage: { width: 84, height: 84, borderRadius: 8, backgroundColor: '#fff' },
   qrTextWrap: { flex: 1 },
-  qrTitle: { color: '#111827', fontSize: 16, fontWeight: '900' },
-  qrText: { color: '#64748b', fontSize: 12, lineHeight: 17, marginTop: 5 },
-  generatedText: { color: '#94a3b8', fontSize: 10, marginTop: 10 },
-  actions: { flexDirection: 'row', gap: 10, marginTop: 16, marginBottom: 24 },
+  qrTitle: { fontSize: 14, fontWeight: '800', fontFamily: 'Inter_800ExtraBold' },
+  qrText: { fontSize: 11, lineHeight: 15, marginTop: 4, fontFamily: 'Inter_400Regular' },
+  generatedText: { fontSize: 10, marginTop: 8, fontFamily: 'Inter_400Regular' },
+  actions: {
+    width: '100%',
+    maxWidth: 360,
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 20,
+    marginBottom: 24,
+  },
   actionButton: {
     flex: 1,
     minHeight: 50,
@@ -350,10 +441,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
   },
-  actionText: { color: '#fff', fontWeight: '900', fontSize: 14 },
-  sectionTitle: { fontSize: 18, fontWeight: '900', marginBottom: 10 },
-  emptyText: { fontSize: 13 },
+  actionText: { color: '#fff', fontWeight: '800', fontFamily: 'Inter_800ExtraBold', fontSize: 14 },
+  sectionTitle: {
+    width: '100%',
+    maxWidth: 360,
+    fontSize: 17,
+    fontWeight: '800',
+    fontFamily: 'Inter_800ExtraBold',
+    marginBottom: 10,
+  },
+  emptyText: { fontSize: 13, fontFamily: 'Inter_400Regular' },
   historyRow: {
+    width: '100%',
+    maxWidth: 360,
     borderRadius: 12,
     padding: 14,
     marginBottom: 8,
@@ -361,6 +461,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  historyDate: { fontSize: 14, fontWeight: '800' },
-  historyStatus: { fontSize: 13, fontWeight: '900', textTransform: 'capitalize' },
+  historyDate: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold' },
+  historyStatus: { fontSize: 13, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', textTransform: 'capitalize' },
 });
