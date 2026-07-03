@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -26,6 +26,10 @@ export function TabBar({ state, descriptors, navigation }) {
     return options.href !== null;
   });
 
+  // Many tabs won't fit with labels — drop labels once the bar gets crowded
+  // so every tab stays reachable on screen instead of overflowing off-screen.
+  const compact = visibleRoutes.length > 6;
+
   return (
     <View
       style={[
@@ -38,11 +42,7 @@ export function TabBar({ state, descriptors, navigation }) {
         },
       ]}
     >
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.bar}
-      >
+      <View style={styles.bar}>
         {visibleRoutes.map((route) => {
           const { options } = descriptors[route.key];
           const routeIndex = state.routes.findIndex((r) => r.key === route.key);
@@ -67,6 +67,7 @@ export function TabBar({ state, descriptors, navigation }) {
             <TouchableOpacity
               key={route.key}
               accessibilityRole="button"
+              accessibilityLabel={label}
               accessibilityState={isFocused ? { selected: true } : {}}
               onPress={onPress}
               activeOpacity={0.7}
@@ -75,34 +76,38 @@ export function TabBar({ state, descriptors, navigation }) {
               <View
                 style={[
                   styles.iconPill,
-                  isFocused && {
-                    backgroundColor: theme.colors.primary + '1f',
-                  },
+                  isFocused && { backgroundColor: theme.colors.primary + '1f' },
                 ]}
               >
                 <Ionicons
                   name={isFocused ? iconName : `${iconName}-outline`}
-                  size={20}
+                  size={compact ? 18 : 20}
                   color={isFocused ? theme.colors.primary : theme.colors.textSecondary}
                 />
               </View>
-              <Text
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                style={[
-                  styles.label,
-                  {
-                    color: isFocused ? theme.colors.primary : theme.colors.textSecondary,
-                    fontWeight: isFocused ? '700' : '500',
-                  },
-                ]}
-              >
-                {label}
-              </Text>
+              {!compact && (
+                <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
+                  style={[
+                    styles.label,
+                    {
+                      color: isFocused ? theme.colors.primary : theme.colors.textSecondary,
+                      fontWeight: isFocused ? '700' : '500',
+                    },
+                  ]}
+                >
+                  {label}
+                </Text>
+              )}
+              {compact && isFocused && (
+                <View style={[styles.dot, { backgroundColor: theme.colors.primary }]} />
+              )}
             </TouchableOpacity>
           );
         })}
-      </ScrollView>
+      </View>
     </View>
   );
 }
@@ -112,30 +117,36 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
-    paddingTop: 10,
-    paddingHorizontal: 6,
+    paddingTop: 8,
+    paddingHorizontal: 4,
   },
   bar: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    paddingHorizontal: 4,
   },
   tab: {
-    width: 72,
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 4,
-    gap: 3,
+    gap: 2,
   },
   iconPill: {
-    width: 38,
-    height: 26,
-    borderRadius: 13,
+    minWidth: 30,
+    height: 24,
+    paddingHorizontal: 6,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   label: {
-    fontSize: 10.5,
+    fontSize: 10,
     letterSpacing: 0.1,
+  },
+  dot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    marginTop: 2,
   },
 });
