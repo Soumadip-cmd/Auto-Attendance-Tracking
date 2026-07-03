@@ -11,9 +11,11 @@ import {
   Platform,
   PermissionsAndroid,
   ScrollView,
+  NativeModules,
 } from 'react-native';
 import MapView, { Marker, Circle, Polyline, UrlTile, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
+import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocation } from '../hooks/useLocation';
 import { useTheme } from '../hooks/useTheme';
@@ -29,6 +31,7 @@ const MAX_TRAIL_POINTS = 120;
 const MIN_MOVE_METERS = 1;
 const MAP_TILE_TIMEOUT_MS = 20000;
 const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const { MapsDiagnostics } = NativeModules;
 
 const STATUS_META = {
   info:    { icon: 'information-circle', color: '#4f46e5', bg: '#eef2ff' },
@@ -53,6 +56,67 @@ const normalizeGeofenceList = (response) => {
           Number.isFinite(Number(g.center.coordinates[1]))
       )
     : [];
+};
+
+const maskApiKey = (key) => {
+  if (!key || typeof key !== 'string') return '<missing>';
+  if (key.length <= 12) return '<too-short>';
+  return `${key.slice(0, 8)}...${key.slice(-4)}`;
+};
+
+const keyFingerprint = (key) => {
+  if (!key || typeof key !== 'string') return '<missing>';
+  let hash = 5381;
+  for (let i = 0; i < key.length; i += 1) {
+    hash = ((hash << 5) + hash) ^ key.charCodeAt(i);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+};
+
+const formatKeyInfo = (key) => ({
+  masked: maskApiKey(key),
+  length: typeof key === 'string' ? key.length : 0,
+  fingerprint: keyFingerprint(key),
+});
+
+const getExpoGoogleMapsKey = () =>
+  Constants.expoConfig?.extra?.GOOGLE_MAPS_API_KEY ||
+  Constants.expoConfig?.android?.config?.googleMaps?.apiKey ||
+  Constants.manifest2?.extra?.expoClient?.extra?.GOOGLE_MAPS_API_KEY ||
+  Constants.manifest2?.extra?.expoClient?.android?.config?.googleMaps?.apiKey ||
+  null;
+
+const logGoogleMapsDiagnostics = async () => {
+  const expoKey = getExpoGoogleMapsKey();
+  let nativeConfig = null;
+
+  try {
+    nativeConfig = MapsDiagnostics?.getNativeConfig
+      ? await MapsDiagnostics.getNativeConfig()
+      : { nativeModuleAvailable: false };
+  } catch (error) {
+    nativeConfig = {
+      nativeModuleAvailable: false,
+      error: error?.message || String(error),
+    };
+  }
+
+  console.log('[Maps diagnostics]', {
+    platform: Platform.OS,
+    appOwnership: Constants.appOwnership,
+    executionEnvironment: Constants.executionEnvironment,
+    expoPackage: Constants.expoConfig?.android?.package || null,
+    expoMapsKey: formatKeyInfo(expoKey),
+    nativeModuleAvailable: nativeConfig?.nativeModuleAvailable !== false,
+    nativePackage: nativeConfig?.packageName || null,
+    nativeMapsKey: formatKeyInfo(nativeConfig?.googleMapsApiKey),
+    nativeSigningSha1: nativeConfig?.signingSha1 || null,
+    nativeSigningSha256: nativeConfig?.signingSha256 || null,
+    nativeAppVersion: Constants.nativeAppVersion,
+    nativeBuildVersion: Constants.nativeBuildVersion,
+    note: 'Google Cloud must allow nativePackage + nativeSigningSha1 for nativeMapsKey.',
+    nativeError: nativeConfig?.error || null,
+  });
 };
 
 const getDistance = (lat1, lon1, lat2, lon2) => {
@@ -114,6 +178,7 @@ export default function MapScreen() {
   const statusTimerRef = useRef(null);
   const mapTileTimerRef = useRef(null);
   const hasShownMovementRef = useRef(false);
+  const diagnosticsLoggedRef = useRef(false);
   const mountedAtRef = useRef(Date.now());
   const mapLoadedAtRef = useRef(null);
   const toastAnim = useRef(new Animated.Value(0)).current;
@@ -207,6 +272,11 @@ export default function MapScreen() {
   }, [showStatusPopup]);
 
   useEffect(() => {
+    if (!diagnosticsLoggedRef.current) {
+      diagnosticsLoggedRef.current = true;
+      logGoogleMapsDiagnostics();
+    }
+
     mountedAtRef.current = Date.now();
 
     // Start the OSM fallback timer from mount. onMapLoaded (which fires when

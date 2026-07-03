@@ -11,6 +11,17 @@ const api = axios.create({
   },
 });
 
+const PUBLIC_AUTH_ENDPOINTS = [
+  '/auth/login',
+  '/auth/register',
+  '/auth/forgot-password',
+  '/auth/reset-password',
+  '/auth/refresh',
+];
+
+const isPublicAuthRequest = (url = '') =>
+  PUBLIC_AUTH_ENDPOINTS.some((endpoint) => String(url).includes(endpoint));
+
 // Request interceptor - Add auth token
 api.interceptors.request.use(
   async (config) => {
@@ -18,7 +29,7 @@ api.interceptors.request.use(
     
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-    } else if (__DEV__) {
+    } else if (__DEV__ && !isPublicAuthRequest(config.url)) {
       console.warn('⚠️ No token available for request:', config.url);
     }
     
