@@ -3,6 +3,7 @@ const router = express.Router();
 const { protect, authorize } = require('../middleware/auth');
 const Attendance = require('../models/Attendance');
 const liveTrackingService = require('../services/liveTrackingService');
+const exportService = require('../services/exportService');
 
 // Helper function to calculate distance between two coordinates (Haversine formula)
 function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -203,6 +204,39 @@ router.get('/stats', protect, async (req, res, next) => {
         workingDays,
       },
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @route   GET /api/v1/attendance/export/my
+ * @desc    Export current user's attendance as PDF, Excel, or CSV
+ * @access  Private
+ */
+router.get('/export/my', protect, async (req, res, next) => {
+  try {
+    const { format = 'pdf', startDate, endDate } = req.query;
+    const normalizedFormat = String(format).toLowerCase();
+    const filters = {
+      userId: req.user._id,
+      startDate,
+      endDate,
+    };
+
+    let report;
+    if (normalizedFormat === 'xlsx' || normalizedFormat === 'excel') {
+      report = await exportService.exportAttendanceToExcel(filters);
+    } else if (normalizedFormat === 'csv') {
+      report = await exportService.exportAttendanceToCSV(filters);
+    } else {
+      report = await exportService.exportAttendanceToPDF(filters);
+    }
+
+    res.setHeader('Content-Type', report.mimeType);
+    res.setHeader('Content-Disposition', `attachment; filename="${report.filename}"`);
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(report.data);
   } catch (error) {
     next(error);
   }

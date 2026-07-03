@@ -16,6 +16,8 @@ export default function TabLayout() {
       <Tabs.Screen name="attendance" options={{ title: 'Attendance' }} />
       <Tabs.Screen name="history" options={{ title: 'History' }} />
       <Tabs.Screen name="map" options={{ title: 'Map' }} />
+      <Tabs.Screen name="movement" options={{ title: 'Movement' }} />
+      <Tabs.Screen name="permits" options={{ title: 'Permits' }} />
 
       {/* Admin tab - hidden for non-admin users */}
       <Tabs.Screen

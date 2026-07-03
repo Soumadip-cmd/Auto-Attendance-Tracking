@@ -2,6 +2,29 @@ const User = require('../models/User');
 const fs = require('fs');
 const path = require('path');
 
+const EMPLOYEE_PREFIX = {
+  super_admin: 'SA',
+  admin: 'ADM',
+  hod: 'HOD',
+  teacher: 'TCH',
+  staff: 'STF',
+  manager: 'MGR',
+  student: 'STU',
+};
+
+async function generateEmployeeId(role = 'teacher') {
+  const prefix = EMPLOYEE_PREFIX[role] || 'EMP';
+  const count = await User.countDocuments({ role });
+
+  for (let offset = 1; offset <= 1000; offset += 1) {
+    const candidate = `${prefix}${String(count + offset).padStart(4, '0')}`;
+    const exists = await User.exists({ employeeId: candidate });
+    if (!exists) return candidate;
+  }
+
+  return `${prefix}${Date.now().toString().slice(-8)}`;
+}
+
 // @desc    Get all users
 // @route   GET /api/v1/users
 // @access  Private/Admin
@@ -86,8 +109,12 @@ exports.createUser = async (req, res, next) => {
       isActive,
     } = req.body;
 
+    const finalEmployeeId = employeeId || await generateEmployeeId(role || 'teacher');
+
     // Check if user already exists
-    const existingUser = await User.findOne({ $or: [{ email }, { employeeId }] });
+    const existingUser = await User.findOne({
+      $or: [{ email }, { employeeId: finalEmployeeId }]
+    });
 
     if (existingUser) {
       return res.status(400).json({
@@ -104,7 +131,7 @@ exports.createUser = async (req, res, next) => {
       lastName,
       email,
       password,
-      employeeId,
+      employeeId: finalEmployeeId,
       role,
       department,
       phoneNumber,

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -10,6 +10,8 @@ const ICONS = {
   attendance: 'calendar',
   history: 'time',
   map: 'map',
+  movement: 'navigate',
+  permits: 'shield-checkmark',
   admin: 'shield',
   reports: 'stats-chart',
   profile: 'person',
@@ -36,7 +38,11 @@ export function TabBar({ state, descriptors, navigation }) {
         },
       ]}
     >
-      <View style={styles.bar}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.bar}
+      >
         {visibleRoutes.map((route) => {
           const { options } = descriptors[route.key];
           const routeIndex = state.routes.findIndex((r) => r.key === route.key);
@@ -96,7 +102,7 @@ export function TabBar({ state, descriptors, navigation }) {
             </TouchableOpacity>
           );
         })}
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -112,9 +118,10 @@ const styles = StyleSheet.create({
   bar: {
     flexDirection: 'row',
     alignItems: 'stretch',
+    paddingHorizontal: 4,
   },
   tab: {
-    flex: 1,
+    width: 72,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 4,

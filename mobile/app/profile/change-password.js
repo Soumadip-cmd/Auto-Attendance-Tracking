@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Card } from '../../src/components/common/Card';
 import { Input } from '../../src/components/common/Input';
@@ -20,6 +21,7 @@ import { authAPI } from '../../src/services/api';
 export default function ChangePasswordScreen() {
   const router = useRouter();
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
 
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -38,8 +40,8 @@ export default function ChangePasswordScreen() {
 
     if (!formData.newPassword) {
       newErrors.newPassword = 'New password is required';
-    } else if (formData.newPassword.length < 6) {
-      newErrors.newPassword = 'Password must be at least 6 characters';
+    } else if (formData.newPassword.length < 8) {
+      newErrors.newPassword = 'Password must be at least 8 characters';
     }
 
     if (!formData.confirmPassword) {
@@ -88,7 +90,7 @@ export default function ChangePasswordScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.colors.primary }]}>
+      <View style={[styles.header, { backgroundColor: theme.colors.primary, paddingTop: insets.top + 8 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
@@ -98,7 +100,7 @@ export default function ChangePasswordScreen() {
 
       <ScrollView
         style={styles.content}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 28 }]}
         keyboardShouldPersistTaps="handled"
       >
         <Card style={styles.card}>
@@ -159,12 +161,12 @@ export default function ChangePasswordScreen() {
             </Text>
             <View style={styles.requirement}>
               <Ionicons
-                name={formData.newPassword.length >= 6 ? 'checkmark-circle' : 'close-circle'}
+                name={formData.newPassword.length >= 8 ? 'checkmark-circle' : 'close-circle'}
                 size={16}
-                color={formData.newPassword.length >= 6 ? theme.colors.success : theme.colors.textSecondary}
+                color={formData.newPassword.length >= 8 ? theme.colors.success : theme.colors.textSecondary}
               />
               <Text style={[styles.requirementText, { color: theme.colors.textSecondary }]}>
-                At least 6 characters
+                At least 8 characters
               </Text>
             </View>
             <View style={styles.requirement}>
@@ -199,7 +201,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 50,
     paddingBottom: 16,
     paddingHorizontal: 20,
   },

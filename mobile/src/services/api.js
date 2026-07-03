@@ -121,6 +121,7 @@ export const attendanceAPI = {
   getStats: (params) => api.get('/attendance/stats', { params }),
   autoCheckIn: (data) => api.post('/attendance/auto-checkin', data),
   autoCheckOut: (data) => api.post('/attendance/auto-checkout', data),
+  exportMyReport: (params) => api.get('/attendance/export/my', { params }),
 };
 
 export const locationAPI = {

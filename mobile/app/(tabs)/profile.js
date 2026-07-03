@@ -225,10 +225,9 @@ export default function ProfileScreen() {
 
           <ProfileOption
             icon="card-outline"
-            label="Employee ID"
+            label="Employee ID Card"
             value={user?.employeeId || 'Not Set'}
-            onPress={() => {}}
-            showChevron={false}
+            onPress={() => router.push('/profile/id-card')}
           />
 
           <ProfileOption
@@ -302,7 +301,7 @@ export default function ProfileScreen() {
           <ProfileOption
             icon="time-outline"
             label="Attendance History"
-            onPress={() => router.push('/(tabs)/attendance')}
+            onPress={() => router.push('/(tabs)/history')}
           />
         </View>
 
@@ -322,19 +321,19 @@ export default function ProfileScreen() {
           <ProfileOption
             icon="document-text-outline"
             label="Privacy Policy"
-            onPress={() => {}}
+            onPress={() => router.push('/info/privacy-policy')}
           />
 
           <ProfileOption
             icon="shield-checkmark-outline"
             label="Terms of Service"
-            onPress={() => {}}
+            onPress={() => router.push('/info/terms')}
           />
 
           <ProfileOption
             icon="help-circle-outline"
             label="Help & Support"
-            onPress={() => {}}
+            onPress={() => router.push('/info/help')}
           />
         </View>
 

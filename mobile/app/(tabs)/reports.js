@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   RefreshControl,
   Dimensions,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,6 +18,7 @@ import { useTheme } from '../../src/hooks/useTheme';
 import { Card } from '../../src/components/common/Card';
 import { StatsCard } from '../../src/components/attendance/StatsCard';
 import { Loading } from '../../src/components/common/Loading';
+import { downloadMyAttendanceReport } from '../../src/services/downloadService';
 
 const { width } = Dimensions. get('window');
 
@@ -26,6 +29,7 @@ export default function ReportsScreen() {
 
   const [refreshing, setRefreshing] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState('month');
+  const [exporting, setExporting] = useState(null);
 
   useEffect(() => {
     fetchStats();
@@ -46,6 +50,39 @@ export default function ReportsScreen() {
     { key: 'month', label: 'This Month' },
     { key: 'year', label: 'This Year' },
   ];
+
+  const getExportRange = () => {
+    const now = new Date();
+    let start = new Date(now);
+
+    if (selectedPeriod === 'week') {
+      start.setDate(now.getDate() - 6);
+    } else if (selectedPeriod === 'year') {
+      start = new Date(now.getFullYear(), 0, 1);
+    } else {
+      start = new Date(now.getFullYear(), now.getMonth(), 1);
+    }
+
+    return {
+      startDate: format(start, 'yyyy-MM-dd'),
+      endDate: format(now, 'yyyy-MM-dd'),
+    };
+  };
+
+  const handleDownload = async (formatType) => {
+    try {
+      setExporting(formatType);
+      const uri = await downloadMyAttendanceReport({
+        format: formatType,
+        ...getExportRange(),
+      });
+      Alert.alert('Report ready', `Saved report to:\n${uri}`);
+    } catch (error) {
+      Alert.alert('Download failed', error?.message || 'Could not download report.');
+    } finally {
+      setExporting(null);
+    }
+  };
 
   const PeriodSelector = () => (
     <View style={styles.periodSelector}>
@@ -262,18 +299,30 @@ export default function ReportsScreen() {
           </Text>
 
           <TouchableOpacity
+            onPress={() => handleDownload('pdf')}
+            disabled={!!exporting}
             style={[styles.exportButton, { backgroundColor: theme.colors. card }]}
           >
-            <Ionicons name="download-outline" size={24} color={theme.colors.primary} />
+            {exporting === 'pdf' ? (
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+            ) : (
+              <Ionicons name="download-outline" size={24} color={theme.colors.primary} />
+            )}
             <Text style={[styles.exportButtonText, { color: theme.colors.text }]}>
               Download PDF Report
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
+            onPress={() => handleDownload('excel')}
+            disabled={!!exporting}
             style={[styles.exportButton, { backgroundColor: theme.colors.card }]}
           >
-            <Ionicons name="document-text-outline" size={24} color={theme.colors.secondary} />
+            {exporting === 'excel' ? (
+              <ActivityIndicator size="small" color={theme.colors.secondary} />
+            ) : (
+              <Ionicons name="document-text-outline" size={24} color={theme.colors.secondary} />
+            )}
             <Text style={[styles.exportButtonText, { color: theme.colors.text }]}>
               Download Excel Report
             </Text>
