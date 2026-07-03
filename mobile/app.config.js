@@ -2,7 +2,7 @@ import 'dotenv/config';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || process.env.API_URL || "https://attendance.freelixe.com/api/v1";
 const WS_URL = process.env.EXPO_PUBLIC_WS_URL || process.env.WS_URL || "https://attendance.freelixe.com";
-const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || "AIzaSyAMtx40m6yOIrtxQa7SOF3xNWUzrYldOkI";
+const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || "AIzaSyAbnGDpJYWJDlON9N4Fbk9_3BOT07FRjxI";
 
 export default {
   expo: { 
