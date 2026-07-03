@@ -4,7 +4,6 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
-import * as Location from 'expo-location';
 import { useAuth } from '../../src/hooks/useAuth';
 import { useAttendance } from '../../src/hooks/useAttendance';
 import { useLocation } from '../../src/hooks/useLocation';
@@ -66,21 +65,6 @@ export default function HomeScreen() {
     if (isTracking) {
       const stats = await TeacherLiveTrackingService.getStats();
       setTrackingStats(stats);
-    } else {
-      // Auto-start silently if foreground permission is already granted
-      try {
-        const fg = await Location.getForegroundPermissionsAsync();
-        if (fg.status === 'granted') {
-          const result = await TeacherLiveTrackingService.startTracking();
-          if (result.success) {
-            setBackgroundTracking(true);
-            const stats = await TeacherLiveTrackingService.getStats();
-            setTrackingStats(stats);
-          }
-        }
-      } catch (e) {
-        console.warn('Auto-start tracking failed:', e?.message);
-      }
     }
   };
   const initializeScreen = async () => {
@@ -97,6 +81,8 @@ export default function HomeScreen() {
     try {
       const res = await geofenceAPI.getAll({
         isActive: true,
+        mine: true,
+        autoAttendance: true,
         limit: 20
       });
       const list = res?.data || res?.geofences || [];
@@ -124,6 +110,8 @@ export default function HomeScreen() {
     try {
       const res = await geofenceAPI.getAll({
         isActive: true,
+        mine: true,
+        autoAttendance: true,
         limit: 20
       });
       const list = res?.data || res?.geofences || [];
@@ -232,7 +220,7 @@ export default function HomeScreen() {
   }]}>
       <ScrollView contentContainerStyle={[styles.scrollContent, {
       paddingTop: insets.top + 16,
-      paddingBottom: 20
+      paddingBottom: insets.bottom + 96
     }]} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>

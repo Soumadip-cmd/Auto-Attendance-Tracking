@@ -174,10 +174,10 @@ export default function MovementScreen() {
                   </Text>
                 </View>
                 <View style={[styles.statusBadge, {
-              backgroundColor: metrics.last?.violation ? '#fee2e2' : '#dcfce7'
+              backgroundColor: metrics.last?.violation ? theme.colors.error + '18' : theme.colors.success + '18'
             }]}>
                   <Text style={[styles.statusText, {
-                color: metrics.last?.violation ? '#dc2626' : '#16a34a'
+                color: metrics.last?.violation ? theme.colors.error : theme.colors.success
               }]}>
                     {metrics.last?.violation ? 'Outside' : 'OK'}
                   </Text>

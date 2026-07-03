@@ -30,6 +30,13 @@ const attendanceSchema = new mongoose.Schema({
       enum: ['manual', 'automatic'],
       default: 'manual'
     },
+    geofence: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Geofence'
+    },
+    eventId: {
+      type: String
+    },
     device: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Device'
@@ -51,6 +58,13 @@ const attendanceSchema = new mongoose.Schema({
       type: String,
       enum: ['manual', 'automatic'],
       default: 'manual'
+    },
+    geofence: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Geofence'
+    },
+    eventId: {
+      type: String
     },
     device: {
       type: mongoose.Schema.Types.ObjectId,
@@ -149,6 +163,8 @@ attendanceSchema.index({ user: 1, date: -1 });
 attendanceSchema.index({ date: -1 });
 attendanceSchema.index({ status: 1 });
 attendanceSchema.index({ user: 1, status: 1, date: -1 });
+attendanceSchema.index({ user: 1, 'checkIn.eventId': 1 }, { sparse: true });
+attendanceSchema.index({ user: 1, 'checkOut.eventId': 1 }, { sparse: true });
 
 // Ensure only one attendance record per user per day
 attendanceSchema.index({ user: 1, date: 1 }, { unique: true });

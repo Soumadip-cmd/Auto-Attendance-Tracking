@@ -164,7 +164,7 @@ export default function HistoryScreen() {
               </Text>
             </View>
 
-            <View style={styles.timeDivider} />
+            <View style={[styles.timeDivider, { backgroundColor: theme.colors.border }]} />
 
             <View style={styles.timeItem}>
               <Ionicons name="log-out-outline" size={18} color={theme.colors.error} />
@@ -180,7 +180,7 @@ export default function HistoryScreen() {
               </Text>
             </View>
 
-            <View style={styles.timeDivider} />
+            <View style={[styles.timeDivider, { backgroundColor: theme.colors.border }]} />
 
             <View style={styles.timeItem}>
               <Ionicons name="time-outline" size={18} color={theme.colors.primary} />
@@ -219,7 +219,7 @@ export default function HistoryScreen() {
               </Text>
             </View>}
 
-          {item.checkIn?.notes && <View style={styles.notesSection}>
+          {item.checkIn?.notes && <View style={[styles.notesSection, { borderTopColor: theme.colors.border }]}>
               <Text style={[styles.notesLabel, {
             color: theme.colors.textSecondary
           }]}>
@@ -259,7 +259,7 @@ export default function HistoryScreen() {
         
         {/* Tab Selector */}
         <View style={styles.tabContainer}>
-          <TouchableOpacity style={[styles.tab, activeTab === 'attendance' && styles.activeTab, activeTab === 'attendance' && {
+          <TouchableOpacity style={[styles.tab, { backgroundColor: theme.colors.background }, activeTab === 'attendance' && styles.activeTab, activeTab === 'attendance' && {
           backgroundColor: theme.colors.primary
         }]} onPress={() => setActiveTab('attendance')}>
             <Ionicons name="calendar" size={18} color={activeTab === 'attendance' ? '#fff' : theme.colors.textSecondary} />
@@ -270,7 +270,7 @@ export default function HistoryScreen() {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.tab, activeTab === 'movement' && styles.activeTab, activeTab === 'movement' && {
+          <TouchableOpacity style={[styles.tab, { backgroundColor: theme.colors.background }, activeTab === 'movement' && styles.activeTab, activeTab === 'movement' && {
           backgroundColor: theme.colors.primary
         }]} onPress={() => setActiveTab('movement')}>
             <Ionicons name="footsteps" size={18} color={activeTab === 'movement' ? '#fff' : theme.colors.textSecondary} />
@@ -317,7 +317,9 @@ export default function HistoryScreen() {
       </View>
 
       {/* Content */}
-      {activeTab === 'attendance' && <FlatList data={attendanceHistory} renderItem={renderHistoryItem} keyExtractor={item => item._id} contentContainerStyle={styles.listContent} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />} ListEmptyComponent={<View style={styles.emptyContainer}>
+      {activeTab === 'attendance' && <FlatList data={attendanceHistory} renderItem={renderHistoryItem} keyExtractor={item => item._id} contentContainerStyle={[styles.listContent, {
+      paddingBottom: insets.bottom + 96
+    }]} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />} ListEmptyComponent={<View style={styles.emptyContainer}>
               <Ionicons name="calendar-outline" size={64} color={theme.colors.textSecondary} />
               <Text style={[styles.emptyText, {
         color: theme.colors.textSecondary

@@ -1,6 +1,10 @@
 const { Geofence, Event } = require('../models');
 const { asyncHandler } = require('../middleware/errorHandler');
 const logger = require('../config/logger');
+const {
+  buildApplicableGeofenceFilter,
+  geofenceAppliesToUser
+} = require('../utils/geofenceScope');
 
 /**
  * @desc    Create new geofence
@@ -75,7 +79,7 @@ exports.createGeofence = asyncHandler(async (req, res) => {
  * @access  Private
  */
 exports.getGeofences = asyncHandler(async (req, res) => {
-  const { isActive, type, college, department } = req.query;
+  const { isActive, type, college, department, mine, autoAttendance } = req.query;
 
   const filter = {};
   if (isActive !== undefined) {
@@ -90,11 +94,25 @@ exports.getGeofences = asyncHandler(async (req, res) => {
   if (department) {
     filter.department = department;
   }
+  if (autoAttendance === 'true') {
+    filter.$or = [
+      { 'autoAttendance.checkIn': true },
+      { 'autoAttendance.checkOut': true }
+    ];
+  }
 
-  const geofences = await Geofence.find(filter)
+  const scopedFilter = mine === 'true'
+    ? buildApplicableGeofenceFilter(req.user, filter)
+    : filter;
+
+  let geofences = await Geofence.find(scopedFilter)
     .populate('createdBy', 'fullName email')
     .populate('updatedBy', 'fullName email')
     .sort('-createdAt');
+
+  if (mine === 'true') {
+    geofences = geofences.filter((geofence) => geofenceAppliesToUser(geofence, req.user));
+  }
 
   res.json({
     success: true,

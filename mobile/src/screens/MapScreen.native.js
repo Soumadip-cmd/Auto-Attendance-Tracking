@@ -405,7 +405,8 @@ export default function MapScreen() {
     setGeofencesLoading(true);
     try {
       const response = await withTimeout(geofenceAPI.getAll({
-        isActive: true
+        isActive: true,
+        mine: true
       }), 8000, 'Geofence loading timed out');
       const zones = normalizeGeofenceList(response);
       setGeofences(zones);

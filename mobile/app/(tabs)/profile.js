@@ -213,7 +213,7 @@ export default function ProfileScreen() {
   }]}>
       <ScrollView contentContainerStyle={[styles.scrollContent, {
       paddingTop: insets.top + 16,
-      paddingBottom: 20
+      paddingBottom: insets.bottom + 96
     }]} showsVerticalScrollIndicator={false}>
         <View style={styles.screenHeader}>
           <Text style={[styles.screenTitle, {

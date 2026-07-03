@@ -83,7 +83,9 @@ export default function AttendanceScreen() {
         </TouchableOpacity>
       </View>
 
-      {attendanceHistory.length > 0 && <View style={styles.statsContainer}>
+      {attendanceHistory.length > 0 && <View style={[styles.statsContainer, {
+      backgroundColor: theme.colors.card
+    }]}>
           <View style={styles.statItem}>
             <View style={[styles.statIcon, {
             backgroundColor: theme.colors.success + '20'
@@ -173,7 +175,7 @@ export default function AttendanceScreen() {
       item
     }) => <AttendanceCard attendance={item} onPress={() => handleAttendancePress(item)} />} ListHeaderComponent={renderHeader} ListEmptyComponent={renderEmptyState} contentContainerStyle={[styles.listContent, {
       paddingTop: insets.top + 16,
-      paddingBottom: 20
+      paddingBottom: insets.bottom + 96
     }]} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />} showsVerticalScrollIndicator={false} />
     </View>;
 }

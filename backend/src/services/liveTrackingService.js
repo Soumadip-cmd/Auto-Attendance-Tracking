@@ -13,6 +13,7 @@ const {
   getUserDepartmentId,
   isSuperAdmin
 } = require('../utils/roleUtils');
+const { buildApplicableGeofenceFilter: buildScopedApplicableGeofenceFilter } = require('../utils/geofenceScope');
 const DEFAULT_MAX_ACCURACY_METERS = Number(process.env.LIVE_TRACKING_MAX_ACCURACY_METERS || 150);
 const VIOLATION_LOG_WINDOW_MS = Number(process.env.LIVE_TRACKING_VIOLATION_LOG_WINDOW_MS || 10 * 60 * 1000);
 const AUDIT_EVERY_LIVE_UPDATE = process.env.AUDIT_EVERY_LIVE_LOCATION_UPDATE === 'true';
@@ -48,23 +49,7 @@ const assertValidLocation = ({ latitude, longitude, accuracy }) => {
 };
 
 const buildApplicableGeofenceFilter = (user) => {
-  const collegeId = getUserCollegeId(user);
-  const departmentId = getUserDepartmentId(user);
-  const userId = user?._id;
-
-  const scope = [
-    { college: { $exists: false }, department: { $exists: false } },
-    { college: null, department: null }
-  ];
-
-  if (collegeId) scope.push({ college: collegeId });
-  if (departmentId) scope.push({ department: departmentId });
-  if (userId) scope.push({ assignedUsers: userId });
-
-  return {
-    isActive: true,
-    $or: scope
-  };
+  return buildScopedApplicableGeofenceFilter(user, { isActive: true });
 };
 
 const findContainingGeofences = async (user, latitude, longitude) => {

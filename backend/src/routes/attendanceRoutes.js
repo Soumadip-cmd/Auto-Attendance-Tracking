@@ -4,6 +4,7 @@ const { protect, authorize } = require('../middleware/auth');
 const Attendance = require('../models/Attendance');
 const liveTrackingService = require('../services/liveTrackingService');
 const exportService = require('../services/exportService');
+const { processGeofenceTransition } = require('../services/autoAttendanceService');
 
 // Helper function to calculate distance between two coordinates (Haversine formula)
 function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -632,7 +633,28 @@ router.get('/stats/dashboard', protect, authorize('super_admin', 'admin', 'manag
  */
 router.post('/auto-checkin', protect, async (req, res, next) => {
   try {
-    const { geofenceId, latitude, longitude, eventTimestamp } = req.body;
+    const { geofenceId, latitude, longitude, eventTimestamp, eventId } = req.body;
+    if (processGeofenceTransition) {
+      const result = await processGeofenceTransition({
+        req,
+        user: req.user,
+        geofenceId,
+        eventType: 'enter',
+        latitude,
+        longitude,
+        timestamp: eventTimestamp,
+        eventId,
+        io: req.app.get('io'),
+      });
+
+      return res.status(result.attendance?.skipped ? 200 : 201).json({
+        success: true,
+        skipped: !!result.attendance?.skipped,
+        message: result.attendance?.reason,
+        data: result.attendance?.attendance,
+        eventId: result.eventId,
+      });
+    }
 
     const Geofence = require('../models/Geofence');
     const geofence = await Geofence.findById(geofenceId);
@@ -729,7 +751,28 @@ router.post('/auto-checkin', protect, async (req, res, next) => {
  */
 router.post('/auto-checkout', protect, async (req, res, next) => {
   try {
-    const { geofenceId, latitude, longitude, eventTimestamp } = req.body;
+    const { geofenceId, latitude, longitude, eventTimestamp, eventId } = req.body;
+    if (processGeofenceTransition) {
+      const result = await processGeofenceTransition({
+        req,
+        user: req.user,
+        geofenceId,
+        eventType: 'exit',
+        latitude,
+        longitude,
+        timestamp: eventTimestamp,
+        eventId,
+        io: req.app.get('io'),
+      });
+
+      return res.status(200).json({
+        success: true,
+        skipped: !!result.attendance?.skipped,
+        message: result.attendance?.reason,
+        data: result.attendance?.attendance,
+        eventId: result.eventId,
+      });
+    }
 
     const Geofence = require('../models/Geofence');
     const geofence = await Geofence.findById(geofenceId);

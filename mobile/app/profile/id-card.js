@@ -66,6 +66,27 @@ export default function IdCardScreen() {
   }, [fullName, stats, user]);
 
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(qrPayload)}`;
+  const badge = theme.dark ? {
+    card: '#111827',
+    panel: '#1f2937',
+    text: '#f8fafc',
+    muted: '#cbd5e1',
+    border: '#334155',
+    accent: '#38bdf8',
+    accentSoft: 'rgba(56,189,248,0.14)',
+    bandStart: '#0f766e',
+    bandEnd: '#2563eb',
+  } : {
+    card: '#ffffff',
+    panel: '#f8fafc',
+    text: '#0f172a',
+    muted: '#64748b',
+    border: '#dbe3ef',
+    accent: '#2563eb',
+    accentSoft: 'rgba(37,99,235,0.12)',
+    bandStart: '#0f766e',
+    bandEnd: '#2563eb',
+  };
 
   const shareFile = async (uri) => {
     if (await Sharing.isAvailableAsync()) {
@@ -114,9 +135,9 @@ export default function IdCardScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}
         showsVerticalScrollIndicator={false}
       >
-        <View ref={cardRef} collapsable={false} style={[styles.idCard, { backgroundColor: theme.colors.card }]}>
+        <View ref={cardRef} collapsable={false} style={[styles.idCard, { backgroundColor: badge.card, borderColor: badge.border }]}>
           <LinearGradient
-            colors={[theme.colors.primary, theme.colors.secondary]}
+            colors={[badge.bandStart, badge.bandEnd]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.cardTopBand}
@@ -134,44 +155,45 @@ export default function IdCardScreen() {
           </LinearGradient>
 
           <View style={styles.photoWrap}>
-            <View style={[styles.photoRing, { borderColor: theme.colors.card, backgroundColor: theme.colors.card }]}>
+            <View style={[styles.photoRing, { borderColor: badge.card, backgroundColor: badge.card }]}>
               <Avatar name={fullName} size={92} source={avatarUri ? { uri: avatarUri } : null} />
             </View>
           </View>
 
           <View style={styles.identityBlock}>
-            <Text style={[styles.nameText, { color: theme.colors.text }]}>{fullName}</Text>
-            <View style={[styles.roleBadge, { backgroundColor: theme.colors.primary + '18' }]}>
-              <Text style={[styles.roleBadgeText, { color: theme.colors.primary }]}>
+            <Text style={[styles.nameText, { color: badge.text }]}>{fullName}</Text>
+            <View style={[styles.roleBadge, { backgroundColor: badge.accentSoft, borderColor: badge.accent }]}>
+              <Text style={[styles.roleBadgeText, { color: badge.accent }]}>
                 {safeText(user?.role).toUpperCase()}
               </Text>
             </View>
-            <Text style={[styles.employeeText, { color: theme.colors.textSecondary }]}>
-              ID · {user?.employeeId || 'Pending assignment'}
+            <Text style={[styles.employeeLabel, { color: badge.muted }]}>Employee ID</Text>
+            <Text style={[styles.employeeNumber, { color: badge.text }]}>
+              {user?.employeeId || 'Pending assignment'}
             </Text>
           </View>
 
           <View style={styles.perforation}>
             <View style={[styles.notch, styles.notchLeft, { backgroundColor: theme.colors.background }]} />
-            <View style={[styles.dashLine, { borderColor: theme.colors.border }]} />
+            <View style={[styles.dashLine, { borderColor: badge.border }]} />
             <View style={[styles.notch, styles.notchRight, { backgroundColor: theme.colors.background }]} />
           </View>
 
           <View style={styles.detailGrid}>
-            <Info theme={theme} icon="mail-outline" label="Email" value={user?.email} />
-            <Info theme={theme} icon="call-outline" label="Phone" value={user?.phoneNumber} />
-            <Info theme={theme} icon="business-outline" label="Department" value={user?.departmentRef?.name || user?.department} />
-            <Info theme={theme} icon="stats-chart-outline" label="Attendance" value={stats ? `${stats.attendanceRate || 0}% this month` : 'Loading'} />
+            <Info badge={badge} icon="mail-outline" label="Email" value={user?.email} />
+            <Info badge={badge} icon="call-outline" label="Phone" value={user?.phoneNumber} />
+            <Info badge={badge} icon="business-outline" label="Department" value={user?.departmentRef?.name || user?.department} />
+            <Info badge={badge} icon="stats-chart-outline" label="Attendance" value={stats ? `${stats.attendanceRate || 0}% this month` : 'Loading'} />
           </View>
 
-          <View style={[styles.qrCard, { borderColor: theme.colors.border, backgroundColor: theme.colors.background }]}>
+          <View style={[styles.qrCard, { borderColor: badge.border, backgroundColor: badge.panel }]}>
             <Image source={{ uri: qrUrl }} style={styles.qrImage} />
             <View style={styles.qrTextWrap}>
-              <Text style={[styles.qrTitle, { color: theme.colors.text }]}>Scan to verify</Text>
-              <Text style={[styles.qrText, { color: theme.colors.textSecondary }]}>
+              <Text style={[styles.qrTitle, { color: badge.text }]}>Scan to verify</Text>
+              <Text style={[styles.qrText, { color: badge.muted }]}>
                 Identity, contact, department, and current attendance summary.
               </Text>
-              <Text style={[styles.generatedText, { color: theme.colors.textSecondary }]}>
+              <Text style={[styles.generatedText, { color: badge.muted }]}>
                 Issued {format(new Date(), 'dd MMM yyyy, hh:mm a')}
               </Text>
             </View>
@@ -215,12 +237,12 @@ export default function IdCardScreen() {
   );
 }
 
-function Info({ theme, icon, label, value }) {
+function Info({ badge, icon, label, value }) {
   return (
-    <View style={[styles.infoBox, { backgroundColor: theme.colors.background }]}>
-      <Ionicons name={icon} size={14} color={theme.colors.primary} style={{ marginBottom: 4 }} />
-      <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>{label}</Text>
-      <Text style={[styles.infoValue, { color: theme.colors.text }]} numberOfLines={2}>
+    <View style={[styles.infoBox, { backgroundColor: badge.panel, borderColor: badge.border }]}>
+      <Ionicons name={icon} size={14} color={badge.accent} style={{ marginBottom: 4 }} />
+      <Text style={[styles.infoLabel, { color: badge.muted }]}>{label}</Text>
+      <Text style={[styles.infoValue, { color: badge.text }]} numberOfLines={2}>
         {safeText(value)}
       </Text>
     </View>
@@ -318,6 +340,7 @@ const styles = StyleSheet.create({
     maxWidth: 360,
     borderRadius: 26,
     overflow: 'hidden',
+    borderWidth: 1,
     elevation: 6,
     shadowColor: '#000',
     shadowOpacity: 0.18,
@@ -375,9 +398,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 999,
+    borderWidth: 1,
   },
   roleBadgeText: { fontSize: 11, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', letterSpacing: 0.5 },
-  employeeText: { fontSize: 13, marginTop: 8, fontFamily: 'Inter_500Medium', fontWeight: '500' },
+  employeeLabel: { fontSize: 11, marginTop: 10, fontFamily: 'Inter_700Bold', fontWeight: '700', textTransform: 'uppercase' },
+  employeeNumber: { fontSize: 17, marginTop: 3, fontFamily: 'Inter_800ExtraBold', fontWeight: '800' },
   perforation: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -406,6 +431,7 @@ const styles = StyleSheet.create({
     width: '47%',
     borderRadius: 14,
     padding: 12,
+    borderWidth: 1,
   },
   infoLabel: { fontSize: 10, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', textTransform: 'uppercase', letterSpacing: 0.4 },
   infoValue: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', marginTop: 3 },

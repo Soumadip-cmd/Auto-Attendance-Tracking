@@ -18,6 +18,7 @@ import AnimatedSplashScreen from './splash';
 import { useAuthStore } from '../src/store/authStore';
 import websocketService from '../src/services/websocket';
 import notificationService from '../src/services/notificationService';
+import { useTheme } from '../src/hooks/useTheme';
 
 // Keep the splash screen visible while we check auth and load fonts
 SplashScreen.preventAutoHideAsync();
@@ -171,13 +172,15 @@ export default function RootLayout() {
 function UpdateScreen({
   message
 }) {
-  return <View style={styles.updateContainer}>
-      <View style={styles.updateIcon}>
-        <ActivityIndicator size="large" color="#6366f1" />
+  const { theme } = useTheme();
+
+  return <View style={[styles.updateContainer, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles.updateIcon, { backgroundColor: theme.colors.primary + '18' }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
-      <Text style={styles.updateTitle}>Updating app</Text>
-      <Text style={styles.updateMessage}>{message}</Text>
-      <Text style={styles.updateHint}>Please keep the app open.</Text>
+      <Text style={[styles.updateTitle, { color: theme.colors.text }]}>Updating app</Text>
+      <Text style={[styles.updateMessage, { color: theme.colors.textSecondary }]}>{message}</Text>
+      <Text style={[styles.updateHint, { color: theme.colors.textSecondary }]}>Please keep the app open.</Text>
     </View>;
 }
 const styles = StyleSheet.create({

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../src/hooks/useAuth';
 import { useTheme } from '../src/hooks/useTheme';
 import { useNotifications } from '../src/hooks/useNotifications';
@@ -20,6 +21,7 @@ export default function SettingsScreen() {
     isDarkMode,
     toggleTheme
   } = useTheme();
+  const insets = useSafeAreaInsets();
   const {
     hasPermission: hasNotificationPermission,
     requestPermissions
@@ -157,7 +159,8 @@ export default function SettingsScreen() {
     backgroundColor: theme.colors.background
   }]}>
       <ScrollView contentContainerStyle={[styles.scrollContent, {
-      paddingBottom: 20
+      paddingTop: insets.top + 16,
+      paddingBottom: insets.bottom + 32
     }]} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
@@ -284,7 +287,6 @@ const styles = StyleSheet.create({
     flex: 1
   },
   scrollContent: {
-    paddingTop: 60,
     paddingHorizontal: 16
   },
   header: {

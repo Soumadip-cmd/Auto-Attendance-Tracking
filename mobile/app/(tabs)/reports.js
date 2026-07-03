@@ -96,7 +96,7 @@ export default function ReportsScreen() {
   }]}>
       <ScrollView contentContainerStyle={[styles.scrollContent, {
       paddingTop: insets.top + 16,
-      paddingBottom: 20
+      paddingBottom: insets.bottom + 96
     }]} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />} showsVerticalScrollIndicator={false}>
         <View style={styles.screenHeader}>
           <Text style={[styles.screenTitle, {
@@ -150,7 +150,7 @@ export default function ReportsScreen() {
                 </Text>
               </View>
 
-              <View style={styles.workingHoursDivider} />
+              <View style={[styles.workingHoursDivider, { backgroundColor: theme.colors.border }]} />
 
               <View style={styles.workingHoursItem}>
                 <Text style={[styles.workingHoursLabel, {
@@ -165,7 +165,7 @@ export default function ReportsScreen() {
                 </Text>
               </View>
 
-              <View style={styles.workingHoursDivider} />
+              <View style={[styles.workingHoursDivider, { backgroundColor: theme.colors.border }]} />
 
               <View style={styles.workingHoursItem}>
                 <Text style={[styles.workingHoursLabel, {
@@ -193,7 +193,7 @@ export default function ReportsScreen() {
 
           <Card>
             <View style={styles.rateContainer}>
-              <View style={styles.rateCircle}>
+              <View style={[styles.rateCircle, { borderColor: theme.colors.primary }]}>
                 <Text style={[styles.rateValue, {
                 color: theme.colors.primary
               }]}>

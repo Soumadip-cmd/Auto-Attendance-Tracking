@@ -1,36 +1,68 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import BackgroundLocationService from '../services/backgroundLocationService';
+import { subDays } from 'date-fns';
+import { useTheme } from '../hooks/useTheme';
+import { useAuth } from '../hooks/useAuth';
+import { liveTrackingAPI } from '../services/api';
 const MovementHistory = () => {
+  const { theme } = useTheme();
+  const { user } = useAuth();
   const [history, setHistory] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   useEffect(() => {
     loadHistory();
-  }, []);
+  }, [user]);
   const loadHistory = async () => {
     setLoading(true);
-    const data = await BackgroundLocationService.getOfflineHistory();
-    const statsData = await BackgroundLocationService.getStats();
-    setHistory(data);
-    setStats(statsData);
-    setLoading(false);
+    try {
+      const teacherId = user?._id || user?.id;
+      if (!teacherId) {
+        setHistory([]);
+        setStats({ total: 0, synced: 0, unsynced: 0 });
+        return;
+      }
+
+      const now = new Date();
+      const response = await liveTrackingAPI.getTeacherTrail(teacherId, {
+        startTime: subDays(now, 7).toISOString(),
+        endTime: now.toISOString(),
+        limit: 700,
+      });
+      const points = response?.data?.points || [];
+      const normalized = points.map((point) => ({
+        latitude: point.latitude,
+        longitude: point.longitude,
+        accuracy: point.accuracy,
+        altitude: point.altitude,
+        speed: point.speed,
+        heading: point.heading,
+        timestamp: point.timestamp,
+        synced: true,
+      })).filter((point) => Number.isFinite(point.latitude) && Number.isFinite(point.longitude));
+      setHistory(normalized);
+      setStats({ total: normalized.length, synced: normalized.length, unsynced: 0 });
+    } catch (error) {
+      setHistory([]);
+      setStats({ total: 0, synced: 0, unsynced: 0 });
+    } finally {
+      setLoading(false);
+    }
   };
   const handleSync = async () => {
     setSyncing(true);
-    await BackgroundLocationService.syncToServer();
     await loadHistory();
     setSyncing(false);
   };
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
     const R = 6371e3; // Earth radius in meters
-    const φ1 = lat1 * Math.PI / 180;
-    const φ2 = lat2 * Math.PI / 180;
-    const Δφ = (lat2 - lat1) * Math.PI / 180;
-    const Δλ = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const phi1 = lat1 * Math.PI / 180;
+    const phi2 = lat2 * Math.PI / 180;
+    const deltaPhi = (lat2 - lat1) * Math.PI / 180;
+    const deltaLambda = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) + Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c; // Distance in meters
   };
@@ -43,10 +75,10 @@ const MovementHistory = () => {
   const renderRoute = () => {
     if (history.length < 2) {
       return <View style={styles.emptyState}>
-          <MaterialIcons name="route" size={48} color="#ccc" />
-          <Text style={styles.emptyText}>No movement data yet</Text>
-          <Text style={styles.emptySubText}>
-            Background tracking will record your path
+          <MaterialIcons name="route" size={48} color={theme.colors.textSecondary} />
+          <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>No movement data yet</Text>
+          <Text style={[styles.emptySubText, { color: theme.colors.textSecondary }]}>
+            Live tracking will record your path when it is enabled
           </Text>
         </View>;
     }
@@ -65,27 +97,30 @@ const MovementHistory = () => {
       });
     }
     return <View>
-        <View style={styles.summary}>
+        <View style={[styles.summary, {
+        backgroundColor: theme.colors.card,
+        borderBottomColor: theme.colors.border
+      }]}>
           <View style={styles.summaryItem}>
-            <MaterialIcons name="place" size={24} color="#6366f1" />
-            <Text style={styles.summaryLabel}>Total Points</Text>
-            <Text style={styles.summaryValue}>{history.length}</Text>
+            <MaterialIcons name="place" size={24} color={theme.colors.primary} />
+            <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>Total Points</Text>
+            <Text style={[styles.summaryValue, { color: theme.colors.text }]}>{history.length}</Text>
           </View>
           <View style={styles.summaryItem}>
-            <MaterialIcons name="straighten" size={24} color="#10b981" />
-            <Text style={styles.summaryLabel}>Distance</Text>
-            <Text style={styles.summaryValue}>{formatDistance(totalDistance)}</Text>
+            <MaterialIcons name="straighten" size={24} color={theme.colors.success} />
+            <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>Distance</Text>
+            <Text style={[styles.summaryValue, { color: theme.colors.text }]}>{formatDistance(totalDistance)}</Text>
           </View>
           <View style={styles.summaryItem}>
-            <MaterialIcons name="cloud-upload" size={24} color={stats?.unsynced > 0 ? '#f59e0b' : '#6366f1'} />
-            <Text style={styles.summaryLabel}>Synced</Text>
-            <Text style={styles.summaryValue}>
+            <MaterialIcons name="cloud-upload" size={24} color={stats?.unsynced > 0 ? theme.colors.warning : theme.colors.primary} />
+            <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>Synced</Text>
+            <Text style={[styles.summaryValue, { color: theme.colors.text }]}>
               {stats?.synced || 0}/{stats?.total || 0}
             </Text>
           </View>
         </View>
 
-        {stats?.unsynced > 0 && <TouchableOpacity style={styles.syncButton} onPress={handleSync} disabled={syncing}>
+        {stats?.unsynced > 0 && <TouchableOpacity style={[styles.syncButton, { backgroundColor: theme.colors.primary }]} onPress={handleSync} disabled={syncing}>
             {syncing ? <ActivityIndicator color="#fff" /> : <>
                 <MaterialIcons name="sync" size={20} color="#fff" />
                 <Text style={styles.syncText}>
@@ -95,11 +130,17 @@ const MovementHistory = () => {
           </TouchableOpacity>}
 
         <ScrollView style={styles.routeList} contentContainerStyle={styles.routeListContent} showsVerticalScrollIndicator={true}>
-          {routes.map((route, idx) => <View key={idx} style={styles.routeCard}>
-              <View style={styles.routeHeader}>
-                <MaterialIcons name="navigation" size={20} color="#6366f1" />
-                <Text style={styles.routeNumber}>Movement #{idx + 1}</Text>
-                <Text style={styles.routeDistance}>
+          {routes.map((route, idx) => <View key={idx} style={[styles.routeCard, {
+          backgroundColor: theme.colors.card,
+          borderColor: theme.colors.border
+        }]}>
+              <View style={[styles.routeHeader, { borderBottomColor: theme.colors.border }]}>
+                <MaterialIcons name="navigation" size={20} color={theme.colors.primary} />
+                <Text style={[styles.routeNumber, { color: theme.colors.text }]}>Movement #{idx + 1}</Text>
+                <Text style={[styles.routeDistance, {
+              color: theme.colors.primary,
+              backgroundColor: theme.colors.primary + '18'
+            }]}>
                   {formatDistance(route.distance)}
                 </Text>
               </View>
@@ -109,11 +150,11 @@ const MovementHistory = () => {
                   <MaterialIcons name="trip-origin" size={16} color="#10b981" />
                 </View>
                 <View style={styles.locationInfo}>
-                  <Text style={styles.locationLabel}>From</Text>
-                  <Text style={styles.coordinates}>
+                  <Text style={[styles.locationLabel, { color: theme.colors.textSecondary }]}>From</Text>
+                  <Text style={[styles.coordinates, { color: theme.colors.text }]}>
                     {route.from.latitude.toFixed(6)}, {route.from.longitude.toFixed(6)}
                   </Text>
-                  <Text style={styles.timestamp}>
+                  <Text style={[styles.timestamp, { color: theme.colors.textSecondary }]}>
                     {new Date(route.from.timestamp).toLocaleString()}
                   </Text>
                   {route.from.speed > 0 && <Text style={styles.speed}>
@@ -123,7 +164,7 @@ const MovementHistory = () => {
               </View>
 
               <View style={styles.arrow}>
-                <MaterialIcons name="arrow-downward" size={20} color="#6366f1" />
+                <MaterialIcons name="arrow-downward" size={20} color={theme.colors.primary} />
               </View>
 
               <View style={styles.locationRow}>
@@ -131,20 +172,20 @@ const MovementHistory = () => {
                   <MaterialIcons name="place" size={16} color="#ef4444" />
                 </View>
                 <View style={styles.locationInfo}>
-                  <Text style={styles.locationLabel}>To</Text>
-                  <Text style={styles.coordinates}>
+                  <Text style={[styles.locationLabel, { color: theme.colors.textSecondary }]}>To</Text>
+                  <Text style={[styles.coordinates, { color: theme.colors.text }]}>
                     {route.to.latitude.toFixed(6)}, {route.to.longitude.toFixed(6)}
                   </Text>
-                  <Text style={styles.timestamp}>
+                  <Text style={[styles.timestamp, { color: theme.colors.textSecondary }]}>
                     {new Date(route.to.timestamp).toLocaleString()}
                   </Text>
                   {route.to.accuracy && <Text style={styles.accuracy}>
-                      Accuracy: ±{route.to.accuracy.toFixed(1)}m
+                      Accuracy: +/-{route.to.accuracy.toFixed(1)}m
                     </Text>}
                 </View>
               </View>
 
-              <View style={styles.syncStatus}>
+              <View style={[styles.syncStatus, { borderTopColor: theme.colors.border }]}>
                 <MaterialIcons name={route.from.synced ? 'check-circle' : 'cloud-upload'} size={16} color={route.from.synced ? '#10b981' : '#f59e0b'} />
                 <Text style={[styles.syncLabel, {
               color: route.from.synced ? '#10b981' : '#f59e0b'
@@ -157,11 +198,11 @@ const MovementHistory = () => {
       </View>;
   };
   if (loading) {
-    return <View style={styles.container}>
-        <ActivityIndicator size="large" color="#6366f1" />
+    return <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>;
   }
-  return <View style={styles.container}>{renderRoute()}</View>;
+  return <View style={[styles.container, { backgroundColor: theme.colors.background }]}>{renderRoute()}</View>;
 };
 const styles = StyleSheet.create({
   container: {

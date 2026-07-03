@@ -33,7 +33,7 @@ export default function MapScreenWeb() {
         await requestPermissions();
       }
       await getCurrentLocation();
-      const response = await geofenceAPI.getAll();
+      const response = await geofenceAPI.getAll({ isActive: true, mine: true });
       setGeofences(response?.success ? response.data || [] : []);
     } catch (error) {
       console.error('Web map load error:', error);
