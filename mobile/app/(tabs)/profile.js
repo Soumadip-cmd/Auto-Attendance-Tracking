@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/hooks/useAuth';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useNotifications } from '../../src/hooks/useNotifications';
@@ -22,6 +23,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { user, logout, isLoading } = useAuth();
   const { theme, isDarkMode, toggleTheme } = useTheme();
+  const insets = useSafeAreaInsets();
   const { hasPermission:  hasNotificationPermission } = useNotifications();
   const { 
     isAvailable: isBiometricAvailable,
@@ -139,7 +141,7 @@ export default function ProfileScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 20 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 16, paddingBottom: 20 }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.screenHeader}>
@@ -356,7 +358,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
-    paddingTop: 60,
   },
   screenHeader: {
     marginBottom: 20,

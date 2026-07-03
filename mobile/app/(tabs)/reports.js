@@ -9,6 +9,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { useAttendance } from '../../src/hooks/useAttendance';
 import { useTheme } from '../../src/hooks/useTheme';
@@ -21,6 +22,7 @@ const { width } = Dimensions. get('window');
 export default function ReportsScreen() {
   const { stats, getStats, isLoading } = useAttendance();
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
 
   const [refreshing, setRefreshing] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState('month');
@@ -86,7 +88,7 @@ export default function ReportsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 20 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 16, paddingBottom: 20 }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -288,7 +290,6 @@ const styles = StyleSheet. create({
   },
   scrollContent: {
     padding: 20,
-    paddingTop: 60,
   },
   screenHeader: {
     marginBottom: 20,

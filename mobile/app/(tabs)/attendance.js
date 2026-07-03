@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { useAttendance } from '../../src/hooks/useAttendance';
 import { useTheme } from '../../src/hooks/useTheme';
@@ -20,6 +21,7 @@ export default function AttendanceScreen() {
   const router = useRouter();
   const { attendanceHistory, getHistory, isLoading } = useAttendance();
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
 
   const [refreshing, setRefreshing] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
@@ -173,7 +175,7 @@ export default function AttendanceScreen() {
         )}
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmptyState}
-        contentContainerStyle={[styles.listContent, { paddingBottom: 20 }]}
+        contentContainerStyle={[styles.listContent, { paddingTop: insets.top + 16, paddingBottom: 20 }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -193,7 +195,6 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 20,
-    paddingTop: 60,
   },
   screenHeader: {
     marginBottom: 20,

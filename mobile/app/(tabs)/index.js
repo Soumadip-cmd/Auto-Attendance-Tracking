@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import * as Location from 'expo-location';
 import { useAuth } from '../../src/hooks/useAuth';
@@ -42,6 +43,7 @@ export default function HomeScreen() {
   const { location, getCurrentLocation, hasPermission, requestPermissions } = useLocation();
   const { isConnected, on } = useWebSocket();
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
 
   const [refreshing, setRefreshing] = useState(false);
   const [backgroundTracking, setBackgroundTracking] = useState(false);
@@ -255,7 +257,7 @@ export default function HomeScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 20 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 16, paddingBottom: 20 }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -285,12 +287,16 @@ export default function HomeScreen() {
 
           <View style={styles.headerRight}>
             {isConnected && (
-              <View style={styles.connectionIndicator}>
+              <View style={[styles.connectionIndicator, { backgroundColor: theme.colors.success + '18' }]}>
                 <View style={[styles.dot, { backgroundColor: theme.colors.success }]} />
               </View>
             )}
-            <TouchableOpacity onPress={() => router.push('/notifications')}>
-              <Ionicons name="notifications-outline" size={24} color={theme.colors.text} />
+            <TouchableOpacity
+              style={[styles.bellButton, { backgroundColor: theme.colors.card }]}
+              onPress={() => router.push('/notifications')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="notifications-outline" size={20} color={theme.colors.text} />
             </TouchableOpacity>
           </View>
         </View>
@@ -299,12 +305,14 @@ export default function HomeScreen() {
         <Card style={styles.statusCard} elevation="lg">
           <View style={styles.statusHeader}>
             <View style={styles.statusTitleContainer}>
-              <Ionicons name="calendar-outline" size={20} color={theme.colors.primary} style={styles.statusIcon} />
+              <View style={[styles.statusIconBadge, { backgroundColor: theme.colors.primary + '18' }]}>
+                <Ionicons name="calendar-outline" size={16} color={theme.colors.primary} />
+              </View>
               <Text style={[styles. statusTitle, { color: theme. colors.text }]}>
                 Today's Status
               </Text>
             </View>
-            <View style={styles.dateContainer}>
+            <View style={[styles.dateContainer, { backgroundColor: theme.colors.background }]}>
               <Text style={[styles.dateText, { color: theme.colors.textSecondary }]}>
                 {format(new Date(), 'EEE, MMM dd')}
               </Text>
@@ -328,7 +336,7 @@ export default function HomeScreen() {
                 </Text>
               </View>
 
-              <View style={styles.statusDivider} />
+              <View style={[styles.statusDivider, { backgroundColor: theme.colors.border }]} />
 
               <View style={styles.statusItem}>
                 <Ionicons name="log-out-outline" size={18} color={theme.colors.error} />
@@ -589,13 +597,12 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
-    paddingTop: 60,
   },
   header:  {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom:  24,
+    marginBottom:  20,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -617,12 +624,28 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   connectionIndicator: {
-    padding: 4,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dot: {
     width: 8,
     height: 8,
     borderRadius: 4,
+  },
+  bellButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    elevation: 2,
   },
   statusCard: {
     marginBottom: 24,
@@ -641,11 +664,18 @@ const styles = StyleSheet.create({
   statusIcon: {
     marginRight: 8,
   },
+  statusIconBadge: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
   dateContainer: {
     paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: 12,
-    backgroundColor: 'rgba(0,0,0,0.05)',
   },
   dateText: {
     fontSize: 13,
@@ -682,7 +712,6 @@ const styles = StyleSheet.create({
   },
   statusDivider: {
     width: 1,
-    backgroundColor: '#e2e8f0',
     marginHorizontal: 12,
   },
   checkInContainer: {

@@ -17,6 +17,7 @@ import MapView, { Marker, Circle, Polyline, UrlTile, PROVIDER_GOOGLE } from 'rea
 import * as Location from 'expo-location';
 import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocation } from '../hooks/useLocation';
 import { useTheme } from '../hooks/useTheme';
 import { geofenceAPI } from '../services/api';
@@ -150,6 +151,7 @@ export default function MapScreen() {
     error: locationError,
   } = useLocation();
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
   const mapRef = useRef(null);
   const markerRef = useRef(null);
   const prevLocationRef = useRef(null);
@@ -598,7 +600,7 @@ export default function MapScreen() {
       )}
 
       {/* ── HEADER ───────────────────────────────────────────────────── */}
-      <View style={[styles.header, { backgroundColor: theme.dark ? 'rgba(15,18,30,0.96)' : 'rgba(255,255,255,0.96)' }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 10, backgroundColor: theme.dark ? 'rgba(15,18,30,0.96)' : 'rgba(255,255,255,0.96)' }]}>
         <View style={styles.headerTop}>
           <View style={styles.headerTitleRow}>
             <View style={styles.liveIndicator} />
@@ -842,7 +844,6 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    paddingTop: Platform.OS === 'ios' ? 52 : 44,
     paddingBottom: 10,
     elevation: 6,
     shadowColor: '#000',

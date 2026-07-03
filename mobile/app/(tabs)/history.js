@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useAttendance } from '../../src/hooks/useAttendance';
@@ -145,6 +146,7 @@ function PermissionHistory({ theme }) {
 
 export default function HistoryScreen() {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
   const { getHistory, attendanceHistory, isLoading } = useAttendance();
   
   const [refreshing, setRefreshing] = useState(false);
@@ -362,7 +364,7 @@ export default function HistoryScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.colors.card, borderBottomColor: theme.colors.border }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 16, backgroundColor: theme.colors.card, borderBottomColor: theme.colors.border }]}>
         <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
           History
         </Text>
@@ -495,7 +497,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingTop: 60,
     paddingBottom: 16,
     paddingHorizontal: 20,
     borderBottomWidth: 1,

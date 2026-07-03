@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, startOfDay, endOfDay } from 'date-fns';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useAuth } from '../../src/hooks/useAuth';
@@ -27,8 +28,9 @@ import { APP_CONFIG } from '../../src/constants/config';
 export default function AdminScreen() {
   const router = useRouter();
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  
+
   const [activeTab, setActiveTab] = useState('dashboard');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -427,7 +429,7 @@ export default function AdminScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.colors.primary }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 12, backgroundColor: theme.colors.primary }]}>
         <Text style={styles.headerTitle}>Admin Panel</Text>
       </View>
 
@@ -513,7 +515,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingTop: 50,
     paddingBottom: 16,
     paddingHorizontal: 20,
   },
