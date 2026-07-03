@@ -30,7 +30,7 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     } else if (__DEV__ && !isPublicAuthRequest(config.url)) {
-      console.warn('⚠️ No token available for request:', config.url);
+      console.warn('No auth token for protected request:', config.url);
     }
     
     // Only log in development if needed
