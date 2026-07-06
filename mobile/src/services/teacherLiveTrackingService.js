@@ -11,8 +11,33 @@ const LIVE_LOCATION_TASK = 'teacher-live-location-updates';
 const GEOFENCE_TASK = 'teacher-native-geofence-monitoring';
 const TRACKING_SESSION_KEY = '@teacher_live_tracking_session';
 const TRACKING_STATS_KEY = '@teacher_live_tracking_stats';
+const LAST_AUTO_EVENT_KEY = '@teacher_last_auto_attendance_event';
 const MAX_ANDROID_GEOFENCES = 100;
 const ANDROID_BACKGROUND_PERMISSION_LABEL = 'Allow all the time';
+
+// Persists the outcome of the most recent auto check-in/out attempt so the
+// Home screen can show *why* it did or didn't happen — until now, a "skipped"
+// response (wrong geofence config, already checked in, etc.) was silently
+// discarded and the user only ever saw a generic "Campus Entered" notice.
+const recordAutoAttendanceEvent = async ({ eventType, geofenceId, timestamp, result, error }) => {
+  const attendance = result?.attendance;
+  const entry = {
+    eventType,
+    geofenceId,
+    timestamp: timestamp || new Date().toISOString(),
+    recordedAt: new Date().toISOString(),
+    success: !error && !!attendance && !attendance.skipped,
+    skipped: !!attendance?.skipped,
+    reason: attendance?.reason || error?.message || null,
+  };
+  console.log('[AutoAttendance]', eventType, geofenceId, '->', entry.success ? 'RECORDED' : entry.skipped ? `SKIPPED (${entry.reason})` : `FAILED (${entry.reason})`);
+  try {
+    await AsyncStorage.setItem(LAST_AUTO_EVENT_KEY, JSON.stringify(entry));
+  } catch (e) {
+    console.error('Failed to persist last auto attendance event:', e);
+  }
+  return entry;
+};
 
 const makeGeofenceEventId = (identifier, transitionType, timestamp) =>
   `${identifier}:${transitionType}:${timestamp || new Date().toISOString()}`;
@@ -148,7 +173,7 @@ TaskManager.defineTask(GEOFENCE_TASK, async ({ data, error }) => {
   });
 
   try {
-    await liveTrackingAPI.submitGeofenceEvent({
+    const result = await liveTrackingAPI.submitGeofenceEvent({
       geofenceId: region.identifier,
       eventType,
       latitude: region.latitude,
@@ -156,8 +181,10 @@ TaskManager.defineTask(GEOFENCE_TASK, async ({ data, error }) => {
       timestamp,
       eventId,
     });
+    await recordAutoAttendanceEvent({ eventType, geofenceId: region.identifier, timestamp, result });
   } catch (sendError) {
     console.error('Failed to send native geofence event:', sendError);
+    await recordAutoAttendanceEvent({ eventType, geofenceId: region.identifier, timestamp, error: sendError });
   }
 });
 
@@ -504,8 +531,10 @@ class TeacherLiveTrackingService {
           timestamp: event.timestamp,
           eventId,
         });
+        await recordAutoAttendanceEvent({ eventType: event.transitionType, geofenceId: event.identifier, timestamp: event.timestamp, result });
       } catch (e) {
         console.error('Failed to drain pending geofence event:', e);
+        await recordAutoAttendanceEvent({ eventType: event.transitionType, geofenceId: event.identifier, timestamp: event.timestamp, error: e });
         continue;
       }
 
@@ -572,8 +601,10 @@ class TeacherLiveTrackingService {
             timestamp,
             eventId,
           });
+          await recordAutoAttendanceEvent({ eventType: transitionType, geofenceId: identifier, timestamp, result });
         } catch (sendError) {
           console.error('Failed to send native geofence event:', sendError);
+          await recordAutoAttendanceEvent({ eventType: transitionType, geofenceId: identifier, timestamp, error: sendError });
           return;
         }
 
@@ -669,6 +700,19 @@ class TeacherLiveTrackingService {
 
   async getStats() {
     return readStats();
+  }
+
+  // Outcome of the most recent auto check-in/out attempt (or null if none
+  // yet this install) — surfaced on the Home screen so "why didn't it check
+  // me in" has a real answer instead of silence.
+  async getLastAutoAttendanceEvent() {
+    try {
+      const raw = await AsyncStorage.getItem(LAST_AUTO_EVENT_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      console.error('Failed to read last auto attendance event:', e);
+      return null;
+    }
   }
 
   async refreshGeofences() {

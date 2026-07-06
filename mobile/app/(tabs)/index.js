@@ -52,10 +52,12 @@ export default function HomeScreen() {
   const [trackingStats, setTrackingStats] = useState(null);
   const [geofences, setGeofences] = useState([]);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [lastAutoEvent, setLastAutoEvent] = useState(null);
 
   useFocusEffect(
     useCallback(() => {
       notificationService.getUnreadCount().then(setUnreadNotifications);
+      TeacherLiveTrackingService.getLastAutoAttendanceEvent().then(setLastAutoEvent);
     }, [])
   );
   useEffect(() => {
@@ -572,6 +574,48 @@ export default function HomeScreen() {
                   </Text>
                 </View>
               </View>}
+          </Card>
+        </View>
+
+        {/* Auto Attendance Diagnostics — shows *why* the last geofence
+            enter/exit did or didn't result in a check-in/out, since that
+            used to fail silently. */}
+        <View style={styles.section}>
+          <Card style={styles.trackingCard}>
+            <View style={styles.trackingHeader}>
+              <View style={styles.trackingTitleContainer}>
+                <Ionicons
+                  name={lastAutoEvent?.success ? 'checkmark-circle' : lastAutoEvent?.skipped ? 'alert-circle' : lastAutoEvent ? 'close-circle' : 'help-circle-outline'}
+                  size={24}
+                  color={lastAutoEvent?.success ? theme.colors.success : lastAutoEvent?.skipped ? theme.colors.warning : lastAutoEvent ? theme.colors.error : theme.colors.textSecondary}
+                />
+                <View style={styles.trackingTextContainer}>
+                  <Text style={[styles.trackingTitle, { color: theme.colors.text }]}>
+                    Last Auto Check-In/Out
+                  </Text>
+                  <Text style={[styles.trackingSubtitle, { color: theme.colors.textSecondary }]}>
+                    {!lastAutoEvent
+                      ? 'No geofence enter/exit detected yet'
+                      : `${lastAutoEvent.eventType === 'enter' ? 'Entered' : 'Exited'} at ${new Date(lastAutoEvent.timestamp).toLocaleTimeString()}`}
+                  </Text>
+                </View>
+              </View>
+            </View>
+            {lastAutoEvent && (
+              <View style={[styles.trackingStats, { borderTopColor: theme.colors.border, justifyContent: 'flex-start' }]}>
+                <Text style={{
+                  color: lastAutoEvent.success ? theme.colors.success : lastAutoEvent.skipped ? theme.colors.warning : theme.colors.error,
+                  fontSize: 13,
+                  fontWeight: '600',
+                }}>
+                  {lastAutoEvent.success
+                    ? '✅ Attendance recorded'
+                    : lastAutoEvent.skipped
+                      ? `⚠️ Skipped: ${lastAutoEvent.reason || 'unknown reason'}`
+                      : `❌ Failed: ${lastAutoEvent.reason || 'unknown error'}`}
+                </Text>
+              </View>
+            )}
           </Card>
         </View>
       </ScrollView>
