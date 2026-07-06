@@ -170,7 +170,7 @@ const getBroadcastRooms = (user, liveLocation) => {
   return Array.from(rooms);
 };
 
-const emitLiveLocation = (io, user, liveLocation, payload) => {
+const emitLiveLocation = (io, user, liveLocation, payload, isNewViolation) => {
   if (!io) return;
 
   const data = payload || serializeLiveLocation(liveLocation, user);
@@ -178,7 +178,11 @@ const emitLiveLocation = (io, user, liveLocation, payload) => {
     io.to(room).emit('live-location:update', data);
   }
 
-  if (data.violation) {
+  // Only push a "left the geofence" alert on the enter->exit transition, not on
+  // every subsequent location sample while still outside — otherwise a phone
+  // reporting every 5-15s re-sends the same notification repeatedly (and a
+  // single noisy/low-accuracy GPS fix can trigger a duplicate false alarm).
+  if (data.violation && isNewViolation) {
     io.to(`user:${user._id}`).emit('teacher:geofence:violation', {
       message: data.violationReason,
       location: {
@@ -331,8 +335,9 @@ const processTeacherLocation = async ({ user, location, io, source = 'socket', r
     });
   }
 
+  const isNewViolation = violation && !previous?.violation;
   const payload = serializeLiveLocation(liveLocation, user);
-  emitLiveLocation(io, user, liveLocation, payload);
+  emitLiveLocation(io, user, liveLocation, payload, isNewViolation);
 
   return {
     liveLocation,

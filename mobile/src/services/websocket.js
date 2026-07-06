@@ -9,14 +9,32 @@ class WebSocketService {
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 5;
     this.listeners = new Map();
+    this._connectPromise = null;
   }
 
   async connect() {
+    // Several places (root layout, live-tracking service, useWebSocket hook)
+    // call connect() independently, often within the same tick on app launch.
+    // this.socket exists synchronously as soon as io() is called, but
+    // `.connected` stays false until the handshake finishes — so a second
+    // caller could see `!this.socket?.connected` and open a duplicate socket
+    // before the first one finished connecting. Serialize with a shared
+    // in-flight promise so concurrent callers await the same attempt.
+    if (this._connectPromise) return this._connectPromise;
+
+    this._connectPromise = this._doConnect().finally(() => {
+      this._connectPromise = null;
+    });
+
+    return this._connectPromise;
+  }
+
+  async _doConnect() {
     try {
       const token = await secureStorage.getItem(APP_CONFIG.TOKEN_KEY);
 
       if (!token) return;
-      if (this.socket?.connected) return;
+      if (this.socket) return;
 
       this.socket = io(config.WS_URL, {
         auth: { token },
