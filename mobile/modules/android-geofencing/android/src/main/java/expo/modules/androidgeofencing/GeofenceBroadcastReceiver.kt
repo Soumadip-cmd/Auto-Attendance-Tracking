@@ -12,10 +12,13 @@ import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingEvent
 import org.json.JSONArray
 import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+import kotlin.concurrent.thread
 
 private const val TAG = "GeofenceBroadcastReceiver"
 private const val CHANNEL_ID = "geofence_alerts"
@@ -45,6 +48,12 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
 
         val geofences = event.triggeringGeofences ?: return
 
+        // The app being fully killed is the whole point of this receiver —
+        // collect the new-state transitions on the main thread (fast,
+        // SharedPreferences-only work), then do the slow parts (network) on
+        // a background thread under goAsync() so we don't violate
+        // NetworkOnMainThreadException or get killed mid-request.
+        val newEvents = mutableListOf<Map<String, Any?>>()
         for (geofence in geofences) {
             // Skip if this geofence is already in this state (GPS oscillation guard)
             if (isSameState(context, geofence.requestId, transitionType)) continue
@@ -63,12 +72,76 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
 
             // Persist for when the app is killed — drained via getPendingEvents() on restart
             persistEvent(context, data)
+            newEvents.add(data)
+        }
 
-            // Only show native notification when JS is NOT listening (app killed).
-            // When JS is alive it handles the notification itself to avoid duplicates.
-            if (AndroidGeofencingModule.onTransition == null) {
-                showNotification(context, transitionType, geofence.requestId)
+        // Only handle the "app killed" fallback when JS is NOT listening.
+        // When JS is alive it submits the event itself and shows its own
+        // notification, so doing it here too would duplicate both.
+        if (newEvents.isNotEmpty() && AndroidGeofencingModule.onTransition == null) {
+            val pendingResult = goAsync()
+            thread(start = true) {
+                try {
+                    newEvents.forEach { data ->
+                        showNotification(context, data["transitionType"] as String, data["identifier"] as String)
+                        submitDirectly(context, data)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to process killed-app geofence event", e)
+                } finally {
+                    pendingResult.finish()
+                }
             }
+        }
+    }
+
+    /**
+     * Submits the geofence transition straight to the backend using a cached
+     * token (see AndroidGeofencingModule.cacheAuthContext), so check-in/out
+     * still happens immediately even though the app process is dead — not
+     * just queued for whenever the user next opens the app. If this fails
+     * (no network, expired token, etc.) the event stays queued via
+     * persistEvent() above and will be retried by drainPendingGeofenceEvents()
+     * on next launch — this is a best-effort fast path, not a replacement.
+     */
+    private fun submitDirectly(context: Context, data: Map<String, Any?>) {
+        val authPrefs = context.getSharedPreferences(
+            AndroidGeofencingModule.AUTH_PREFS_NAME, Context.MODE_PRIVATE
+        )
+        val token = authPrefs.getString(AndroidGeofencingModule.AUTH_TOKEN_KEY, null)
+        val baseUrl = authPrefs.getString(AndroidGeofencingModule.AUTH_BASE_URL_KEY, null)
+        if (token.isNullOrEmpty() || baseUrl.isNullOrEmpty()) {
+            Log.w(TAG, "No cached auth context — skipping direct submit, will drain on next app open")
+            return
+        }
+
+        val eventId = "${data["identifier"]}:${data["transitionType"]}:${data["timestamp"]}"
+        val body = JSONObject().apply {
+            put("geofenceId", data["identifier"])
+            put("eventType", data["transitionType"])
+            put("latitude", data["latitude"])
+            put("longitude", data["longitude"])
+            put("timestamp", data["timestamp"])
+            put("eventId", eventId)
+        }.toString()
+
+        var connection: HttpURLConnection? = null
+        try {
+            connection = (URL("$baseUrl/live-tracking/geofence-event").openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                doOutput = true
+                connectTimeout = 15_000
+                readTimeout = 15_000
+                setRequestProperty("Content-Type", "application/json")
+                setRequestProperty("Authorization", "Bearer $token")
+            }
+            connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+            val code = connection.responseCode
+            Log.i(TAG, "Direct geofence submit (${data["transitionType"]}) -> HTTP $code")
+        } catch (e: Exception) {
+            Log.e(TAG, "Direct geofence submit failed, will rely on queued drain", e)
+        } finally {
+            connection?.disconnect()
         }
     }
 

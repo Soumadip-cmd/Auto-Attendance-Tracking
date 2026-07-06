@@ -39,6 +39,9 @@ class AndroidGeofencingModule : Module() {
 
         internal const val PREFS_NAME = "AndroidGeofencing"
         internal const val REGISTERED_KEY = "registered_geofences"
+        internal const val AUTH_PREFS_NAME = "AndroidGeofencingAuth"
+        internal const val AUTH_TOKEN_KEY = "token"
+        internal const val AUTH_BASE_URL_KEY = "api_base_url"
 
         internal fun persistRegisteredGeofences(context: Context, regions: List<GeofenceRegion>) {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -157,6 +160,26 @@ class AndroidGeofencingModule : Module() {
         AsyncFunction("removeAllGeofences") {
             Tasks.await(geofencingClient.removeGeofences(geofencePendingIntent))
             persistRegisteredGeofences(context, emptyList())
+        }
+
+        // Lets JS hand the native side a way to reach the backend when the
+        // app is fully killed and a geofence transition fires — otherwise the
+        // native BroadcastReceiver has no auth token to submit the check-in
+        // with, and can only queue the event for whenever the app reopens.
+        // Note: stored in plain (unencrypted) SharedPreferences, not
+        // SecureStore's encrypted store — a background BroadcastReceiver
+        // can't easily use Android Keystore-backed decryption, and this file
+        // is still app-private (inaccessible to other apps without root).
+        AsyncFunction("cacheAuthContext") { token: String, apiBaseUrl: String ->
+            val prefs = context.getSharedPreferences(AUTH_PREFS_NAME, Context.MODE_PRIVATE)
+            prefs.edit()
+                .putString(AUTH_TOKEN_KEY, token)
+                .putString(AUTH_BASE_URL_KEY, apiBaseUrl)
+                .apply()
+        }
+
+        AsyncFunction("clearAuthContext") {
+            context.getSharedPreferences(AUTH_PREFS_NAME, Context.MODE_PRIVATE).edit().clear().apply()
         }
 
         AsyncFunction("getPendingEvents") {

@@ -6,6 +6,8 @@ import { geofenceAPI, liveTrackingAPI } from './api';
 import websocketService from './websocket';
 import notificationService from './notificationService';
 import * as AndroidGeofencing from 'android-geofencing';
+import { secureStorage } from '../utils/storage';
+import { config, APP_CONFIG } from '../constants/config';
 
 const LIVE_LOCATION_TASK = 'teacher-live-location-updates';
 const GEOFENCE_TASK = 'teacher-native-geofence-monitoring';
@@ -282,12 +284,41 @@ class TeacherLiveTrackingService {
     };
   }
 
+  // Lets the native side (BroadcastReceiver, no JS/RN bridge available) submit
+  // geofence events directly to the backend when the app is fully killed —
+  // otherwise it can only queue the event for whenever the app reopens. Only
+  // does anything on a build that actually includes the new native function;
+  // an older installed APK just silently skips this (see
+  // isDirectBackgroundSubmitSupported for a way to check which one you're on).
+  async _syncAuthContext() {
+    if (Platform.OS !== 'android') return;
+    try {
+      if (typeof AndroidGeofencing.cacheAuthContext !== 'function') return;
+      const token = await secureStorage.getItem(APP_CONFIG.TOKEN_KEY);
+      if (token) {
+        await AndroidGeofencing.cacheAuthContext(token, config.API_URL);
+      }
+    } catch (error) {
+      console.warn('Failed to cache auth context for background geofencing:', error?.message);
+    }
+  }
+
+  // Reports whether this install's native module was built with the direct
+  // background-submit + boot-restore code, vs an older APK missing it —
+  // surfaced on the Home screen so it's obvious whether a rebuild picked up
+  // the native changes.
+  async isDirectBackgroundSubmitSupported() {
+    if (Platform.OS !== 'android') return null;
+    return typeof AndroidGeofencing.cacheAuthContext === 'function';
+  }
+
   async startTracking() {
     const alreadyTracking = await this.isTracking().catch(() => !!this.foregroundSubscription);
     if (alreadyTracking) {
       await websocketService.connect();
       this.subscribeToServerEvents();
       this._startPermissionMonitor();
+      await this._syncAuthContext();
       return {
         success: true,
         alreadyTracking: true,
@@ -308,6 +339,7 @@ class TeacherLiveTrackingService {
     await websocketService.connect();
     this.subscribeToServerEvents();
     await this.startForegroundWatch(trackingSessionId);
+    await this._syncAuthContext();
 
     let geofenceCount = 0;
     if (!permissions.foregroundOnly) {
@@ -412,9 +444,12 @@ class TeacherLiveTrackingService {
     if (this._permCheckInterval) return;
 
     this._fetchActivePermission();
-    // Refresh active permission every 2 minutes
+    // Refresh active permission every 2 minutes — also piggybacks the cached
+    // auth token refresh so a long-running background session doesn't end up
+    // submitting killed-app geofence events with a stale/expired token.
     this._permCheckInterval = setInterval(() => {
       this._fetchActivePermission();
+      this._syncAuthContext();
     }, 2 * 60 * 1000);
   }
 
@@ -655,6 +690,9 @@ class TeacherLiveTrackingService {
 
     if (Platform.OS === 'android') {
       await AndroidGeofencing.removeAllGeofences().catch(() => null);
+      if (typeof AndroidGeofencing.clearAuthContext === 'function') {
+        await AndroidGeofencing.clearAuthContext().catch(() => null);
+      }
     } else {
       const hasGeofencing = await Location.hasStartedGeofencingAsync(GEOFENCE_TASK);
       if (hasGeofencing) {

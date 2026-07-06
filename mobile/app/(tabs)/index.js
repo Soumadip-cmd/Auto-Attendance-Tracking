@@ -53,11 +53,13 @@ export default function HomeScreen() {
   const [geofences, setGeofences] = useState([]);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [lastAutoEvent, setLastAutoEvent] = useState(null);
+  const [backgroundSubmitSupported, setBackgroundSubmitSupported] = useState(null);
 
   useFocusEffect(
     useCallback(() => {
       notificationService.getUnreadCount().then(setUnreadNotifications);
       TeacherLiveTrackingService.getLastAutoAttendanceEvent().then(setLastAutoEvent);
+      TeacherLiveTrackingService.isDirectBackgroundSubmitSupported().then(setBackgroundSubmitSupported);
     }, [])
   );
   useEffect(() => {
@@ -613,6 +615,19 @@ export default function HomeScreen() {
                     : lastAutoEvent.skipped
                       ? `⚠️ Skipped: ${lastAutoEvent.reason || 'unknown reason'}`
                       : `❌ Failed: ${lastAutoEvent.reason || 'unknown error'}`}
+                </Text>
+              </View>
+            )}
+            {backgroundSubmitSupported !== null && (
+              <View style={[styles.trackingStats, { borderTopColor: theme.colors.border, justifyContent: 'flex-start' }]}>
+                <Text style={{
+                  color: backgroundSubmitSupported ? theme.colors.success : theme.colors.warning,
+                  fontSize: 12,
+                  fontWeight: '600',
+                }}>
+                  {backgroundSubmitSupported
+                    ? '✅ This build submits check-in/out even with the app fully closed'
+                    : '⚠️ Old build — checks in only when app is reopened. Rebuild with eas build to update.'}
                 </Text>
               </View>
             )}
