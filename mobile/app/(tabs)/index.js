@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Alert, Switch } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
@@ -15,6 +15,7 @@ import { CheckInButton } from '../../src/components/attendance/CheckInButton';
 import { StatsCard } from '../../src/components/attendance/StatsCard';
 import { StatusBadge } from '../../src/components/attendance/StatusBadge';
 import TeacherLiveTrackingService from '../../src/services/teacherLiveTrackingService';
+import notificationService from '../../src/services/notificationService';
 import { geofenceAPI } from '../../src/services/api';
 import { getUserAvatarUri } from '../../src/constants/config';
 export default function HomeScreen() {
@@ -50,6 +51,13 @@ export default function HomeScreen() {
   const [backgroundTracking, setBackgroundTracking] = useState(false);
   const [trackingStats, setTrackingStats] = useState(null);
   const [geofences, setGeofences] = useState([]);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      notificationService.getUnreadCount().then(setUnreadNotifications);
+    }, [])
+  );
   useEffect(() => {
     initializeApp();
   }, []);
@@ -254,6 +262,9 @@ export default function HomeScreen() {
             backgroundColor: theme.colors.card
           }]} onPress={() => router.push('/notifications')} activeOpacity={0.7}>
               <Ionicons name="notifications-outline" size={20} color={theme.colors.text} />
+              {unreadNotifications > 0 && (
+                <View style={[styles.notificationBadge, { backgroundColor: theme.colors.error, borderColor: theme.colors.card }]} />
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -626,6 +637,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 3,
     elevation: 2
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    borderWidth: 1.5
   },
   statusCard: {
     marginBottom: 24

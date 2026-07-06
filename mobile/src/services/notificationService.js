@@ -2,6 +2,10 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import { APP_CONFIG } from '../constants/config';
+import { storage } from '../utils/storage';
+
+const HISTORY_KEY = 'notification_history';
+const MAX_HISTORY = 100;
 
 // Configure notification handler
 Notifications.setNotificationHandler({
@@ -96,11 +100,67 @@ class NotificationService {
         trigger:  trigger || null, // null = immediate
       });
 
+      // Only persist immediate (non-scheduled/repeating) notifications to
+      // history — reminders that repeat daily would otherwise flood the list.
+      if (!trigger) {
+        await this._appendHistory({ id, title, body, data });
+      }
+
       return id;
     } catch (error) {
       console.error('Error scheduling notification:', error);
       return null;
     }
+  }
+
+  /**
+   * Append an entry to the local notification history (capped, newest first)
+   */
+  async _appendHistory({ id, title, body, data }) {
+    try {
+      const history = (await storage.getItem(HISTORY_KEY)) || [];
+      history.unshift({
+        id: id || `local-${Date.now()}`,
+        title,
+        body,
+        data,
+        timestamp: new Date().toISOString(),
+        read: false,
+      });
+      await storage.setItem(HISTORY_KEY, history.slice(0, MAX_HISTORY));
+    } catch (error) {
+      console.error('Error saving notification history:', error);
+    }
+  }
+
+  /**
+   * Get notification history, newest first
+   */
+  async getHistory() {
+    return (await storage.getItem(HISTORY_KEY)) || [];
+  }
+
+  /**
+   * Get count of unread notifications in history
+   */
+  async getUnreadCount() {
+    const history = await this.getHistory();
+    return history.filter((item) => !item.read).length;
+  }
+
+  /**
+   * Mark all history entries as read
+   */
+  async markAllRead() {
+    const history = await this.getHistory();
+    await storage.setItem(HISTORY_KEY, history.map((item) => ({ ...item, read: true })));
+  }
+
+  /**
+   * Clear notification history
+   */
+  async clearHistory() {
+    await storage.removeItem(HISTORY_KEY);
   }
 
   /**

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { Circle, MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
@@ -105,6 +105,7 @@ export default function LiveTracking() {
   const [selectedTeacherId, setSelectedTeacherId] = useState(null);
   const [trail, setTrail] = useState([]);
   const [trailLoading, setTrailLoading] = useState(false);
+  const [alerts, setAlerts] = useState([]);
 
   const selectedLocation = useMemo(
     () => locations.find((location) => location.userId === selectedTeacherId) || locations[0],
@@ -133,7 +134,39 @@ export default function LiveTracking() {
     };
   }, [locations]);
 
+  // Tracks each teacher's last-known violation state so we can detect the
+  // enter/exit *transition* (not just current status) and log/toast it once,
+  // instead of re-alerting on every location sample while still outside.
+  const violationStateRef = useRef({});
+
   const upsertLocation = useCallback((nextLocation) => {
+    const wasViolation = violationStateRef.current[nextLocation.userId] ?? false;
+    const isViolation = !!nextLocation.violation;
+
+    if (isViolation !== wasViolation) {
+      violationStateRef.current[nextLocation.userId] = isViolation;
+      const name = formatTeacherName(nextLocation);
+      const message = isViolation
+        ? `${name} left the assigned geofence`
+        : `${name} is back inside the assigned geofence`;
+
+      setAlerts((current) => [
+        {
+          id: `${nextLocation.userId}-${Date.now()}`,
+          type: isViolation ? 'violation' : 'cleared',
+          message,
+          timestamp: nextLocation.lastSeenAt || new Date().toISOString(),
+        },
+        ...current,
+      ].slice(0, 30));
+
+      if (isViolation) {
+        toast.error(message);
+      } else {
+        toast.success(message);
+      }
+    }
+
     setLocations((current) => {
       const existingIndex = current.findIndex((location) => location.userId === nextLocation.userId);
       if (existingIndex === -1) {
@@ -155,6 +188,11 @@ export default function LiveTracking() {
       const response = await liveTrackingAPI.getLive({ activeWithinMinutes: 180 });
       if (response.data.success) {
         setLocations(response.data.data);
+        // Seed known violation state so the first live socket update for an
+        // already-violating teacher doesn't look like a brand new transition.
+        response.data.data.forEach((location) => {
+          violationStateRef.current[location.userId] = !!location.violation;
+        });
       }
     } catch (error) {
       console.error('Failed to load live locations:', error);
@@ -491,6 +529,48 @@ export default function LiveTracking() {
               })
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Live alerts feed — a running log of geofence enter/exit events as
+          they happen this session, separate from the "currently outside"
+          snapshot banner above. */}
+      <div className="card p-0 overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Live Alerts</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Geofence exit/entry events as they happen
+            </p>
+          </div>
+          {alerts.length > 0 && (
+            <button onClick={() => setAlerts([])} className="btn-secondary text-sm">
+              Clear
+            </button>
+          )}
+        </div>
+        <div className="divide-y divide-gray-100 dark:divide-gray-700 max-h-72 overflow-y-auto">
+          {alerts.length === 0 ? (
+            <div className="p-6 text-sm text-gray-500 dark:text-gray-400">
+              No alerts yet this session. Geofence exits/entries will appear here live.
+            </div>
+          ) : (
+            alerts.map((alert) => (
+              <div key={alert.id} className="px-5 py-3 flex items-start gap-3">
+                <AlertTriangle
+                  className={`w-4 h-4 mt-0.5 shrink-0 ${
+                    alert.type === 'violation' ? 'text-red-600' : 'text-green-600'
+                  }`}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-gray-900 dark:text-white">{alert.message}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {formatLastSeen(alert.timestamp)}
+                  </p>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

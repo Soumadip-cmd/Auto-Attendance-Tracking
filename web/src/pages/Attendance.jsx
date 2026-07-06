@@ -29,6 +29,7 @@ const Attendance = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showMarkAttendanceModal, setShowMarkAttendanceModal] = useState(false);
+  const [editRecord, setEditRecord] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState({ isOpen: false, record: null });
 
   useEffect(() => {
@@ -116,7 +117,10 @@ const Attendance = () => {
 
   const handleCheckOut = async (recordId) => {
     try {
-      await attendanceAPI.checkOut(recordId);
+      // Note: attendanceAPI.checkOut() posts to a route that doesn't exist for
+      // admin use (it checks out the *logged-in admin*, not the target
+      // employee) — use the generic update endpoint with this record's id instead.
+      await attendanceAPI.update(recordId, { checkOut: new Date().toISOString() });
       toast.success('Checked out successfully! ');
       fetchData();
     } catch (error) {
@@ -395,6 +399,13 @@ const Attendance = () => {
                           </button>
                         )}
                         <button
+                          onClick={() => setEditRecord(record)}
+                          className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                          title="Edit times"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
                           onClick={() => setDeleteConfirm({ isOpen:  true, record })}
                           className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                           title="Delete"
@@ -425,6 +436,18 @@ const Attendance = () => {
         />
       )}
 
+      {/* Edit Attendance Modal */}
+      {editRecord && (
+        <EditAttendanceModal
+          record={editRecord}
+          onClose={() => setEditRecord(null)}
+          onSave={() => {
+            fetchData();
+            setEditRecord(null);
+          }}
+        />
+      )}
+
       {/* Delete Confirmation */}
       <ConfirmDialog
         isOpen={deleteConfirm.isOpen}
@@ -446,6 +469,7 @@ const MarkAttendanceModal = ({ employees, selectedDate, existingRecords, onClose
   const [status, setStatus] = useState('present');
   const [checkInTime, setCheckInTime] = useState('09:00');
   const [checkOutTime, setCheckOutTime] = useState('17:00');
+  const [leaveCheckOutEmpty, setLeaveCheckOutEmpty] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const availableEmployees = employees.filter(emp => 
@@ -466,12 +490,12 @@ const MarkAttendanceModal = ({ employees, selectedDate, existingRecords, onClose
       if (status !== 'absent') {
         const checkInDate = new Date(`${selectedDate}T${checkInTime}`);
         data.checkIn = checkInDate.toISOString();
-        
-        if (status === 'present' || status === 'late') {
+
+        if ((status === 'present' || status === 'late') && !leaveCheckOutEmpty) {
           const checkOutDate = new Date(`${selectedDate}T${checkOutTime}`);
           data.checkOut = checkOutDate.toISOString();
         }
-        
+
         data.location = {
           latitude: 0,
           longitude: 0,
@@ -561,9 +585,18 @@ const MarkAttendanceModal = ({ employees, selectedDate, existingRecords, onClose
                     className="input"
                     value={checkOutTime}
                     onChange={(e) => setCheckOutTime(e.target.value)}
+                    disabled={leaveCheckOutEmpty}
                   />
                 </div>
               </div>
+              <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                <input
+                  type="checkbox"
+                  checked={leaveCheckOutEmpty}
+                  onChange={(e) => setLeaveCheckOutEmpty(e.target.checked)}
+                />
+                Leave check-out empty (useful for testing auto check-out)
+              </label>
             </>
           )}
 
@@ -582,6 +615,117 @@ const MarkAttendanceModal = ({ employees, selectedDate, existingRecords, onClose
               disabled={loading || !selectedEmployee}
             >
               {loading ? 'Marking...' : 'Mark Attendance'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// Local datetime helpers — <input type="datetime-local"> needs
+// "YYYY-MM-DDTHH:mm" in local time, not the record's ISO UTC string.
+const toDateTimeLocal = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
+// Edit Attendance Modal — adjust an existing record's check-in/check-out,
+// e.g. to correct a mistake or to clear check-out and test auto check-out.
+const EditAttendanceModal = ({ record, onClose, onSave }) => {
+  const [checkIn, setCheckIn] = useState(toDateTimeLocal(record.checkIn?.time));
+  const [checkOut, setCheckOut] = useState(toDateTimeLocal(record.checkOut?.time));
+  const [clearCheckOut, setClearCheckOut] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const employeeName = `${record.employee?.firstName || ''} ${record.employee?.lastName || ''}`.trim();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const data = {};
+      if (checkIn) data.checkIn = new Date(checkIn).toISOString();
+      if (clearCheckOut) {
+        data.checkOut = null;
+      } else if (checkOut) {
+        data.checkOut = new Date(checkOut).toISOString();
+      }
+      await attendanceAPI.update(record._id, data);
+      toast.success('Attendance record updated');
+      onSave();
+    } catch (error) {
+      console.error('Error updating record:', error);
+      toast.error('Failed to update record');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full">
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+            Edit Attendance — {employeeName}
+          </h3>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+          >
+            <XCircle className="w-5 h-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="label">Check In</label>
+            <input
+              type="datetime-local"
+              className="input"
+              value={checkIn}
+              onChange={(e) => setCheckIn(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label className="label">Check Out</label>
+            <input
+              type="datetime-local"
+              className="input"
+              value={checkOut}
+              onChange={(e) => setCheckOut(e.target.value)}
+              disabled={clearCheckOut}
+            />
+          </div>
+
+          <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+            <input
+              type="checkbox"
+              checked={clearCheckOut}
+              onChange={(e) => setClearCheckOut(e.target.checked)}
+            />
+            Clear check-out (leave this record open, e.g. to test auto check-out)
+          </label>
+
+          <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn-secondary flex-1"
+              disabled={loading}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="btn-primary flex-1"
+              disabled={loading}
+            >
+              {loading ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
         </form>

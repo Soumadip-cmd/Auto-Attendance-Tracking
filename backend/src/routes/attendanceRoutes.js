@@ -1009,14 +1009,19 @@ router.put('/:id', protect, authorize('super_admin', 'admin', 'manager', 'hod'),
       attendance.checkIn.time = new Date(checkIn);
     }
     
-    if (checkOut) {
+    // Distinguish "not sent" (leave as-is) from "explicitly cleared" (checkOut: null),
+    // e.g. to reopen a record for testing auto check-out. The pre-save hook
+    // below recalculates duration/status from checkIn/checkOut automatically.
+    if (checkOut === null) {
+      attendance.checkOut = {};
+    } else if (checkOut) {
       if (!attendance.checkOut) {
         attendance.checkOut = {};
       }
       attendance.checkOut.time = new Date(checkOut);
       attendance.checkOut.method = 'manual';
     }
-    
+
     if (status) {
       attendance.status = status;
     }
