@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, ScrollView, StyleSheet, Linking, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Button } from '../../src/components/common/Button';
 export default function HelpSupportScreen() {
@@ -9,6 +10,7 @@ export default function HelpSupportScreen() {
   const {
     theme
   } = useTheme();
+  const insets = useSafeAreaInsets();
   const faqs = [{
     question: 'How do I check in?',
     answer: 'Go to the Home tab and tap the "Check In" button. Make sure your location services are enabled.'
@@ -32,6 +34,7 @@ export default function HelpSupportScreen() {
     backgroundColor: theme.colors.background
   }]}>
       <View style={[styles.header, {
+      paddingTop: insets.top + 12,
       backgroundColor: theme.colors.card,
       borderBottomColor: theme.colors.border
     }]}>

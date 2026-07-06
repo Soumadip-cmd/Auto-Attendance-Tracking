@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Button } from '../../src/components/common/Button';
 export default function PrivacyPolicyScreen() {
@@ -9,10 +10,12 @@ export default function PrivacyPolicyScreen() {
   const {
     theme
   } = useTheme();
+  const insets = useSafeAreaInsets();
   return <View style={[styles.container, {
     backgroundColor: theme.colors.background
   }]}>
       <View style={[styles.header, {
+      paddingTop: insets.top + 12,
       backgroundColor: theme.colors.card,
       borderBottomColor: theme.colors.border
     }]}>

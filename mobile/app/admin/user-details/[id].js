@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, RefreshControl, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, RefreshControl } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { useTheme } from '../../../src/hooks/useTheme';
 import { Card } from '../../../src/components/common/Card';
@@ -11,9 +12,6 @@ import { StatusBadge } from '../../../src/components/attendance/StatusBadge';
 import axios from 'axios';
 import { config, APP_CONFIG, getUserAvatarUri } from '../../../src/constants/config';
 import { secureStorage } from '../../../src/utils/storage';
-const {
-  width
-} = Dimensions.get('window');
 export default function UserDetailsScreen() {
   const router = useRouter();
   const {
@@ -22,6 +20,7 @@ export default function UserDetailsScreen() {
   const {
     theme
   } = useTheme();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [user, setUser] = useState(null);
@@ -153,6 +152,7 @@ export default function UserDetailsScreen() {
   }]}>
       {/* Header */}
       <View style={[styles.header, {
+      paddingTop: insets.top + 12,
       backgroundColor: theme.colors.primary
     }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -399,7 +399,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 50,
     paddingBottom: 16,
     paddingHorizontal: 20
   },
@@ -482,7 +481,8 @@ const styles = StyleSheet.create({
     gap: 16
   },
   infoItem: {
-    width: (width - 64) / 2,
+    flexBasis: '47%',
+    flexGrow: 1,
     alignItems: 'flex-start'
   },
   infoLabel: {

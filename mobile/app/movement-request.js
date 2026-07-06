@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { movementPermissionAPI } from '../src/services/api';
 import { useTheme } from '../src/hooks/useTheme';
@@ -10,6 +11,7 @@ export default function MovementRequestScreen() {
   const {
     theme
   } = useTheme();
+  const insets = useSafeAreaInsets();
   const [reason, setReason] = useState('');
   const [radius, setRadius] = useState('100');
   const [durationMinutes, setDurationMinutes] = useState('40');
@@ -65,8 +67,8 @@ export default function MovementRequestScreen() {
   };
   return <KeyboardAvoidingView style={[styles.container, {
     backgroundColor: theme.colors.background
-  }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.content}>
+  }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
@@ -159,8 +161,7 @@ const styles = StyleSheet.create({
     flex: 1
   },
   content: {
-    padding: 20,
-    paddingTop: 60
+    padding: 20
   },
   header: {
     flexDirection: 'row',

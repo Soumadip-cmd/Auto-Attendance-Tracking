@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Input, Button } from '../../src/components/common';
 import { useTheme } from '../../src/hooks/useTheme';
 import apiClient from '../../src/services/api';
@@ -9,6 +10,7 @@ export default function ForgotPassword() {
   const {
     theme
   } = useTheme();
+  const insets = useSafeAreaInsets();
   const [step, setStep] = useState(1); // 1: Email, 2: Code + Password
   const [email, setEmail] = useState('');
   const [resetCode, setResetCode] = useState('');
@@ -70,7 +72,7 @@ export default function ForgotPassword() {
   }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { marginTop: insets.top + 16 }]}>
           <TouchableOpacity onPress={() => step === 1 ? router.back() : setStep(1)} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
           </TouchableOpacity>
@@ -132,7 +134,6 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 40,
     marginBottom: 30
   },
   backButton: {

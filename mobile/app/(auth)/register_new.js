@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Tou
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { Input } from '../../src/components/common/Input';
 import { Button } from '../../src/components/common/Button';
@@ -18,6 +19,7 @@ export default function RegisterScreen() {
   const {
     theme
   } = useTheme();
+  const insets = useSafeAreaInsets();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -131,7 +133,7 @@ export default function RegisterScreen() {
   }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <StatusBar style={theme.isDarkMode ? 'light' : 'dark'} />
       
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 24 }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={[styles.title, {
           color: theme.colors.text
@@ -201,8 +203,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    padding: 24,
-    paddingTop: 60
+    padding: 24
   },
   header: {
     marginBottom: 32
