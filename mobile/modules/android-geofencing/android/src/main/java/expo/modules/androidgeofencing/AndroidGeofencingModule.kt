@@ -20,6 +20,7 @@ import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.records.Field
 import expo.modules.kotlin.records.Record
 import org.json.JSONArray
+import org.json.JSONObject
 
 class GeofenceRegion : Record {
     @Field var identifier: String = ""
@@ -35,6 +36,44 @@ class AndroidGeofencingModule : Module() {
     companion object {
         @Volatile var onTransition: ((Map<String, Any?>) -> Unit)? = null
         @Volatile var onActivityChanged: ((Map<String, Any?>) -> Unit)? = null
+
+        internal const val PREFS_NAME = "AndroidGeofencing"
+        internal const val REGISTERED_KEY = "registered_geofences"
+
+        internal fun persistRegisteredGeofences(context: Context, regions: List<GeofenceRegion>) {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val array = JSONArray()
+            regions.forEach { r ->
+                array.put(
+                    JSONObject().apply {
+                        put("identifier", r.identifier)
+                        put("latitude", r.latitude)
+                        put("longitude", r.longitude)
+                        put("radius", r.radius)
+                        put("notifyOnEnter", r.notifyOnEnter)
+                        put("notifyOnExit", r.notifyOnExit)
+                    }
+                )
+            }
+            prefs.edit().putString(REGISTERED_KEY, array.toString()).apply()
+        }
+
+        internal fun readRegisteredGeofences(context: Context): List<GeofenceRegion> {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val json = prefs.getString(REGISTERED_KEY, "[]") ?: "[]"
+            val array = JSONArray(json)
+            return (0 until array.length()).map { i ->
+                val obj = array.getJSONObject(i)
+                GeofenceRegion().apply {
+                    identifier = obj.getString("identifier")
+                    latitude = obj.getDouble("latitude")
+                    longitude = obj.getDouble("longitude")
+                    radius = obj.getDouble("radius")
+                    notifyOnEnter = obj.getBoolean("notifyOnEnter")
+                    notifyOnExit = obj.getBoolean("notifyOnExit")
+                }
+            }
+        }
     }
 
     private val context get() = appContext.reactContext!!
@@ -103,6 +142,12 @@ class AndroidGeofencingModule : Module() {
                     .build()
                 Tasks.await(geofencingClient.addGeofences(request, geofencePendingIntent))
             }
+
+            // Snapshot what should be registered so BootCompletedReceiver can
+            // restore it after a reboot, which wipes all geofences system-wide
+            // and would otherwise leave auto check-in silently off until the
+            // user manually reopens the app.
+            persistRegisteredGeofences(context, regions)
         }
 
         AsyncFunction("removeGeofences") { identifiers: List<String> ->
@@ -111,6 +156,7 @@ class AndroidGeofencingModule : Module() {
 
         AsyncFunction("removeAllGeofences") {
             Tasks.await(geofencingClient.removeGeofences(geofencePendingIntent))
+            persistRegisteredGeofences(context, emptyList())
         }
 
         AsyncFunction("getPendingEvents") {
