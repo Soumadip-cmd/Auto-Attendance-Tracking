@@ -445,11 +445,19 @@ class TeacherLiveTrackingService {
 
     this._fetchActivePermission();
     // Refresh active permission every 2 minutes — also piggybacks the cached
-    // auth token refresh so a long-running background session doesn't end up
-    // submitting killed-app geofence events with a stale/expired token.
+    // auth token refresh (stale-token protection for killed-app submits) and
+    // a geofence re-sync. Without the geofence re-sync, once tracking starts
+    // the phone keeps monitoring whatever location/radius was fetched at that
+    // moment forever — an admin editing the geofence afterward (moving it,
+    // resizing it, changing its schedule) would never reach an
+    // already-tracking device, since reopening the app doesn't re-register
+    // geofences when tracking is already active.
     this._permCheckInterval = setInterval(() => {
       this._fetchActivePermission();
       this._syncAuthContext();
+      if (Platform.OS === 'android') {
+        this.refreshGeofences().catch(() => null);
+      }
     }, 2 * 60 * 1000);
   }
 
