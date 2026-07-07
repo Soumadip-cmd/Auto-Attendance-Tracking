@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, RefreshControl, TouchableOpacity, FlatList } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useAttendance } from '../../src/hooks/useAttendance';
+import { useWebSocket } from '../../src/hooks/useWebSocket';
 import { Card } from '../../src/components/common/Card';
 import { Loading } from '../../src/components/common/Loading';
 import MovementHistory from '../../src/components/MovementHistory';
@@ -20,6 +21,7 @@ export default function HistoryScreen() {
     attendanceHistory,
     isLoading
   } = useAttendance();
+  const { on } = useWebSocket();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [activeTab, setActiveTab] = useState('attendance'); // 'attendance' | 'movement'
@@ -27,6 +29,7 @@ export default function HistoryScreen() {
   useEffect(() => {
     loadHistory();
   }, [selectedMonth]);
+
   const loadHistory = async () => {
     const start = startOfMonth(selectedMonth);
     const end = endOfMonth(selectedMonth);
@@ -37,6 +40,23 @@ export default function HistoryScreen() {
       sortOrder: 'desc'
     });
   };
+
+  // Auto check-in/out happens via a background/native path, bypassing this
+  // screen entirely — without this, a tab that's already mounted (which React
+  // Navigation keeps alive) shows stale data until the user manually pulls
+  // to refresh, even though the record actually updated on the server.
+  // Kept in a ref since loadHistory closes over selectedMonth and would
+  // otherwise go stale if the subscription only ran once on mount.
+  const loadHistoryRef = useRef(loadHistory);
+  loadHistoryRef.current = loadHistory;
+
+  useEffect(() => {
+    const unsubscribe = on('attendance:updated', () => {
+      loadHistoryRef.current();
+    });
+    return unsubscribe;
+  }, [on]);
+
   const onRefresh = async () => {
     setRefreshing(true);
     await loadHistory();

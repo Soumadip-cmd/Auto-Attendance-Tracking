@@ -141,6 +141,20 @@ const emitAttendance = (io, eventName, user, attendance, time) => {
     method: 'automatic',
     duration: attendance?.duration,
   });
+
+  // Also tell the teacher's own app — auto check-in/out happens via a
+  // background/native path that bypasses the mobile app's normal
+  // post-check-in state update, so without this the Home screen (and
+  // anywhere else showing today's attendance) stays stale until the user
+  // manually pulls to refresh. The mobile app already listens for this
+  // exact event name to re-fetch today's attendance.
+  io.to(`user:${user._id}`).emit('attendance:updated', {
+    userId: user._id,
+    eventType: eventName,
+    time,
+    method: 'automatic',
+    attendance,
+  });
 };
 
 const emitGeofence = ({ io, user, geofence, eventType, latitude, longitude, timestamp }) => {
