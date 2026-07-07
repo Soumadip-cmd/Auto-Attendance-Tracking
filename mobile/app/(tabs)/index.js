@@ -575,7 +575,26 @@ export default function HomeScreen() {
                     {trackingStats.unsynced}
                   </Text>
                 </View>
+                <View style={styles.trackingStat}>
+                  <Text style={[styles.trackingStatLabel, {
+                color: theme.colors.textSecondary
+              }]}>
+                    Geofences
+                  </Text>
+                  <Text style={[styles.trackingStatValue, {
+                color: trackingStats.geofenceError ? theme.colors.error : theme.colors.text
+              }]}>
+                    {trackingStats.geofences}
+                  </Text>
+                </View>
               </View>}
+            {trackingStats?.geofenceError && (
+              <View style={[styles.trackingStats, { borderTopColor: theme.colors.border, justifyContent: 'flex-start' }]}>
+                <Text style={{ color: theme.colors.error, fontSize: 12, fontWeight: '600' }}>
+                  ❌ Geofence registration failed: {trackingStats.geofenceError}
+                </Text>
+              </View>
+            )}
           </Card>
         </View>
 

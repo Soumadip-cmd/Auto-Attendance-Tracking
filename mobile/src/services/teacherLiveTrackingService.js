@@ -58,6 +58,7 @@ const defaultStats = {
   synced: 0,
   unsynced: 0,
   geofences: 0,
+  geofenceError: null,
   lastSyncedAt: null,
   newestTimestamp: null,
 };
@@ -533,13 +534,25 @@ class TeacherLiveTrackingService {
         notifyOnExit: true,
       }));
 
+    let registrationError = null;
+
     if (Platform.OS === 'android') {
       // Native module uses GeofencingClient + BroadcastReceiver directly.
       // Events are delivered even when the app is killed; persisted in SharedPreferences
       // and drained by drainPendingGeofenceEvents() on next startTracking() call.
       await AndroidGeofencing.removeAllGeofences().catch(() => null);
       if (regions.length > 0) {
-        await AndroidGeofencing.addGeofences(regions);
+        try {
+          await AndroidGeofencing.addGeofences(regions);
+        } catch (error) {
+          // This used to throw silently up to a try/catch several layers up
+          // that only console.warn'd it — meaning "0 geofences actually
+          // registered" (e.g. background location permission not granted)
+          // looked identical to "working fine" from the Home screen. Persist
+          // it so it's visible instead of only in a log nobody's watching.
+          registrationError = error?.message || 'Failed to register geofences';
+          console.error('[Geofencing] addGeofences failed:', registrationError);
+        }
       }
     } else {
       const alreadyStarted = await Location.hasStartedGeofencingAsync(GEOFENCE_TASK);
@@ -547,16 +560,25 @@ class TeacherLiveTrackingService {
         await Location.stopGeofencingAsync(GEOFENCE_TASK);
       }
       if (regions.length > 0) {
-        await Location.startGeofencingAsync(GEOFENCE_TASK, regions);
+        try {
+          await Location.startGeofencingAsync(GEOFENCE_TASK, regions);
+        } catch (error) {
+          registrationError = error?.message || 'Failed to register geofences';
+          console.error('[Geofencing] startGeofencingAsync failed:', registrationError);
+        }
       }
     }
 
-    await writeStats({ geofences: regions.length });
+    await writeStats({
+      geofences: registrationError ? 0 : regions.length,
+      geofenceError: registrationError,
+    });
 
     return {
-      success: true,
-      count: regions.length,
+      success: !registrationError,
+      count: registrationError ? 0 : regions.length,
       capped: geofences.length > MAX_ANDROID_GEOFENCES,
+      error: registrationError,
     };
   }
 
