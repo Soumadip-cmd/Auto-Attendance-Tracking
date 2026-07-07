@@ -285,6 +285,24 @@ const autoCheckOut = async ({ user, geofence, latitude, longitude, eventAt, even
     return { action: 'checkout', skipped: true, reason: 'No active check-in found for this user' };
   }
 
+  // Leaving campus briefly during the workday (lunch, a supply run, etc.)
+  // shouldn't end the attendance session — only finalize the checkout once
+  // it's actually at/after the scheduled end time. The separate geofence
+  // violation alert already warns that they're outside during work hours;
+  // this just stops that from also silently closing out their day. If they
+  // re-enter later, autoCheckIn sees the still-open check-in and leaves it be.
+  if (window.enabledToday && window.endMinutes) {
+    const currentMinutes = localMinutesFor(eventAt, window.timezone);
+    if (currentMinutes < window.endMinutes) {
+      return {
+        action: 'checkout',
+        skipped: true,
+        reason: `Left before scheduled check-out time (${window.endTime}) — still marked present, not checked out`,
+        attendance,
+      };
+    }
+  }
+
   attendance.checkOut = {
     time: eventAt,
     location: Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude)) ? {
@@ -299,14 +317,6 @@ const autoCheckOut = async ({ user, geofence, latitude, longitude, eventAt, even
   const durationMs = eventAt - new Date(attendance.checkIn.time);
   attendance.duration = Math.max(0, Math.round(durationMs / (1000 * 60)));
   attendance.actualHours = Math.round((attendance.duration / 60) * 100) / 100;
-
-  if (window.enabledToday && window.endMinutes) {
-    const currentMinutes = localMinutesFor(eventAt, window.timezone);
-    if (currentMinutes < window.endMinutes) {
-      attendance.isEarlyDeparture = true;
-      attendance.earlyBy = window.endMinutes - currentMinutes;
-    }
-  }
 
   await attendance.save();
   emitAttendance(io, 'attendance:checkout', user, attendance, eventAt);
