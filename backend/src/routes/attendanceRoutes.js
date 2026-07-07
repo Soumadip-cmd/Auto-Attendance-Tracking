@@ -1,10 +1,26 @@
 const express = require('express');
 const router = express.Router();
+const moment = require('moment-timezone');
 const { protect, authorize } = require('../middleware/auth');
 const Attendance = require('../models/Attendance');
 const liveTrackingService = require('../services/liveTrackingService');
 const exportService = require('../services/exportService');
 const { processGeofenceTransition } = require('../services/autoAttendanceService');
+
+const ATTENDANCE_TIMEZONE = 'Asia/Kolkata';
+
+// Attendance.date is stored as IST midnight (see dateKeyFor in
+// autoAttendanceService.js), not the server's own system timezone. Building
+// the day range with a naive `new Date(dateString).setHours(0,0,0,0)` uses
+// whatever timezone the server process happens to run in — if that's UTC
+// (the common case for a plain VPS), every query here misses records by
+// several hours, e.g. an attendance record for "today" in IST looks like it
+// belongs to "yesterday" in UTC and silently doesn't match.
+function getIstDayRange(dateString) {
+  const start = moment.tz(dateString, ATTENDANCE_TIMEZONE).startOf('day');
+  const end = start.clone().add(1, 'day');
+  return { start: start.toDate(), end: end.toDate() };
+}
 
 // Helper function to calculate distance between two coordinates (Haversine formula)
 function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -30,15 +46,12 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 router.get('/date/:date', protect, authorize('super_admin', 'admin', 'manager', 'hod'), async (req, res, next) => {
   try {
     const { date } = req.params;
-    
-    const queryDate = new Date(date);
-    queryDate.setHours(0, 0, 0, 0);
-    const nextDay = new Date(queryDate);
-    nextDay.setDate(nextDay.getDate() + 1);
-    
+
+    const { start: queryDate, end: nextDay } = getIstDayRange(date);
+
     console.log('📅 Admin fetching attendance for:', date);
     console.log('📅 Query:', { date: { $gte: queryDate, $lt: nextDay } });
-    
+
     const attendance = await Attendance.find({
       date: { $gte: queryDate, $lt: nextDay }
     })
@@ -103,11 +116,8 @@ router.get('/history', protect, async (req, res, next) => {
     
     // If specific date requested (for admin view)
     if (date) {
-      const queryDate = new Date(date);
-      queryDate.setHours(0, 0, 0, 0);
-      const nextDay = new Date(queryDate);
-      nextDay.setDate(nextDay.getDate() + 1);
-      
+      const { start: queryDate, end: nextDay } = getIstDayRange(date);
+
       query.date = { $gte: queryDate, $lt: nextDay };
       console.log('📅 Admin querying attendance for date:', date);
       console.log('📅 Query range:', queryDate, 'to', nextDay);
@@ -955,16 +965,11 @@ router.get('/', protect, authorize('super_admin', 'admin', 'manager', 'hod'), as
     let query = {};
     
     if (date) {
-      const startOfDay = new Date(date);
-      startOfDay.setHours(0, 0, 0, 0);
-      
-      const endOfDay = new Date(date);
-      endOfDay.setHours(23, 59, 59, 999);
-      
-      query.checkIn = {
-        $gte: startOfDay,
-        $lte: endOfDay,
-      };
+      // checkIn is an embedded subdocument ({ time, location, method, ... }),
+      // not a Date — the filter has to target checkIn.time specifically, a
+      // plain object range comparison against `checkIn` never matches anything.
+      const { start, end } = getIstDayRange(date);
+      query['checkIn.time'] = { $gte: start, $lt: end };
     }
     
     const attendance = await Attendance.find(query)

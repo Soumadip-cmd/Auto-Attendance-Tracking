@@ -44,10 +44,10 @@ export const AttendanceCard = ({
     return format(new Date(time), 'hh:mm a');
   };
   const calculateDuration = () => {
-    if (!attendance.checkIn) return '--';
-    if (!attendance.checkOut) return 'In Progress';
-    const checkIn = new Date(attendance.checkIn.timestamp);
-    const checkOut = new Date(attendance.checkOut.timestamp);
+    if (!attendance.checkIn?.time) return '--';
+    if (!attendance.checkOut?.time) return 'In Progress';
+    const checkIn = new Date(attendance.checkIn.time);
+    const checkOut = new Date(attendance.checkOut.time);
     const duration = (checkOut - checkIn) / (1000 * 60 * 60); // hours
 
     const hours = Math.floor(duration);
@@ -97,7 +97,7 @@ export const AttendanceCard = ({
             <Text style={[styles.timeValue, {
             color: theme.colors.text
           }]}>
-              {formatTime(attendance.checkIn?.timestamp)}
+              {formatTime(attendance.checkIn?.time)}
             </Text>
           </View>
         </View>
@@ -117,7 +117,7 @@ export const AttendanceCard = ({
             <Text style={[styles.timeValue, {
             color: theme.colors.text
           }]}>
-              {formatTime(attendance.checkOut?.timestamp)}
+              {formatTime(attendance.checkOut?.time)}
             </Text>
           </View>
         </View>
