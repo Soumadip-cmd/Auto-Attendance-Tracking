@@ -66,13 +66,21 @@ export default function HomeScreen() {
     initializeApp();
   }, []);
   const initializeApp = async () => {
-    await initializeScreen();
+    const autoGeofenceList = await initializeScreen();
     setupWebSocketListeners();
     if (!hasPermission) {
       await requestPermissions();
     }
     await getCurrentLocation();
-    const isTracking = await TeacherLiveTrackingService.isTracking();
+    let isTracking = await TeacherLiveTrackingService.isTracking();
+    if (!isTracking && hasAutoAttendanceGeofence(autoGeofenceList)) {
+      try {
+        const result = await TeacherLiveTrackingService.startTracking();
+        isTracking = !!result.success;
+      } catch (error) {
+        console.warn('Auto attendance tracking could not start:', error?.message);
+      }
+    }
     setBackgroundTracking(isTracking);
     if (isTracking) {
       const stats = await TeacherLiveTrackingService.getStats();
@@ -80,6 +88,7 @@ export default function HomeScreen() {
     }
   };
   const initializeScreen = async () => {
+    let autoGeofenceList = [];
     if (!isLoading) {
       try {
         await getTodayAttendance();
@@ -98,13 +107,15 @@ export default function HomeScreen() {
         limit: 20
       });
       const list = res?.data || res?.geofences || [];
-      setGeofences(Array.isArray(list) ? list : []);
+      autoGeofenceList = Array.isArray(list) ? list : [];
+      setGeofences(autoGeofenceList);
     } catch (e) {
       // geofences not critical for dashboard
     }
     if (!hasPermission) {
       await requestPermissions();
     }
+    return autoGeofenceList;
   };
   const setupWebSocketListeners = () => {
     const unsubscribe = on('attendance:updated', data => {
@@ -190,6 +201,9 @@ export default function HomeScreen() {
     if (hour < 12) return 'Good Morning';
     if (hour < 18) return 'Good Afternoon';
     return 'Good Evening';
+  };
+  const hasAutoAttendanceGeofence = list => {
+    return Array.isArray(list) && list.some(g => g.autoAttendance?.checkIn || g.autoAttendance?.checkOut);
   };
   const toggleBackgroundTracking = async () => {
     try {
@@ -498,7 +512,7 @@ export default function HomeScreen() {
                     {autoOn && <Text style={[styles.scheduleNote, {
                 color: theme.colors.success
               }]}>
-                        Works even when app is closed
+                        Needs Live Tracking plus Always location
                       </Text>}
                   </> : <Text style={[styles.scheduleDetail, {
               color: theme.colors.textSecondary

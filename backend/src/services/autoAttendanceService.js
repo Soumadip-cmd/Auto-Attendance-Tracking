@@ -7,6 +7,8 @@ const DEFAULT_START_TIME = '09:00';
 const DEFAULT_END_TIME = '18:00';
 const DEFAULT_GRACE_MINUTES = 15;
 const MAX_ENTER_DISTANCE_BUFFER_METERS = 75;
+const MINUTES_PER_DAY = 24 * 60;
+const OPEN_ATTENDANCE_LOOKBACK_MS = 36 * 60 * 60 * 1000;
 
 const normalizeEventType = (eventType) => (eventType === 'exit' ? 'exit' : 'enter');
 
@@ -19,11 +21,6 @@ const timezoneForGeofence = (geofence) => geofence?.workingHours?.timezone || DE
 
 const dateKeyFor = (date, timezone) => moment(date).tz(timezone).startOf('day').toDate();
 
-const localMinutesFor = (date, timezone) => {
-  const local = moment(date).tz(timezone);
-  return local.hours() * 60 + local.minutes();
-};
-
 const parseMinutes = (value, fallback) => {
   if (typeof value !== 'string' || !value.includes(':')) return fallback;
   const [hours, minutes] = value.split(':').map(Number);
@@ -32,10 +29,7 @@ const parseMinutes = (value, fallback) => {
   return hours * 60 + minutes;
 };
 
-const getDayKey = (date, timezone) => moment(date).tz(timezone).format('dddd').toLowerCase();
-
-const getScheduleEntry = (workingHours, date, timezone) => {
-  const day = getDayKey(date, timezone);
+const getScheduleEntryForDay = (workingHours, day) => {
   const schedule = workingHours?.schedule;
 
   if (Array.isArray(schedule)) {
@@ -60,10 +54,14 @@ const getScheduleEntry = (workingHours, date, timezone) => {
   return null;
 };
 
-const getWorkingWindow = (geofence, date) => {
+const buildWorkingWindowForLocalDay = (geofence, localDay, timezone) => {
   const workingHours = geofence?.workingHours || {};
-  const timezone = timezoneForGeofence(geofence);
-  const scheduled = workingHours.enabled ? getScheduleEntry(workingHours, date, timezone) : null;
+  const scheduled = workingHours.enabled
+    ? getScheduleEntryForDay(workingHours, localDay.format('dddd').toLowerCase())
+    : null;
+  const gracePeriod = Number.isFinite(Number(workingHours.gracePeriod))
+    ? Number(workingHours.gracePeriod)
+    : DEFAULT_GRACE_MINUTES;
 
   if (scheduled && scheduled.enabled === false) {
     return {
@@ -71,8 +69,9 @@ const getWorkingWindow = (geofence, date) => {
       enabledToday: false,
       startTime: DEFAULT_START_TIME,
       endTime: DEFAULT_END_TIME,
-      gracePeriod: workingHours.gracePeriod ?? DEFAULT_GRACE_MINUTES,
+      gracePeriod,
       expectedHours: 9,
+      dateKey: localDay.clone().startOf('day').toDate(),
     };
   }
 
@@ -80,7 +79,19 @@ const getWorkingWindow = (geofence, date) => {
   const endTime = scheduled?.endTime || workingHours.endTime || DEFAULT_END_TIME;
   const startMinutes = parseMinutes(startTime, parseMinutes(DEFAULT_START_TIME));
   const endMinutes = parseMinutes(endTime, parseMinutes(DEFAULT_END_TIME));
-  const expectedMinutes = Math.max(0, endMinutes - startMinutes);
+  const crossesMidnight = endMinutes <= startMinutes;
+  const expectedMinutes = crossesMidnight
+    ? (MINUTES_PER_DAY - startMinutes) + endMinutes
+    : endMinutes - startMinutes;
+  const startsAt = localDay.clone().startOf('day').add(startMinutes, 'minutes');
+  const endsAt = localDay.clone().startOf('day').add(endMinutes, 'minutes');
+  if (crossesMidnight) endsAt.add(1, 'day');
+
+  const checkInOpensAt = startsAt.clone().subtract(gracePeriod, 'minutes');
+  const checkInClosesAt = endsAt.clone().add(gracePeriod, 'minutes');
+  const checkoutOpensAt = endsAt.clone().subtract(gracePeriod, 'minutes');
+  const checkoutClosesAt = endsAt.clone().add(gracePeriod, 'minutes');
+  const lateAfter = startsAt.clone().add(gracePeriod, 'minutes');
 
   return {
     timezone,
@@ -89,14 +100,59 @@ const getWorkingWindow = (geofence, date) => {
     endTime,
     startMinutes,
     endMinutes,
-    gracePeriod: workingHours.gracePeriod ?? DEFAULT_GRACE_MINUTES,
+    gracePeriod,
+    crossesMidnight,
+    dateKey: localDay.clone().startOf('day').toDate(),
+    startsAt: startsAt.toDate(),
+    endsAt: endsAt.toDate(),
+    checkInOpensAt: checkInOpensAt.toDate(),
+    checkInClosesAt: checkInClosesAt.toDate(),
+    checkoutOpensAt: checkoutOpensAt.toDate(),
+    checkoutClosesAt: checkoutClosesAt.toDate(),
+    lateAfter: lateAfter.toDate(),
     expectedHours: expectedMinutes > 0 ? expectedMinutes / 60 : 9,
   };
+};
+
+const getWorkingWindow = (geofence, date) => {
+  const timezone = timezoneForGeofence(geofence);
+  const local = moment(date).tz(timezone);
+  const today = local.clone().startOf('day');
+  const yesterday = today.clone().subtract(1, 'day');
+  const windows = [
+    buildWorkingWindowForLocalDay(geofence, today, timezone),
+    buildWorkingWindowForLocalDay(geofence, yesterday, timezone),
+  ];
+
+  return windows.find((window) => (
+    window.enabledToday &&
+    local.toDate() >= window.checkInOpensAt &&
+    local.toDate() <= window.checkInClosesAt
+  )) || windows[0];
 };
 
 const buildEventId = ({ user, geofenceId, eventType, timestamp }) => {
   const time = eventTime(timestamp).toISOString();
   return `${user._id}:${geofenceId}:${normalizeEventType(eventType)}:${time}`;
+};
+
+const buildLocationEventId = ({ user, geofenceId, eventType, timestamp }) => {
+  const time = eventTime(timestamp).toISOString();
+  return `${user._id}:${geofenceId}:location:${normalizeEventType(eventType)}:${time}`;
+};
+
+const formatLocalTime = (date, timezone) => moment(date).tz(timezone).format('HH:mm');
+
+const findOpenAttendance = async (user, eventAt) => {
+  const earliest = new Date(eventAt.getTime() - OPEN_ATTENDANCE_LOOKBACK_MS);
+  return Attendance.findOne({
+    user: user._id,
+    'checkIn.time': { $exists: true, $ne: null, $lte: eventAt, $gte: earliest },
+    $or: [
+      { 'checkOut.time': { $exists: false } },
+      { 'checkOut.time': null },
+    ],
+  }).sort({ 'checkIn.time': -1 });
 };
 
 const logGeofenceEvent = async ({ req, user, geofence, eventType, latitude, longitude, timestamp, eventId }) => {
@@ -224,16 +280,30 @@ const autoCheckIn = async ({ user, geofence, latitude, longitude, eventAt, event
     return { action: 'checkin', skipped: true, reason: 'Auto check-in is disabled for this work day' };
   }
 
-  const dateKey = dateKeyFor(eventAt, window.timezone);
+  if (eventAt < window.checkInOpensAt) {
+    return {
+      action: 'checkin',
+      skipped: true,
+      reason: `Before auto check-in window (${formatLocalTime(window.checkInOpensAt, window.timezone)})`,
+    };
+  }
+
+  if (eventAt > window.checkInClosesAt) {
+    return {
+      action: 'checkin',
+      skipped: true,
+      reason: `After auto check-in window (${formatLocalTime(window.checkInClosesAt, window.timezone)})`,
+    };
+  }
+
+  const dateKey = window.dateKey || dateKeyFor(eventAt, window.timezone);
   const existing = await Attendance.findOne({ user: user._id, date: dateKey });
   if (existing?.checkIn?.time) {
     return { action: 'checkin', skipped: true, reason: 'Already checked in for this attendance day', attendance: existing };
   }
 
-  const currentMinutes = localMinutesFor(eventAt, window.timezone);
-  const lateThreshold = window.startMinutes + window.gracePeriod;
-  const isLate = currentMinutes > lateThreshold;
-  const lateBy = isLate ? Math.max(0, currentMinutes - window.startMinutes) : 0;
+  const isLate = eventAt > window.lateAfter;
+  const lateBy = isLate ? Math.max(0, Math.round((eventAt - window.startsAt) / (1000 * 60))) : 0;
 
   let attendance;
   try {
@@ -270,20 +340,13 @@ const autoCheckOut = async ({ user, geofence, latitude, longitude, eventAt, even
     return { action: 'checkout', skipped: true, reason: 'Auto check-out is not enabled for this geofence' };
   }
 
-  const window = getWorkingWindow(geofence, eventAt);
-  const earliest = new Date(eventAt.getTime() - 36 * 60 * 60 * 1000);
-  const attendance = await Attendance.findOne({
-    user: user._id,
-    'checkIn.time': { $exists: true, $ne: null, $lte: eventAt, $gte: earliest },
-    $or: [
-      { 'checkOut.time': { $exists: false } },
-      { 'checkOut.time': null },
-    ],
-  }).sort({ 'checkIn.time': -1 });
+  const attendance = await findOpenAttendance(user, eventAt);
 
   if (!attendance) {
     return { action: 'checkout', skipped: true, reason: 'No active check-in found for this user' };
   }
+
+  const attendanceWindow = getWorkingWindow(geofence, attendance.checkIn.time || eventAt);
 
   // Leaving campus briefly during the workday (lunch, a supply run, etc.)
   // shouldn't end the attendance session — only finalize the checkout once
@@ -291,16 +354,13 @@ const autoCheckOut = async ({ user, geofence, latitude, longitude, eventAt, even
   // violation alert already warns that they're outside during work hours;
   // this just stops that from also silently closing out their day. If they
   // re-enter later, autoCheckIn sees the still-open check-in and leaves it be.
-  if (window.enabledToday && window.endMinutes) {
-    const currentMinutes = localMinutesFor(eventAt, window.timezone);
-    if (currentMinutes < window.endMinutes) {
-      return {
-        action: 'checkout',
-        skipped: true,
-        reason: `Left before scheduled check-out time (${window.endTime}) — still marked present, not checked out`,
-        attendance,
-      };
-    }
+  if (attendanceWindow.enabledToday && eventAt < attendanceWindow.checkoutOpensAt) {
+    return {
+      action: 'checkout',
+      skipped: true,
+      reason: `Left before allowed check-out time (${formatLocalTime(attendanceWindow.checkoutOpensAt, attendanceWindow.timezone)}) - still marked present, not checked out`,
+      attendance,
+    };
   }
 
   attendance.checkOut = {
@@ -321,6 +381,77 @@ const autoCheckOut = async ({ user, geofence, latitude, longitude, eventAt, even
   await attendance.save();
   emitAttendance(io, 'attendance:checkout', user, attendance, eventAt);
   return { action: 'checkout', skipped: false, attendance };
+};
+
+const normalizeContainingGeofences = (containingGeofences = []) => {
+  return containingGeofences
+    .map((item) => item?.geofence || item)
+    .filter(Boolean);
+};
+
+const reconcileAutoAttendanceFromLocation = async ({
+  user,
+  latitude,
+  longitude,
+  timestamp,
+  containingGeofences = [],
+  io,
+}) => {
+  const eventAt = eventTime(timestamp);
+  const insideGeofences = normalizeContainingGeofences(containingGeofences);
+  let firstSkipped = null;
+
+  for (const geofence of insideGeofences) {
+    if (!geofence.autoAttendance?.checkIn) continue;
+
+    const result = await autoCheckIn({
+      user,
+      geofence,
+      latitude,
+      longitude,
+      eventAt,
+      eventId: buildLocationEventId({
+        user,
+        geofenceId: geofence._id,
+        eventType: 'enter',
+        timestamp: eventAt,
+      }),
+      io,
+    });
+
+    if (!result.skipped) {
+      return { eventType: 'enter', geofence, attendance: result };
+    }
+
+    firstSkipped = firstSkipped || { eventType: 'enter', geofence, attendance: result };
+  }
+
+  if (insideGeofences.length === 0) {
+    const attendance = await findOpenAttendance(user, eventAt);
+    const geofenceId = attendance?.checkIn?.geofence;
+    const geofence = geofenceId ? await Geofence.findById(geofenceId) : null;
+
+    if (geofence && geofence.isActive && geofenceAppliesToUser(geofence, user)) {
+      const result = await autoCheckOut({
+        user,
+        geofence,
+        latitude,
+        longitude,
+        eventAt,
+        eventId: buildLocationEventId({
+          user,
+          geofenceId: geofence._id,
+          eventType: 'exit',
+          timestamp: eventAt,
+        }),
+        io,
+      });
+
+      return { eventType: 'exit', geofence, attendance: result };
+    }
+  }
+
+  return firstSkipped;
 };
 
 const processGeofenceTransition = async ({
@@ -380,6 +511,7 @@ const processGeofenceTransition = async ({
 
 module.exports = {
   processGeofenceTransition,
+  reconcileAutoAttendanceFromLocation,
   dateKeyFor,
   getWorkingWindow,
 };

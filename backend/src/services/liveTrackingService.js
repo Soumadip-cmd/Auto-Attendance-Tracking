@@ -14,6 +14,7 @@ const {
   isSuperAdmin
 } = require('../utils/roleUtils');
 const { buildApplicableGeofenceFilter: buildScopedApplicableGeofenceFilter } = require('../utils/geofenceScope');
+const { reconcileAutoAttendanceFromLocation } = require('./autoAttendanceService');
 const DEFAULT_MAX_ACCURACY_METERS = Number(process.env.LIVE_TRACKING_MAX_ACCURACY_METERS || 150);
 const VIOLATION_LOG_WINDOW_MS = Number(process.env.LIVE_TRACKING_VIOLATION_LOG_WINDOW_MS || 10 * 60 * 1000);
 const AUDIT_EVERY_LIVE_UPDATE = process.env.AUDIT_EVERY_LIVE_LOCATION_UPDATE === 'true';
@@ -229,6 +230,7 @@ const processTeacherLocation = async ({ user, location, io, source = 'socket', r
   const previous = await LiveLocation.findOne({ user: user._id });
   const shouldAuditViolation = shouldLogViolation(previous, violation);
   const lastViolationAt = shouldAuditViolation ? new Date() : previous?.lastViolationAt;
+  let autoAttendance = null;
 
   const liveLocation = await LiveLocation.findOneAndUpdate(
     { user: user._id },
@@ -335,6 +337,21 @@ const processTeacherLocation = async ({ user, location, io, source = 'socket', r
     });
   }
 
+  if (hasAccurateEnoughFix) {
+    try {
+      autoAttendance = await reconcileAutoAttendanceFromLocation({
+        user,
+        latitude,
+        longitude,
+        timestamp,
+        containingGeofences: containing.map(({ geofence }) => geofence),
+        io,
+      });
+    } catch (error) {
+      console.error('Auto-attendance reconciliation failed:', error);
+    }
+  }
+
   const isNewViolation = violation && !previous?.violation;
   const payload = serializeLiveLocation(liveLocation, user);
   emitLiveLocation(io, user, liveLocation, payload, isNewViolation);
@@ -351,7 +368,8 @@ const processTeacherLocation = async ({ user, location, io, source = 'socket', r
       applicableGeofenceCount,
       activePermission: permissionState.permission,
       permissionDistance: permissionState.distance
-    }
+    },
+    autoAttendance
   };
 };
 

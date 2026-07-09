@@ -714,7 +714,7 @@ export default function Geofences() {
                     </div>
                     {(formData.autoCheckIn || formData.autoCheckOut) && (
                       <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                        Works even when the app is closed — teacher gets a notification automatically.
+                        Requires teacher Live Tracking plus Always location for closed-app auto attendance.
                       </p>
                     )}
                   </div>
