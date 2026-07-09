@@ -13,12 +13,18 @@ import { secureStorage } from '../utils/storage';
 const cacheAuthContextForBackground = async (token) => {
   if (Platform.OS !== 'android' || !token) return;
   try {
-    if (typeof AndroidGeofencing.cacheAuthContext === 'function') {
-      // Refresh token is long-lived and unchanged by a /auth/refresh call —
-      // pass it along too so the native side can refresh its own cached
-      // access token later without needing JS to be running at all.
-      const refreshToken = await secureStorage.getItem(APP_CONFIG.REFRESH_TOKEN_KEY);
+    if (typeof AndroidGeofencing.cacheAuthContext !== 'function') return;
+    // Refresh token is long-lived and unchanged by a /auth/refresh call —
+    // pass it along too so the native side can refresh its own cached
+    // access token later without needing JS to be running at all.
+    const refreshToken = await secureStorage.getItem(APP_CONFIG.REFRESH_TOKEN_KEY);
+    try {
+      // 3-arg form — only understood once the native module has been
+      // rebuilt with refresh-token support. Falls back below on older
+      // installed builds so this never regresses basic token caching.
       await AndroidGeofencing.cacheAuthContext(token, config.API_URL, refreshToken || '');
+    } catch (arityError) {
+      await AndroidGeofencing.cacheAuthContext(token, config.API_URL);
     }
   } catch (error) {
     // Best-effort — background submission will just fall back to queuing.

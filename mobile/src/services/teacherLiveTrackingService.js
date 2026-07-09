@@ -296,9 +296,16 @@ class TeacherLiveTrackingService {
     try {
       if (typeof AndroidGeofencing.cacheAuthContext !== 'function') return;
       const token = await secureStorage.getItem(APP_CONFIG.TOKEN_KEY);
+      if (!token) return;
       const refreshToken = await secureStorage.getItem(APP_CONFIG.REFRESH_TOKEN_KEY);
-      if (token) {
+      try {
+        // 3-arg form — only understood once the native module has been
+        // rebuilt with refresh-token support (see AndroidGeofencingModule.kt).
         await AndroidGeofencing.cacheAuthContext(token, config.API_URL, refreshToken || '');
+      } catch (arityError) {
+        // Older installed builds only accept (token, apiBaseUrl) — fall back
+        // so caching keeps working pre-rebuild instead of silently breaking.
+        await AndroidGeofencing.cacheAuthContext(token, config.API_URL);
       }
     } catch (error) {
       console.warn('Failed to cache auth context for background geofencing:', error?.message);
