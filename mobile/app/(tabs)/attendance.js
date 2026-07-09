@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, FlatList } from 'react-native';
-import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
@@ -9,7 +8,6 @@ import { useTheme } from '../../src/hooks/useTheme';
 import { AttendanceCard } from '../../src/components/attendance/AttendanceCard';
 import { Loading } from '../../src/components/common/Loading';
 export default function AttendanceScreen() {
-  const router = useRouter();
   const {
     attendanceHistory,
     getHistory,
@@ -47,9 +45,6 @@ export default function AttendanceScreen() {
     if (selectedMonth < now) {
       setSelectedMonth(new Date(selectedMonth.setMonth(selectedMonth.getMonth() + 1)));
     }
-  };
-  const handleAttendancePress = attendance => {
-    router.push(`/attendance/details/${attendance._id}`);
   };
   const isCurrentMonth = () => {
     const now = new Date();
@@ -173,7 +168,7 @@ export default function AttendanceScreen() {
   }]}>
       <FlatList data={attendanceHistory} keyExtractor={item => item._id} renderItem={({
       item
-    }) => <AttendanceCard attendance={item} onPress={() => handleAttendancePress(item)} />} ListHeaderComponent={renderHeader} ListEmptyComponent={renderEmptyState} contentContainerStyle={[styles.listContent, {
+    }) => <AttendanceCard attendance={item} />} ListHeaderComponent={renderHeader} ListEmptyComponent={renderEmptyState} contentContainerStyle={[styles.listContent, {
       paddingTop: insets.top + 16,
       paddingBottom: insets.bottom + 96
     }]} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />} showsVerticalScrollIndicator={false} />

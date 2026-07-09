@@ -296,8 +296,9 @@ class TeacherLiveTrackingService {
     try {
       if (typeof AndroidGeofencing.cacheAuthContext !== 'function') return;
       const token = await secureStorage.getItem(APP_CONFIG.TOKEN_KEY);
+      const refreshToken = await secureStorage.getItem(APP_CONFIG.REFRESH_TOKEN_KEY);
       if (token) {
-        await AndroidGeofencing.cacheAuthContext(token, config.API_URL);
+        await AndroidGeofencing.cacheAuthContext(token, config.API_URL, refreshToken || '');
       }
     } catch (error) {
       console.warn('Failed to cache auth context for background geofencing:', error?.message);
@@ -332,6 +333,9 @@ class TeacherLiveTrackingService {
 
     await notificationService.configureChannel();
     await notificationService.requestPermissions();
+    // Best-effort — auto check-in/out confirmations still work via the
+    // websocket path when the app is foregrounded even if this fails.
+    notificationService.registerPushToken().catch(() => {});
 
     const trackingSessionId = `${Date.now()}`;
     await AsyncStorage.setItem(TRACKING_SESSION_KEY, trackingSessionId);

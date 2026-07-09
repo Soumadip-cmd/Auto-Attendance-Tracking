@@ -57,6 +57,8 @@ export default function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      getTodayAttendance();
+      getStats({ period: 'month' });
       notificationService.getUnreadCount().then(setUnreadNotifications);
       TeacherLiveTrackingService.getLastAutoAttendanceEvent().then(setLastAutoEvent);
       TeacherLiveTrackingService.isDirectBackgroundSubmitSupported().then(setBackgroundSubmitSupported);

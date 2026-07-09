@@ -1,6 +1,16 @@
 const moment = require('moment-timezone');
 const { Attendance, Event, Geofence } = require('../models');
 const { geofenceAppliesToUser } = require('../utils/geofenceScope');
+const notificationService = require('./notificationService');
+
+// Push notifications are best-effort — a delivery failure (missing token,
+// Expo/FCM outage) must never block the attendance record itself from
+// being created.
+const notifyBestEffort = (promise) => {
+  Promise.resolve(promise).catch((error) => {
+    console.warn('Failed to send auto attendance push notification:', error?.message);
+  });
+};
 
 const DEFAULT_TIMEZONE = 'Asia/Kolkata';
 const DEFAULT_START_TIME = '09:00';
@@ -338,6 +348,7 @@ const autoCheckIn = async ({ user, geofence, latitude, longitude, eventAt, event
   }
 
   emitAttendance(io, 'attendance:checkin', user, attendance, eventAt);
+  notifyBestEffort(notificationService.sendAutoCheckInNotification(user._id, eventAt));
   return { action: 'checkin', skipped: false, attendance };
 };
 
@@ -386,6 +397,7 @@ const autoCheckOut = async ({ user, geofence, latitude, longitude, eventAt, even
 
   await attendance.save();
   emitAttendance(io, 'attendance:checkout', user, attendance, eventAt);
+  notifyBestEffort(notificationService.sendAutoCheckOutNotification(user._id, eventAt));
   return { action: 'checkout', skipped: false, attendance };
 };
 

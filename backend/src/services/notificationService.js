@@ -1,6 +1,58 @@
 const admin = require('firebase-admin');
+const https = require('https');
 const { Device, User, Event } = require('../models');
 const logger = require('../config/logger');
+
+const isExpoPushToken = (token) =>
+  typeof token === 'string' && (token.startsWith('ExponentPushToken[') || token.startsWith('ExpoPushToken['));
+
+// Mobile registers Expo push tokens (see mobile/src/services/notificationService.js
+// getExpoPushToken), not raw FCM registration tokens — those can only be
+// delivered through Expo's push service, not admin.messaging(). This needs no
+// Firebase credentials at all, unlike the FCM path below, so it works even
+// when FIREBASE_* env vars are unset.
+const sendViaExpo = (tokens, notification) => new Promise((resolve) => {
+  const messages = tokens.map((to) => ({
+    to,
+    title: notification.title,
+    body: notification.body,
+    data: notification.data || {},
+    sound: 'default',
+    priority: 'high',
+  }));
+
+  const payload = JSON.stringify(messages);
+  const req = https.request(
+    {
+      hostname: 'exp.host',
+      path: '/--/api/v2/push/send',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Content-Length': Buffer.byteLength(payload),
+      },
+    },
+    (res) => {
+      let body = '';
+      res.on('data', (chunk) => { body += chunk; });
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          resolve({ success: true });
+        } else {
+          logger.warn(`Expo push send failed: HTTP ${res.statusCode} ${body}`);
+          resolve({ success: false });
+        }
+      });
+    }
+  );
+  req.on('error', (error) => {
+    logger.error('Expo push send request failed:', error);
+    resolve({ success: false });
+  });
+  req.write(payload);
+  req.end();
+});
 
 class NotificationService {
   constructor() {
@@ -36,11 +88,6 @@ class NotificationService {
    * Send push notification to specific user
    */
   async sendToUser(userId, notification) {
-    if (!this.fcmInitialized) {
-      logger.warn('FCM not initialized.  Notification not sent.');
-      return { success: false, message: 'FCM not initialized' };
-    }
-
     try {
       // Get user's devices with push tokens
       const devices = await Device.find({
@@ -55,49 +102,59 @@ class NotificationService {
       }
 
       const tokens = devices.map(d => d.pushToken);
+      const expoTokens = tokens.filter(isExpoPushToken);
+      const fcmTokens = tokens.filter((t) => !isExpoPushToken(t));
 
-      const message = {
-        notification: {
-          title: notification.title,
-          body: notification.body,
-          imageUrl: notification.imageUrl
-        },
-        data: notification.data || {},
-        tokens
-      };
+      let successCount = 0;
+      let failureCount = 0;
 
-      const response = await admin.messaging().sendMulticast(message);
+      if (expoTokens.length > 0) {
+        const result = await sendViaExpo(expoTokens, notification);
+        if (result.success) successCount += expoTokens.length;
+        else failureCount += expoTokens.length;
+      }
 
-      // Log notification
+      if (fcmTokens.length > 0) {
+        if (!this.fcmInitialized) {
+          logger.warn('FCM not initialized — skipping raw FCM tokens.');
+          failureCount += fcmTokens.length;
+        } else {
+          const message = {
+            notification: {
+              title: notification.title,
+              body: notification.body,
+              imageUrl: notification.imageUrl
+            },
+            data: notification.data || {},
+            tokens: fcmTokens
+          };
+
+          const response = await admin.messaging().sendMulticast(message);
+          successCount += response.successCount;
+          failureCount += response.failureCount;
+
+          if (response.failureCount > 0) {
+            const failedTokens = [];
+            response.responses.forEach((resp, idx) => {
+              if (!resp.success) failedTokens.push(fcmTokens[idx]);
+            });
+            await this.removeInvalidTokens(failedTokens);
+          }
+        }
+      }
+
       await Event.log({
-        eventType: 'notification. sent',
+        eventType: 'notification.sent',
         actor: userId,
         severity: 'info',
         details: {
-          title: notification. title,
-          successCount: response.successCount,
-          failureCount: response.failureCount
+          title: notification.title,
+          successCount,
+          failureCount
         }
       });
 
-      // Handle failed tokens
-      if (response.failureCount > 0) {
-        const failedTokens = [];
-        response.responses.forEach((resp, idx) => {
-          if (! resp.success) {
-            failedTokens.push(tokens[idx]);
-          }
-        });
-
-        // Remove invalid tokens
-        await this.removeInvalidTokens(failedTokens);
-      }
-
-      return {
-        success: true,
-        successCount: response.successCount,
-        failureCount: response.failureCount
-      };
+      return { success: successCount > 0, successCount, failureCount };
     } catch (error) {
       logger.error('Error sending push notification:', error);
       throw error;
@@ -191,6 +248,44 @@ class NotificationService {
       data: {
         type: 'late_arrival',
         lateBy: lateBy. toString()
+      }
+    };
+
+    return this.sendToUser(userId, notification);
+  }
+
+  /**
+   * Send auto check-in confirmation to the teacher
+   */
+  async sendAutoCheckInNotification(userId, checkInTime) {
+    const timeLabel = new Date(checkInTime).toLocaleTimeString('en-IN', {
+      hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata'
+    });
+    const notification = {
+      title: '✅ Checked In',
+      body: `You were automatically checked in at ${timeLabel}.`,
+      data: {
+        type: 'auto_checkin',
+        time: new Date(checkInTime).toISOString()
+      }
+    };
+
+    return this.sendToUser(userId, notification);
+  }
+
+  /**
+   * Send auto check-out confirmation to the teacher
+   */
+  async sendAutoCheckOutNotification(userId, checkOutTime) {
+    const timeLabel = new Date(checkOutTime).toLocaleTimeString('en-IN', {
+      hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata'
+    });
+    const notification = {
+      title: '👋 Checked Out',
+      body: `You were automatically checked out at ${timeLabel}.`,
+      data: {
+        type: 'auto_checkout',
+        time: new Date(checkOutTime).toISOString()
       }
     };
 
@@ -335,15 +430,16 @@ class NotificationService {
   /**
    * Register device token
    */
-  async registerDeviceToken(userId, deviceId, token) {
-    const device = await Device.findOne({ user: userId, deviceId });
-
-    if (! device) {
-      throw new Error('Device not found');
-    }
-
-    device.pushToken = token;
-    await device.save();
+  async registerDeviceToken(userId, deviceId, token, deviceType = 'android') {
+    // Mobile doesn't otherwise create a Device row before this call, so this
+    // has to upsert rather than assume one already exists (see the login
+    // flow's optional deviceInfo path in authService.js, which the mobile
+    // client doesn't currently use).
+    await Device.findOneAndUpdate(
+      { user: userId, deviceId },
+      { user: userId, deviceId, deviceType, pushToken: token, isActive: true },
+      { upsert: true, setDefaultsOnInsert: true }
+    );
 
     logger.info(`Push token registered for user ${userId}, device ${deviceId}`);
 

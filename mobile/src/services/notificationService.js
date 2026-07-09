@@ -1,10 +1,13 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { APP_CONFIG } from '../constants/config';
 import { storage } from '../utils/storage';
+import { notificationAPI } from './api';
 
 const HISTORY_KEY = 'notification_history';
+const DEVICE_ID_KEY = 'device_id';
 const MAX_HISTORY = 100;
 
 // Configure notification handler
@@ -57,14 +60,57 @@ class NotificationService {
    */
   async getExpoPushToken() {
     try {
-      const token = await Notifications.getExpoPushTokenAsync({
-        projectId: 'your-project-id', // Get from app. json
-      });
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId
+        || Constants.easConfig?.projectId;
+      if (!projectId) {
+        console.warn('No EAS projectId configured — cannot fetch Expo push token');
+        return null;
+      }
 
-      console.log('📱 Expo Push Token:', token. data);
+      const token = await Notifications.getExpoPushTokenAsync({ projectId });
+
+      console.log('📱 Expo Push Token:', token.data);
       return token.data;
     } catch (error) {
       console.warn('Push token unavailable:', error?.message || error);
+      return null;
+    }
+  }
+
+  /**
+   * Stable per-install device identifier, used to key this device's push
+   * token registration on the backend (Device model's unique {user,deviceId}
+   * index) so re-registering just updates the same row instead of piling up
+   * duplicates.
+   */
+  async getOrCreateDeviceId() {
+    let id = await storage.getItem(DEVICE_ID_KEY);
+    if (!id) {
+      id = `${Platform.OS}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      await storage.setItem(DEVICE_ID_KEY, id);
+    }
+    return id;
+  }
+
+  /**
+   * Fetch this device's Expo push token and register it with the backend so
+   * auto check-in/check-out can actually reach the teacher — permissions
+   * alone aren't enough, the backend has no way to notify a device it has
+   * never been told the token for.
+   */
+  async registerPushToken() {
+    try {
+      const permission = await this.requestPermissions();
+      if (permission !== 'granted') return null;
+
+      const token = await this.getExpoPushToken();
+      if (!token) return null;
+
+      const deviceId = await this.getOrCreateDeviceId();
+      await notificationAPI.registerDevice(deviceId, token, Platform.OS);
+      return token;
+    } catch (error) {
+      console.warn('Failed to register push token:', error?.message || error);
       return null;
     }
   }

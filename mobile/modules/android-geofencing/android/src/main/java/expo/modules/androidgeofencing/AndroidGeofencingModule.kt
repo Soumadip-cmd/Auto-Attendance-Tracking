@@ -42,6 +42,7 @@ class AndroidGeofencingModule : Module() {
         internal const val AUTH_PREFS_NAME = "AndroidGeofencingAuth"
         internal const val AUTH_TOKEN_KEY = "token"
         internal const val AUTH_BASE_URL_KEY = "api_base_url"
+        internal const val AUTH_REFRESH_TOKEN_KEY = "refreshToken"
 
         internal fun persistRegisteredGeofences(context: Context, regions: List<GeofenceRegion>) {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -170,12 +171,18 @@ class AndroidGeofencingModule : Module() {
         // SecureStore's encrypted store — a background BroadcastReceiver
         // can't easily use Android Keystore-backed decryption, and this file
         // is still app-private (inaccessible to other apps without root).
-        AsyncFunction("cacheAuthContext") { token: String, apiBaseUrl: String ->
+        AsyncFunction("cacheAuthContext") { token: String, apiBaseUrl: String, refreshToken: String ->
             val prefs = context.getSharedPreferences(AUTH_PREFS_NAME, Context.MODE_PRIVATE)
-            prefs.edit()
+            val editor = prefs.edit()
                 .putString(AUTH_TOKEN_KEY, token)
                 .putString(AUTH_BASE_URL_KEY, apiBaseUrl)
-                .apply()
+            // The refresh token is long-lived (7 days) and doesn't rotate on
+            // refresh, unlike the short-lived access token — only overwrite it
+            // when JS actually has one (e.g. skip on token-rotation-only calls).
+            if (refreshToken.isNotEmpty()) {
+                editor.putString(AUTH_REFRESH_TOKEN_KEY, refreshToken)
+            }
+            editor.apply()
         }
 
         AsyncFunction("clearAuthContext") {

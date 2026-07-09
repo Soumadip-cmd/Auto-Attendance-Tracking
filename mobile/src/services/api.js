@@ -1,6 +1,29 @@
 import axios from 'axios';
+import { Platform } from 'react-native';
+import * as AndroidGeofencing from 'android-geofencing';
 import { config, APP_CONFIG } from '../constants/config';
 import { secureStorage } from '../utils/storage';
+
+// Keeps the native geofencing module's cached auth token in sync so it can
+// submit check-in/check-out directly when the app is fully killed. Without
+// this, only the JS-side 2-minute interval in teacherLiveTrackingService
+// refreshes that cache, which stops running the moment the app is closed —
+// so a token that rotates while the app is backgrounded/killed goes stale
+// and background auto attendance silently falls back to queuing events.
+const cacheAuthContextForBackground = async (token) => {
+  if (Platform.OS !== 'android' || !token) return;
+  try {
+    if (typeof AndroidGeofencing.cacheAuthContext === 'function') {
+      // Refresh token is long-lived and unchanged by a /auth/refresh call —
+      // pass it along too so the native side can refresh its own cached
+      // access token later without needing JS to be running at all.
+      const refreshToken = await secureStorage.getItem(APP_CONFIG.REFRESH_TOKEN_KEY);
+      await AndroidGeofencing.cacheAuthContext(token, config.API_URL, refreshToken || '');
+    }
+  } catch (error) {
+    // Best-effort — background submission will just fall back to queuing.
+  }
+};
 
 // Create axios instance
 const api = axios.create({
@@ -68,6 +91,7 @@ api.interceptors.response.use(
 
           const { token } = response.data.data;
           await secureStorage.setItem(APP_CONFIG.TOKEN_KEY, token);
+          await cacheAuthContextForBackground(token);
 
           originalRequest.headers.Authorization = `Bearer ${token}`;
           return api(originalRequest);
@@ -154,6 +178,10 @@ export const notificationAPI = {
   markAsRead: (id) => api.put(`/notifications/${id}/read`),
   markAllAsRead: () => api.put('/notifications/read-all'),
   getUnreadCount: () => api.get('/notifications/unread-count'),
+  registerDevice: (deviceId, token, deviceType) =>
+    api.post('/notifications/register-device', { deviceId, token, deviceType }),
+  unregisterDevice: (deviceId) =>
+    api.post('/notifications/unregister-device', { deviceId }),
 };
 
 export const userAPI = {

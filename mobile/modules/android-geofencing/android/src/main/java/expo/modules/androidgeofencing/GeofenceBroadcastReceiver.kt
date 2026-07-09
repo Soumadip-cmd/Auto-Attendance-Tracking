@@ -108,8 +108,9 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
         val authPrefs = context.getSharedPreferences(
             AndroidGeofencingModule.AUTH_PREFS_NAME, Context.MODE_PRIVATE
         )
-        val token = authPrefs.getString(AndroidGeofencingModule.AUTH_TOKEN_KEY, null)
+        var token = authPrefs.getString(AndroidGeofencingModule.AUTH_TOKEN_KEY, null)
         val baseUrl = authPrefs.getString(AndroidGeofencingModule.AUTH_BASE_URL_KEY, null)
+        val refreshToken = authPrefs.getString(AndroidGeofencingModule.AUTH_REFRESH_TOKEN_KEY, null)
         if (token.isNullOrEmpty() || baseUrl.isNullOrEmpty()) {
             Log.w(TAG, "No cached auth context — skipping direct submit, will drain on next app open")
             return
@@ -125,8 +126,28 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
             put("eventId", eventId)
         }.toString()
 
+        var code = postGeofenceEvent(baseUrl, token, body)
+        Log.i(TAG, "Direct geofence submit (${data["transitionType"]}) -> HTTP $code")
+
+        // The cached access token is short-lived (15 min) and, unlike the JS
+        // side, nothing refreshes it in the background once the app is
+        // killed — so it's routinely stale by the time a geofence fires.
+        // Use the long-lived cached refresh token to mint a new one here,
+        // natively, and retry once, instead of giving up and only queuing.
+        if (code == 401 && !refreshToken.isNullOrEmpty()) {
+            val newToken = refreshAccessToken(baseUrl, refreshToken)
+            if (!newToken.isNullOrEmpty()) {
+                authPrefs.edit().putString(AndroidGeofencingModule.AUTH_TOKEN_KEY, newToken).apply()
+                token = newToken
+                code = postGeofenceEvent(baseUrl, token, body)
+                Log.i(TAG, "Direct geofence submit retry after token refresh -> HTTP $code")
+            }
+        }
+    }
+
+    private fun postGeofenceEvent(baseUrl: String, token: String, body: String): Int {
         var connection: HttpURLConnection? = null
-        try {
+        return try {
             connection = (URL("$baseUrl/live-tracking/geofence-event").openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
                 doOutput = true
@@ -136,10 +157,36 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
                 setRequestProperty("Authorization", "Bearer $token")
             }
             connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
-            val code = connection.responseCode
-            Log.i(TAG, "Direct geofence submit (${data["transitionType"]}) -> HTTP $code")
+            connection.responseCode
         } catch (e: Exception) {
             Log.e(TAG, "Direct geofence submit failed, will rely on queued drain", e)
+            -1
+        } finally {
+            connection?.disconnect()
+        }
+    }
+
+    private fun refreshAccessToken(baseUrl: String, refreshToken: String): String? {
+        var connection: HttpURLConnection? = null
+        return try {
+            connection = (URL("$baseUrl/auth/refresh").openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                doOutput = true
+                connectTimeout = 15_000
+                readTimeout = 15_000
+                setRequestProperty("Content-Type", "application/json")
+            }
+            val body = JSONObject().apply { put("refreshToken", refreshToken) }.toString()
+            connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+            if (connection.responseCode != 200) {
+                Log.w(TAG, "Native token refresh failed -> HTTP ${connection.responseCode}")
+                return null
+            }
+            val responseText = connection.inputStream.bufferedReader().use { it.readText() }
+            JSONObject(responseText).getJSONObject("data").getString("token")
+        } catch (e: Exception) {
+            Log.e(TAG, "Native token refresh request failed", e)
+            null
         } finally {
             connection?.disconnect()
         }

@@ -27,6 +27,7 @@ const healthRoutes = require('./routes/healthRoutes');
 const liveTrackingRoutes = require('./routes/liveTrackingRoutes');
 const movementPermissionRoutes = require('./routes/movementPermissionRoutes');
 const organizationRoutes = require('./routes/organizationRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 const { initializeWebSocket } = require('./websocket/socketHandler');
 
 // Initialize Express app
@@ -173,6 +174,7 @@ app.use(`/api/${API_VERSION}/settings`, settingsRoutes);
 app.use(`/api/${API_VERSION}/live-tracking`, liveTrackingRoutes);
 app.use(`/api/${API_VERSION}/movement-permissions`, movementPermissionRoutes);
 app.use(`/api/${API_VERSION}/organization`, organizationRoutes);
+app.use(`/api/${API_VERSION}/notifications`, notificationRoutes);
 
 // Root route
 app.get('/', (req, res) => {
