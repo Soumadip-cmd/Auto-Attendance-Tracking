@@ -84,11 +84,8 @@ router.get('/date/:date', protect, authorize('super_admin', 'admin', 'manager', 
  */
 router.get('/today', protect, async (req, res, next) => {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
+    const { start: today, end: tomorrow } = getIstDayRange(new Date());
+
     const attendance = await Attendance.findOne({
       user: req.user._id,
       date: { $gte: today, $lt: tomorrow },
@@ -175,9 +172,8 @@ router.get('/history', protect, async (req, res, next) => {
 router.get('/stats', protect, async (req, res, next) => {
   try {
     const { period = 'month' } = req.query;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
+    const { start: today } = getIstDayRange(new Date());
+
     let startDate = new Date(today);
     if (period === 'week') {
       startDate.setDate(today.getDate() - 7);
@@ -261,11 +257,11 @@ router.get('/export/my', protect, async (req, res, next) => {
 router.post('/check-in', protect, async (req, res, next) => {
   try {
     const { latitude, longitude, accuracy, notes } = req.body;
-    
-    // Get current date (date only, no time)
-    const currentDate = new Date();
-    currentDate.setHours(0, 0, 0, 0);
-    
+
+    // Get current date (date only, no time), keyed to the attendance timezone
+    // so it lines up with the date auto check-in writes (see dateKeyFor).
+    const { start: currentDate } = getIstDayRange(new Date());
+
     // Check if already checked in today using date field
     const existingAttendance = await Attendance.findOne({
       user: req.user._id,
@@ -443,13 +439,10 @@ router.post('/check-in', protect, async (req, res, next) => {
 router.post('/check-out', protect, async (req, res, next) => {
   try {
     const { latitude, longitude, accuracy, notes } = req.body;
-    
+
     // Find today's attendance record
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
+    const { start: today } = getIstDayRange(new Date());
+
     const attendance = await Attendance.findOne({
       user: req.user._id,
       date: today,
@@ -683,8 +676,7 @@ router.post('/auto-checkin', protect, async (req, res, next) => {
 
     // Use the event timestamp (when they actually entered), not now
     const checkInTime = eventTimestamp ? new Date(eventTimestamp) : new Date();
-    const dateKey = new Date(checkInTime);
-    dateKey.setHours(0, 0, 0, 0);
+    const { start: dateKey } = getIstDayRange(checkInTime);
 
     // Idempotent: already checked in today → skip
     const existing = await Attendance.findOne({ user: req.user._id, date: dateKey });
@@ -800,8 +792,7 @@ router.post('/auto-checkout', protect, async (req, res, next) => {
 
     // Use event timestamp = when they actually left campus
     const checkOutTime = eventTimestamp ? new Date(eventTimestamp) : new Date();
-    const dateKey = new Date(checkOutTime);
-    dateKey.setHours(0, 0, 0, 0);
+    const { start: dateKey } = getIstDayRange(checkOutTime);
 
     const attendance = await Attendance.findOne({
       user: req.user._id,

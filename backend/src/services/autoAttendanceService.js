@@ -9,6 +9,12 @@ const DEFAULT_GRACE_MINUTES = 15;
 const MAX_ENTER_DISTANCE_BUFFER_METERS = 75;
 const MINUTES_PER_DAY = 24 * 60;
 const OPEN_ATTENDANCE_LOOKBACK_MS = 36 * 60 * 60 * 1000;
+// Background location fixes can sit in the OS batching buffer (deferredUpdatesInterval)
+// and arrive minutes after they were actually captured, still carrying their original
+// capture timestamp. Using that stale timestamp verbatim backdates the check-in to
+// before the user actually walked in. If a fix is older than this by the time it's
+// reconciled, treat "now" (when we actually processed it) as the event time instead.
+const MAX_LOCATION_EVENT_SKEW_MS = 3 * 60 * 1000;
 
 const normalizeEventType = (eventType) => (eventType === 'exit' ? 'exit' : 'enter');
 
@@ -397,7 +403,10 @@ const reconcileAutoAttendanceFromLocation = async ({
   containingGeofences = [],
   io,
 }) => {
-  const eventAt = eventTime(timestamp);
+  const rawEventAt = eventTime(timestamp);
+  const eventAt = Date.now() - rawEventAt.getTime() > MAX_LOCATION_EVENT_SKEW_MS
+    ? new Date()
+    : rawEventAt;
   const insideGeofences = normalizeContainingGeofences(containingGeofences);
   let firstSkipped = null;
 
