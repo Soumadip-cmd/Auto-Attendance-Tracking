@@ -62,6 +62,11 @@ export default function HomeScreen() {
       notificationService.getUnreadCount().then(setUnreadNotifications);
       TeacherLiveTrackingService.getLastAutoAttendanceEvent().then(setLastAutoEvent);
       TeacherLiveTrackingService.isDirectBackgroundSubmitSupported().then(setBackgroundSubmitSupported);
+      // Redundant with the registerPushToken() calls inside
+      // TeacherLiveTrackingService.startTracking() — cheap no-op if already
+      // registered, and a safety net for any path that doesn't go through
+      // startTracking() (e.g. tracking permanently disabled on this device).
+      notificationService.registerPushToken().catch(() => {});
     }, [])
   );
   useEffect(() => {

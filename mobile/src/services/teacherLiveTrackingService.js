@@ -328,6 +328,11 @@ class TeacherLiveTrackingService {
       this.subscribeToServerEvents();
       this._startPermissionMonitor();
       await this._syncAuthContext();
+      // This branch is the common case on every subsequent app open (once
+      // tracking is already active it never falls through to the "fresh
+      // start" branch below) — registerPushToken() being missing here meant
+      // it effectively only ran once, ever, per install.
+      notificationService.registerPushToken().catch(() => {});
       return {
         success: true,
         alreadyTracking: true,

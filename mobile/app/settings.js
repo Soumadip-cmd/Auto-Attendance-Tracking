@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../src/hooks/useAuth';
@@ -9,7 +9,16 @@ import { useNotifications } from '../src/hooks/useNotifications';
 import { useBiometric } from '../src/hooks/useBiometric';
 import { Card } from '../src/components/common/Card';
 import { Button } from '../src/components/common/Button';
+import notificationService from '../src/services/notificationService';
 import * as Application from 'expo-application';
+
+const PUSH_TOKEN_STATUS_LABELS = {
+  not_a_physical_device: 'Not supported (emulator/simulator)',
+  permission_not_granted: 'Notification permission not granted',
+  no_expo_push_token: 'Could not get a push token',
+  backend_registration_failed: 'Could not reach server',
+};
+
 export default function SettingsScreen() {
   const router = useRouter();
   const {
@@ -34,6 +43,38 @@ export default function SettingsScreen() {
     disableBiometric
   } = useBiometric();
   const [notificationsEnabled, setNotificationsEnabled] = useState(hasNotificationPermission);
+  const [pushTokenStatus, setPushTokenStatus] = useState(null);
+  const [checkingPushToken, setCheckingPushToken] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      notificationService.getPushTokenStatus().then(setPushTokenStatus);
+    }, [])
+  );
+
+  const handlePushTokenRetry = async () => {
+    setCheckingPushToken(true);
+    const token = await notificationService.registerPushToken();
+    const status = await notificationService.getPushTokenStatus();
+    setPushTokenStatus(status);
+    setCheckingPushToken(false);
+    if (token) {
+      Alert.alert('Push Token', 'Successfully registered for push notifications.');
+    } else {
+      Alert.alert(
+        'Push Token',
+        `Not registered: ${PUSH_TOKEN_STATUS_LABELS[status?.reason] || status?.reason || 'Unknown reason'}${status?.detail ? `\n\n${status.detail}` : ''}`
+      );
+    }
+  };
+
+  const pushTokenValue = checkingPushToken
+    ? 'Checking...'
+    : pushTokenStatus === null
+    ? 'Not checked yet'
+    : pushTokenStatus.registered
+    ? 'Registered ✓'
+    : `Not registered ✗ (${PUSH_TOKEN_STATUS_LABELS[pushTokenStatus.reason] || pushTokenStatus.reason || 'unknown'})`;
   const handleBiometricToggle = async value => {
     if (value) {
       const success = await enableBiometric();
@@ -214,6 +255,8 @@ export default function SettingsScreen() {
           </Text>
 
           <ToggleOption icon="notifications-outline" label="Push Notifications" subtitle="Receive attendance reminders and updates" value={notificationsEnabled} onValueChange={handleNotificationToggle} />
+
+          <SettingOption icon="cloud-done-outline" label="Push Token" value={pushTokenValue} onPress={handlePushTokenRetry} />
 
           <SettingOption icon="alarm-outline" label="Attendance Reminders" value="9:00 AM" onPress={() => Alert.alert('Coming Soon', 'Custom reminders coming soon')} />
 

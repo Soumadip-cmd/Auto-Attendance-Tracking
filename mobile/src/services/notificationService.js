@@ -8,6 +8,7 @@ import { notificationAPI } from './api';
 
 const HISTORY_KEY = 'notification_history';
 const DEVICE_ID_KEY = 'device_id';
+const PUSH_TOKEN_STATUS_KEY = 'push_token_status';
 const MAX_HISTORY = 100;
 
 // Configure notification handler
@@ -97,22 +98,60 @@ class NotificationService {
    * auto check-in/check-out can actually reach the teacher — permissions
    * alone aren't enough, the backend has no way to notify a device it has
    * never been told the token for.
+   *
+   * Persists a status record (see getPushTokenStatus) so Settings can show
+   * whether this actually succeeded instead of failing silently — this runs
+   * fire-and-forget from startTracking(), so nothing else surfaces failures.
    */
   async registerPushToken() {
-    try {
-      const permission = await this.requestPermissions();
-      if (permission !== 'granted') return null;
-
-      const token = await this.getExpoPushToken();
-      if (!token) return null;
-
-      const deviceId = await this.getOrCreateDeviceId();
-      await notificationAPI.registerDevice(deviceId, token, Platform.OS);
-      return token;
-    } catch (error) {
-      console.warn('Failed to register push token:', error?.message || error);
+    if (!Device.isDevice) {
+      await this._setPushTokenStatus({ registered: false, reason: 'not_a_physical_device' });
       return null;
     }
+
+    const permission = await this.requestPermissions();
+    if (permission !== 'granted') {
+      await this._setPushTokenStatus({ registered: false, reason: 'permission_not_granted' });
+      return null;
+    }
+
+    const token = await this.getExpoPushToken();
+    if (!token) {
+      await this._setPushTokenStatus({ registered: false, reason: 'no_expo_push_token' });
+      return null;
+    }
+
+    try {
+      const deviceId = await this.getOrCreateDeviceId();
+      await notificationAPI.registerDevice(deviceId, token, Platform.OS);
+      await this._setPushTokenStatus({ registered: true, token });
+      return token;
+    } catch (error) {
+      await this._setPushTokenStatus({
+        registered: false,
+        reason: 'backend_registration_failed',
+        detail: error?.response?.data?.message || error?.message,
+      });
+      return null;
+    }
+  }
+
+  async _setPushTokenStatus(status) {
+    try {
+      await storage.setItem(PUSH_TOKEN_STATUS_KEY, { ...status, checkedAt: new Date().toISOString() });
+    } catch (error) {
+      // Non-fatal — this is a debug/diagnostic record only.
+    }
+  }
+
+  /**
+   * Last known outcome of registerPushToken(), for a Settings screen
+   * "push token: registered ✓/✗" indicator — so a failure (missing
+   * permission, no EAS projectId, backend unreachable, etc.) is visible
+   * instead of just silently never delivering auto check-in/out pushes.
+   */
+  async getPushTokenStatus() {
+    return (await storage.getItem(PUSH_TOKEN_STATUS_KEY)) || null;
   }
 
   /**
