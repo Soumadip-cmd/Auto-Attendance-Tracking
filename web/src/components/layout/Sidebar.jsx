@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -14,9 +15,39 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { isPathAllowedForRole } from '../../utils/roleAccess';
+import { liveTrackingAPI } from '../../services/api';
+
+const VIOLATION_POLL_MS = 20000;
 
 const Sidebar = () => {
   const { logout, user } = useAuth();
+  const [violationCount, setViolationCount] = useState(0);
+
+  // Polls rather than relying on LiveTracking.jsx's own socket, so the count
+  // stays visible/accurate from every page, not just while Live Tracking is
+  // open (that page has its own separate real-time socket for the map).
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchViolationCount = async () => {
+      try {
+        const response = await liveTrackingAPI.getLive({ activeWithinMinutes: 180 });
+        if (!cancelled && response.data.success) {
+          const count = response.data.data.filter((location) => location.violation).length;
+          setViolationCount(count);
+        }
+      } catch (error) {
+        // Non-fatal — badge just stays at its last known value.
+      }
+    };
+
+    fetchViolationCount();
+    const interval = setInterval(fetchViolationCount, VIOLATION_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
 
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
@@ -58,7 +89,12 @@ const Sidebar = () => {
               }
             >
               <Icon className="w-5 h-5" />
-              <span>{item. label}</span>
+              <span className="flex-1">{item.label}</span>
+              {item.path === '/live-tracking' && violationCount > 0 && (
+                <span className="min-w-[20px] h-5 px-1.5 flex items-center justify-center rounded-full bg-red-600 text-white text-xs font-semibold">
+                  {violationCount}
+                </span>
+              )}
             </NavLink>
           );
         })}
