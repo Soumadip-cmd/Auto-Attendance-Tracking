@@ -13,6 +13,7 @@ import {
   Building2,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { isPathAllowedForRole } from '../../utils/roleAccess';
 
 const Sidebar = () => {
   const { logout, user } = useAuth();
@@ -28,7 +29,7 @@ const Sidebar = () => {
     { icon: BarChart3, label: 'Reports', path: '/reports' },
     { icon: Clock, label: 'Work Schedule', path: '/work-schedule' },
     { icon: Settings, label: 'Settings', path: '/settings' },
-  ];
+  ].filter((item) => isPathAllowedForRole(user?.role, item.path));
 
   return (
     <div className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col h-screen fixed left-0 top-0 transition-colors">
